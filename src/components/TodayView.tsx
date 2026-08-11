@@ -151,10 +151,10 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto pb-12 text-slate-900">
-      {/* 1. Sleep Context Banner (Light Indigo Widget) */}
-      <div className="bg-indigo-50/70 border border-indigo-100 rounded-2xl p-5 shadow-xs text-slate-900 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* 1. Sleep Context Banner (Light Blue Widget) */}
+      <div className="bg-blue-50/70 border border-blue-100 rounded-2xl p-5 shadow-2xs text-slate-900 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-start space-x-3.5">
-          <div className="p-3 rounded-xl bg-indigo-100 border border-indigo-200 text-[#4361ee] shrink-0">
+          <div className="p-3 rounded-xl bg-blue-100 border border-blue-200 text-blue-600 shrink-0">
             <Moon className="w-6 h-6" />
           </div>
           <div>
@@ -181,17 +181,17 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
         <button
           onClick={onOpenSleepLog}
-          className="shrink-0 text-xs font-bold px-4 py-2 rounded-xl bg-white hover:bg-slate-50 text-[#4361ee] border border-indigo-200 shadow-2xs transition-colors"
+          className="shrink-0 text-xs font-bold px-4 py-2 rounded-xl bg-white hover:bg-slate-50 text-blue-600 border border-blue-200 shadow-2xs transition-colors"
         >
           {todaySleep ? 'Update Sleep Record' : '+ Log Last Night Sleep'}
         </button>
       </div>
 
       {/* 2. Quick Task Prediction Creator Bar */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs text-slate-900 space-y-4">
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs text-slate-900 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <Sparkles className="w-4 h-4 text-[#4361ee]" />
+            <Sparkles className="w-4 h-4 text-blue-600" />
             <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
               Quick Plan &amp; Calibrate
             </h2>
@@ -206,7 +206,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
               placeholder="Task name (e.g., Read ML paper, DSA Practice)..."
               value={quickTitle}
               onChange={e => setQuickTitle(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-[#4361ee] focus:bg-white placeholder-slate-400"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white placeholder-slate-400"
             />
           </div>
 
@@ -214,7 +214,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
             <select
               value={quickCategory}
               onChange={e => setQuickCategory(e.target.value as TaskCategory)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-[#4361ee] focus:bg-white"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
             >
               {CATEGORIES.map(cat => (
                 <option key={cat} value={cat}>
@@ -228,7 +228,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
             <select
               value={quickEstMins}
               onChange={e => setQuickEstMins(parseInt(e.target.value))}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-[#4361ee] font-semibold text-sm focus:outline-none focus:border-[#4361ee] focus:bg-white"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-blue-600 font-semibold text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
             >
               <option value={30}>30 mins</option>
               <option value={60}>1h 00m</option>
@@ -242,7 +242,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
           <div className="md:col-span-2">
             <button
               type="submit"
-              className="w-full bg-[#4361ee] hover:bg-[#3852d0] text-white font-bold text-sm px-4 py-2.5 rounded-xl shadow-xs transition-colors flex items-center justify-center space-x-1"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-4 py-2.5 rounded-xl shadow-2xs transition-colors flex items-center justify-center space-x-1"
             >
               <Plus className="w-4 h-4" />
               <span>Add</span>
@@ -252,15 +252,15 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
         {/* Live Reality check hint if user typed duration */}
         {quickReality.shouldWarn && (
-          <div className="p-3.5 rounded-xl bg-[#fff8e1] border border-[#ffe082] text-[#92400e] text-xs flex items-center justify-between">
+          <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <AlertTriangle className="w-4 h-4 text-[#b45309] shrink-0" />
+              <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
               <span className="font-medium">{quickReality.message}</span>
             </div>
             <button
               type="button"
               onClick={() => setQuickEstMins(quickReality.suggestedDurationMinutes)}
-              className="font-bold underline text-[#b45309] hover:text-[#78350f] ml-2 text-xs shrink-0"
+              className="font-bold underline text-amber-800 hover:text-amber-950 ml-2 text-xs shrink-0"
             >
               Calibrate to {formatMinutesToHours(quickReality.suggestedDurationMinutes)}
             </button>
@@ -316,7 +316,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                   key={task.id}
                   className={`p-5 rounded-2xl border transition-all ${
                     isRunning
-                      ? 'bg-indigo-50/40 border-[#4361ee] border-l-4 shadow-sm'
+                      ? 'bg-blue-50/40 border-blue-600 border-l-4 shadow-2xs'
                       : isDone
                       ? 'bg-slate-50 border-slate-200 opacity-75'
                       : 'bg-white border-slate-200'
@@ -326,7 +326,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                     {/* Left details */}
                     <div className="space-y-1.5 flex-1">
                       <div className="flex items-center space-x-2.5 flex-wrap gap-y-1">
-                        <span className="text-xs font-mono font-bold text-[#4361ee] bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-100">
+                        <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100">
                           {startTimeFormatted}
                         </span>
                         <h3 className={`font-bold text-base text-slate-900 ${isDone ? 'line-through text-slate-400' : ''}`}>
@@ -352,7 +352,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                         )}
 
                         {isRunning && (
-                          <span className="inline-flex items-center space-x-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-[#4361ee] text-white animate-pulse">
+                          <span className="inline-flex items-center space-x-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-600 text-white animate-pulse">
                             <Clock className="w-3.5 h-3.5" />
                             <span>In Progress: {formatSecondsToHMS(elapsedSecs)}</span>
                           </span>
@@ -373,8 +373,8 @@ export const TodayView: React.FC<TodayViewProps> = ({
                         )}
 
                         {taskReality.shouldWarn && !isDone && (
-                          <span className="inline-flex items-center space-x-1 text-xs font-bold px-2 py-0.5 rounded-full bg-[#fff8e1] text-[#b45309] border border-[#ffe082]">
-                            <AlertTriangle className="w-3 h-3 text-[#b45309]" />
+                          <span className="inline-flex items-center space-x-1 text-xs font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                            <AlertTriangle className="w-3 h-3 text-amber-600" />
                             <span>Reality Check</span>
                           </span>
                         )}
@@ -391,7 +391,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
                       {/* Reflection comment if present */}
                       {task.execution.reflection && (
-                        <p className="text-xs text-[#92400e] bg-[#fff8e1] p-2.5 rounded-xl border border-[#ffe082]">
+                        <p className="text-xs text-amber-900 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
                           <strong>Reflection:</strong> "{task.execution.reflection.notes || task.execution.reflection.reason.replace(/_/g, ' ')}"
                         </p>
                       )}
@@ -402,7 +402,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                       {!isDone && !isRunning && (
                         <button
                           onClick={() => handleStartTask(task)}
-                          className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-[#4361ee] hover:bg-[#3852d0] text-white shadow-xs transition-colors"
+                          className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-2xs transition-colors"
                         >
                           <Play className="w-3.5 h-3.5 fill-current" />
                           <span>Start</span>
@@ -412,7 +412,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                       {isRunning && (
                         <button
                           onClick={() => handleFinishTask(task)}
-                          className="flex items-center space-x-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors"
+                          className="flex items-center space-x-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-2xs transition-colors"
                         >
                           <CheckCircle2 className="w-4 h-4" />
                           <span>Finish Task</span>

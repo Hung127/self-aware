@@ -47,7 +47,7 @@ export const TaskReflectionModal: React.FC<TaskReflectionModalProps> = ({
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
           <div className="flex items-center space-x-2.5">
-            <div className="p-2 rounded-lg bg-indigo-50 border border-indigo-100 text-[#4361ee]">
+            <div className="p-2 rounded-lg bg-blue-50 border border-blue-100 text-blue-600">
               <HelpCircle className="w-5 h-5" />
             </div>
             <div>
@@ -73,7 +73,7 @@ export const TaskReflectionModal: React.FC<TaskReflectionModalProps> = ({
             </div>
             <div className="text-right">
               <span className="text-xs text-slate-500 font-medium block">Predicted vs Actual</span>
-              <span className="text-sm font-bold text-[#4361ee]">
+              <span className="text-sm font-bold text-blue-600">
                 {formatMinutesToHours(est)} → {formatMinutesToHours(act)} ({diffPercent > 0 ? `+${diffPercent}%` : `${diffPercent}%`})
               </span>
             </div>
@@ -91,7 +91,7 @@ export const TaskReflectionModal: React.FC<TaskReflectionModalProps> = ({
                   onClick={() => setSelectedReason(opt.value)}
                   className={`flex items-center space-x-3 p-3 rounded-xl border cursor-pointer transition-all ${
                     selectedReason === opt.value
-                      ? 'bg-indigo-50 border-[#4361ee] text-slate-900 font-bold'
+                      ? 'bg-blue-50 border-blue-600 text-slate-900 font-bold'
                       : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                   }`}
                 >
@@ -101,7 +101,7 @@ export const TaskReflectionModal: React.FC<TaskReflectionModalProps> = ({
                     value={opt.value}
                     checked={selectedReason === opt.value}
                     onChange={() => setSelectedReason(opt.value)}
-                    className="accent-[#4361ee]"
+                    className="accent-blue-600"
                   />
                   <span className="text-sm">{opt.label.replace('○ ', '')}</span>
                 </label>
@@ -119,7 +119,7 @@ export const TaskReflectionModal: React.FC<TaskReflectionModalProps> = ({
               placeholder="e.g., Unexpected edge cases in PR comments..."
               value={notes}
               onChange={e => setNotes(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-slate-900 text-sm focus:outline-none focus:border-[#4361ee] focus:bg-white"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
             />
           </div>
 
@@ -134,7 +134,7 @@ export const TaskReflectionModal: React.FC<TaskReflectionModalProps> = ({
             </button>
             <button
               type="submit"
-              className="flex items-center space-x-1.5 px-5 py-2 rounded-xl text-sm font-bold bg-[#4361ee] hover:bg-[#3852d0] text-white shadow-xs transition-colors"
+              className="flex items-center space-x-1.5 px-5 py-2 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-2xs transition-colors"
             >
               <CheckCircle className="w-4 h-4" />
               <span>Record Reflection</span>

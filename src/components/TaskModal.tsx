@@ -99,7 +99,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
           <div className="flex items-center space-x-2.5">
-            <div className="p-2 rounded-lg bg-indigo-50 border border-indigo-100 text-[#4361ee]">
+            <div className="p-2 rounded-lg bg-blue-50 border border-blue-100 text-blue-600">
               <Target className="w-5 h-5" />
             </div>
             <div>
@@ -130,7 +130,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
               value={title}
               onChange={e => setTitle(e.target.value)}
               required
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-[#4361ee] focus:bg-white placeholder-slate-400"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white placeholder-slate-400"
             />
           </div>
 
@@ -143,7 +143,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
               <select
                 value={category}
                 onChange={e => setCategory(e.target.value as TaskCategory)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-[#4361ee] focus:bg-white"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
               >
                 {CATEGORIES.map(cat => (
                   <option key={cat} value={cat}>
@@ -162,7 +162,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 value={scheduledDate}
                 onChange={e => setScheduledDate(e.target.value)}
                 required
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-[#4361ee] focus:bg-white"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
               />
             </div>
           </div>
@@ -178,12 +178,12 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 value={startTime}
                 onChange={e => setStartTime(e.target.value)}
                 required
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-[#4361ee] focus:bg-white"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-[#4361ee] uppercase tracking-wider mb-1.5">
+              <label className="block text-xs font-bold text-blue-600 uppercase tracking-wider mb-1.5">
                 Estimated Duration
               </label>
               <div className="flex items-center space-x-2">
@@ -195,7 +195,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                   value={estimatedMinutes}
                   onChange={e => setEstimatedMinutes(Math.max(5, parseInt(e.target.value) || 0))}
                   required
-                  className="w-full bg-slate-50 border border-indigo-200 rounded-xl px-3.5 py-2.5 text-[#4361ee] font-bold text-sm focus:outline-none focus:border-[#4361ee] focus:bg-white"
+                  className="w-full bg-slate-50 border border-blue-200 rounded-xl px-3.5 py-2.5 text-blue-600 font-bold text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
                 />
                 <span className="text-xs text-slate-500 font-medium whitespace-nowrap">
                   ({formatMinutesToHours(estimatedMinutes)})
@@ -210,7 +210,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
               <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">
                 Stated Confidence
               </label>
-              <span className="text-sm font-bold text-[#4361ee]">{confidence}%</span>
+              <span className="text-sm font-bold text-blue-600">{confidence}%</span>
             </div>
             <input
               type="range"
@@ -219,7 +219,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
               step="5"
               value={confidence}
               onChange={e => setConfidence(parseInt(e.target.value))}
-              className="w-full accent-[#4361ee] bg-slate-200 h-2 rounded-lg cursor-pointer"
+              className="w-full accent-blue-600 bg-slate-200 h-2 rounded-lg cursor-pointer"
             />
             <div className="flex justify-between text-[10px] text-slate-400 font-semibold mt-1">
               <span>50% (Uncertain)</span>
@@ -233,14 +233,14 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             <div className={`p-4 rounded-xl border space-y-2.5 transition-all ${
               realityCheck.severity === 'reality_check'
                 ? 'bg-amber-50 border-amber-200 text-amber-900'
-                : 'bg-indigo-50 border-indigo-100 text-slate-800'
+                : 'bg-blue-50 border-blue-100 text-slate-800'
             }`}>
               <div className="flex items-start space-x-3">
                 <div className="mt-0.5 shrink-0">
                   {realityCheck.severity === 'reality_check' ? (
                     <AlertTriangle className="w-5 h-5 text-amber-600" />
                   ) : (
-                    <Info className="w-5 h-5 text-[#4361ee]" />
+                    <Info className="w-5 h-5 text-blue-600" />
                   )}
                 </div>
                 <div className="space-y-1">
@@ -258,12 +258,12 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
               <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between">
                 <span className="text-xs text-slate-600">
-                  Original: <strong className="text-slate-800">{formatMinutesToHours(estimatedMinutes)}</strong> → Calibrated: <strong className="text-[#4361ee]">{formatMinutesToHours(realityCheck.suggestedDurationMinutes)}</strong>
+                  Original: <strong className="text-slate-800">{formatMinutesToHours(estimatedMinutes)}</strong> → Calibrated: <strong className="text-blue-600">{formatMinutesToHours(realityCheck.suggestedDurationMinutes)}</strong>
                 </span>
                 <button
                   type="button"
                   onClick={handleApplySuggested}
-                  className="flex items-center space-x-1.5 text-xs font-bold px-3 py-1.5 rounded-xl bg-[#4361ee] text-white hover:bg-[#3852d0] transition-colors shadow-xs"
+                  className="flex items-center space-x-1.5 text-xs font-bold px-3 py-1.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-2xs"
                 >
                   <span>Adjust to {formatMinutesToHours(realityCheck.suggestedDurationMinutes)}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -290,7 +290,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl text-sm font-bold bg-[#4361ee] hover:bg-[#3852d0] text-white shadow-xs transition-colors"
+              className="px-5 py-2 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-2xs transition-colors"
             >
               {existingTask ? 'Save Task' : 'Record Task Prediction'}
             </button>

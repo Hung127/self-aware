@@ -49,10 +49,10 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
   return (
     <div className="space-y-8 max-w-6xl mx-auto pb-16 text-slate-900">
       {/* Top Banner */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs">
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-[#4361ee] text-xs font-bold uppercase tracking-wider">
+            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-600 text-xs font-bold uppercase tracking-wider">
               <Target className="w-3.5 h-3.5" />
               <span>Personal Behavioral Mirror</span>
             </div>
@@ -68,7 +68,7 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
               Same-Day Completion
             </span>
-            <span className="text-3xl font-extrabold text-[#4361ee]">
+            <span className="text-3xl font-extrabold text-blue-600">
               {insights.sameDayCompletionRatePercent}%
             </span>
             <span className="text-[11px] text-slate-400 block">
@@ -81,11 +81,11 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
       {/* 4 Major Observation Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* CARD 1: TASK DURATION CALIBRATION */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between space-y-5">
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs flex flex-col justify-between space-y-5">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2.5">
-                <div className="p-2.5 rounded-xl bg-indigo-50 border border-indigo-100 text-[#4361ee]">
+                <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-100 text-blue-600">
                   <BarChart2 className="w-5 h-5" />
                 </div>
                 <h2 className="font-bold text-lg text-slate-900">Task Duration Calibration</h2>
@@ -100,7 +100,7 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                 Primary Pattern
               </span>
-              <p className="text-base font-bold text-[#4361ee]">
+              <p className="text-base font-bold text-blue-600">
                 {maxUnderestimateError > 0 ? (
                   <>
                     You underestimate <span className="underline">{maxUnderestimateCat.toLowerCase()}</span> tasks by {maxUnderestimateError}% on average.
@@ -142,11 +142,11 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
         </div>
 
         {/* CARD 2: START TIME CALIBRATION */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between space-y-5">
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs flex flex-col justify-between space-y-5">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2.5">
-                <div className="p-2.5 rounded-xl bg-indigo-50 border border-indigo-100 text-[#4361ee]">
+                <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-100 text-blue-600">
                   <Clock className="w-5 h-5" />
                 </div>
                 <h2 className="font-bold text-lg text-slate-900">Start Time Delay</h2>
@@ -161,7 +161,7 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                 Starting Delay Pattern
               </span>
-              <p className="text-base font-bold text-[#4361ee]">
+              <p className="text-base font-bold text-blue-600">
                 Average delay: {startTimeData.averageDelayMinutes} minutes
               </p>
               <span className="text-[11px] text-slate-400 block">
@@ -175,7 +175,7 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                   <span className="font-bold text-slate-800 block">On-Time Start Rate</span>
                   <span className="text-slate-500">Started within 5 mins of schedule</span>
                 </div>
-                <span className="text-lg font-extrabold text-[#4361ee]">
+                <span className="text-lg font-extrabold text-blue-600">
                   {startTimeData.onTimeStartRatePercent}%
                 </span>
               </div>
@@ -198,11 +198,11 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
         </div>
 
         {/* CARD 3: SLEEP CONTEXT IMPACT */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between space-y-5">
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs flex flex-col justify-between space-y-5">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2.5">
-                <div className="p-2.5 rounded-xl bg-indigo-50 border border-indigo-100 text-[#4361ee]">
+                <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-100 text-blue-600">
                   <Moon className="w-5 h-5" />
                 </div>
                 <h2 className="font-bold text-lg text-slate-900">Sleep Context Correlation</h2>
@@ -217,7 +217,7 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                 Sleep Context Impact
               </span>
-              <p className="text-base font-bold text-[#4361ee]">
+              <p className="text-base font-bold text-blue-600">
                 {sleepData.hasEnoughData ? (
                   <>&lt;6h sleep → {sleepData.completionDropPercent}% fewer planned tasks completed.</>
                 ) : (
@@ -254,11 +254,11 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
         </div>
 
         {/* CARD 4: CONFIDENCE CALIBRATION */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between space-y-5">
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs flex flex-col justify-between space-y-5">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2.5">
-                <div className="p-2.5 rounded-xl bg-indigo-50 border border-indigo-100 text-[#4361ee]">
+                <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-100 text-blue-600">
                   <ShieldCheck className="w-5 h-5" />
                 </div>
                 <h2 className="font-bold text-lg text-slate-900">Confidence Calibration</h2>
@@ -277,7 +277,7 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                     Confidence Overestimation
                   </span>
-                  <p className="text-base font-bold text-[#4361ee]">
+                  <p className="text-base font-bold text-blue-600">
                     Your 90% confidence predictions succeed {rate}% of the time.
                   </p>
                   <span className="text-[11px] text-slate-400 block">

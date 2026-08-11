@@ -48,7 +48,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center space-x-2">
-            <History className="w-6 h-6 text-[#4361ee]" />
+            <History className="w-6 h-6 text-blue-600" />
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">Prediction History</h1>
           </div>
           <p className="text-xs text-slate-500 mt-1">
@@ -64,7 +64,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
             placeholder="Search past predictions..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-[#4361ee] placeholder-slate-400 shadow-xs"
+            className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 placeholder-slate-400 shadow-2xs"
           />
         </div>
       </div>
@@ -80,7 +80,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
             onClick={() => setSelectedCategory('All')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
               selectedCategory === 'All'
-                ? 'bg-[#4361ee] text-white shadow-xs'
+                ? 'bg-blue-600 text-white shadow-2xs'
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
@@ -92,7 +92,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
               onClick={() => setSelectedCategory(cat)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                 selectedCategory === cat
-                  ? 'bg-[#4361ee] text-white shadow-xs'
+                  ? 'bg-blue-600 text-white shadow-2xs'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
@@ -105,7 +105,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
           <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
-            className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-[#4361ee]"
+            className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-blue-600"
           >
             <option value="All">All Statuses</option>
             <option value="completed">Completed</option>
@@ -157,7 +157,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                 {/* Header row */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
                   <div className="flex items-center space-x-2.5 flex-wrap gap-y-1">
-                    <span className="text-xs font-mono font-bold text-[#4361ee] bg-indigo-50 px-2.5 py-0.5 rounded-md border border-indigo-100">
+                    <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-md border border-blue-100">
                       {scheduledDateFormatted} @ {scheduledTimeFormatted}
                     </span>
                     <h3 className="font-bold text-base text-slate-900">{task.title}</h3>
@@ -212,7 +212,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                       </div>
                       <div>
                         <span className="text-slate-400 block">Stated Confidence</span>
-                        <span className="font-bold text-[#4361ee]">{task.confidence}%</span>
+                        <span className="font-bold text-blue-600">{task.confidence}%</span>
                       </div>
                     </div>
                   </div>

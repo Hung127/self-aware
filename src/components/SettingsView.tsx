@@ -185,10 +185,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       </div>
 
       {/* 1. Google Calendar Integration */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs space-y-4">
         <div className="flex items-center justify-between border-b border-slate-100 pb-4">
           <div className="flex items-center space-x-3">
-            <div className="p-2.5 rounded-xl bg-indigo-50 border border-indigo-100 text-[#4361ee]">
+            <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-100 text-blue-600">
               <Calendar className="w-5 h-5" />
             </div>
             <div>
@@ -209,9 +209,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
 
         {currentUser && (
-          <div className="bg-indigo-50/60 border border-indigo-100 rounded-xl p-3 flex items-center justify-between text-xs">
-            <div className="flex items-center space-x-2 text-indigo-900">
-              <UserCheck className="w-4 h-4 text-[#4361ee]" />
+          <div className="bg-blue-50/60 border border-blue-100 rounded-xl p-3 flex items-center justify-between text-xs">
+            <div className="flex items-center space-x-2 text-blue-900">
+              <UserCheck className="w-4 h-4 text-blue-600" />
               <span className="font-medium">Account:</span>
               <span className="font-bold">{currentUser.email || currentUser.displayName || 'Google Account'}</span>
             </div>
@@ -231,14 +231,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
               : syncStatusMsg.type === 'error'
               ? 'bg-red-50 border-red-200 text-red-800'
-              : 'bg-indigo-50 border-indigo-200 text-indigo-800'
+              : 'bg-blue-50 border-blue-200 text-blue-800'
           }`}>
             {syncStatusMsg.type === 'error' ? (
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
             ) : syncStatusMsg.type === 'success' ? (
               <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
             ) : (
-              <RefreshCw className="w-4 h-4 shrink-0 mt-0.5 animate-spin text-[#4361ee]" />
+              <RefreshCw className="w-4 h-4 shrink-0 mt-0.5 animate-spin text-blue-600" />
             )}
             <p className="leading-relaxed font-medium">{syncStatusMsg.text}</p>
           </div>

@@ -72,7 +72,7 @@ export const SleepLogModal: React.FC<SleepLogModalProps> = ({
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
           <div className="flex items-center space-x-2.5">
-            <div className="p-2 rounded-lg bg-indigo-50 border border-indigo-100 text-[#4361ee]">
+            <div className="p-2 rounded-lg bg-blue-50 border border-blue-100 text-blue-600">
               <Moon className="w-5 h-5" />
             </div>
             <div>
@@ -99,7 +99,7 @@ export const SleepLogModal: React.FC<SleepLogModalProps> = ({
               value={date}
               onChange={e => setDate(e.target.value)}
               required
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-[#4361ee] focus:bg-white"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
             />
           </div>
 
@@ -113,11 +113,11 @@ export const SleepLogModal: React.FC<SleepLogModalProps> = ({
                 value={plannedBedtime}
                 onChange={e => setPlannedBedtime(e.target.value)}
                 required
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-[#4361ee] focus:bg-white"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-[#4361ee] mb-1">
+              <label className="block text-xs font-semibold text-blue-600 mb-1">
                 Actual Bedtime
               </label>
               <input
@@ -125,7 +125,7 @@ export const SleepLogModal: React.FC<SleepLogModalProps> = ({
                 value={actualBedtime}
                 onChange={e => setActualBedtime(e.target.value)}
                 required
-                className="w-full bg-slate-50 border border-indigo-200 rounded-xl px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-[#4361ee] focus:bg-white"
+                className="w-full bg-slate-50 border border-blue-200 rounded-xl px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
               />
             </div>
           </div>
@@ -140,11 +140,11 @@ export const SleepLogModal: React.FC<SleepLogModalProps> = ({
                 value={plannedWakeTime}
                 onChange={e => setPlannedWakeTime(e.target.value)}
                 required
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-[#4361ee] focus:bg-white"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-[#4361ee] mb-1">
+              <label className="block text-xs font-semibold text-blue-600 mb-1">
                 Actual Wake Time
               </label>
               <input
@@ -152,7 +152,7 @@ export const SleepLogModal: React.FC<SleepLogModalProps> = ({
                 value={actualWakeTime}
                 onChange={e => setActualWakeTime(e.target.value)}
                 required
-                className="w-full bg-slate-50 border border-indigo-200 rounded-xl px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-[#4361ee] focus:bg-white"
+                className="w-full bg-slate-50 border border-blue-200 rounded-xl px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
               />
             </div>
           </div>
@@ -201,7 +201,7 @@ export const SleepLogModal: React.FC<SleepLogModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl text-sm font-bold bg-[#4361ee] hover:bg-[#3852d0] text-white shadow-xs transition-colors"
+              className="px-5 py-2 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-2xs transition-colors"
             >
               Save Sleep Record
             </button>
