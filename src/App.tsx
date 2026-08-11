@@ -17,7 +17,12 @@ import {
   resetAllDataToSample,
   clearAllData
 } from './utils/storage';
-import { getMockGCalEvents, convertGCalEventToTask } from './utils/googleCalendar';
+import { convertGCalEventToTask, getMockGCalEvents } from './utils/googleCalendar';
+import {
+  getStoredAccessToken,
+  signInWithGoogleCalendar,
+  fetchRealGoogleCalendarEvents
+} from './utils/googleAuthService';
 import { runSystemValidationSuite } from './utils/validationSuite';
 
 import { Navigation } from './components/Navigation';
@@ -181,21 +186,33 @@ export default function App() {
   };
 
   // Google Calendar Connection / Sync
-  const handleConnectGoogleCalendar = () => {
-    const events = getMockGCalEvents();
-    const newGCalTasks = events.map(convertGCalEventToTask);
+  const handleConnectGoogleCalendar = async (): Promise<{ success: boolean; count: number }> => {
+    try {
+      let token = getStoredAccessToken();
+      if (!token) {
+        const authResult = await signInWithGoogleCalendar();
+        token = authResult.accessToken;
+      }
 
-    // Merge non-duplicate GCal tasks
-    const existingGCalIds = new Set(tasks.map(t => t.googleCalendarEventId).filter(Boolean));
-    const toAdd = newGCalTasks.filter(t => !existingGCalIds.has(t.googleCalendarEventId));
+      const realEvents = await fetchRealGoogleCalendarEvents(token);
+      const newGCalTasks = realEvents.map(convertGCalEventToTask);
 
-    if (toAdd.length > 0) {
-      handleSetTasks([...toAdd, ...tasks]);
+      // Merge non-duplicate GCal tasks
+      const existingGCalIds = new Set(tasks.map(t => t.googleCalendarEventId).filter(Boolean));
+      const toAdd = newGCalTasks.filter(t => t.googleCalendarEventId && !existingGCalIds.has(t.googleCalendarEventId));
+
+      if (toAdd.length > 0) {
+        handleSetTasks([...toAdd, ...tasks]);
+      }
       handleSetSettings({ ...settings, googleCalendarConnected: true });
-      alert(`Google Calendar synced! Imported ${toAdd.length} new planned events.`);
-    } else {
-      handleSetSettings({ ...settings, googleCalendarConnected: true });
-      alert('Google Calendar is up to date!');
+      return { success: true, count: realEvents.length };
+    } catch (err: any) {
+      const msg = err?.message || '';
+      console.warn('Google Calendar Sync Notice:', msg);
+
+      // If user popup was closed, cancelled, or auth failed, update settings to disconnected
+      handleSetSettings({ ...settings, googleCalendarConnected: false });
+      return { success: false, count: 0 };
     }
   };
 

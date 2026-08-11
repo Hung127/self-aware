@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppSettings, TaskItem, SleepRecord } from '../types';
 import {
   Calendar,
@@ -9,8 +9,20 @@ import {
   Trash2,
   CheckCircle2,
   Sliders,
-  Database
+  Database,
+  RefreshCw,
+  LogOut,
+  UserCheck,
+  AlertCircle
 } from 'lucide-react';
+import {
+  getStoredAccessToken,
+  signInWithGoogleCalendar,
+  signOutGoogle,
+  fetchRealGoogleCalendarEvents,
+  auth
+} from '../utils/googleAuthService';
+import { convertGCalEventToTask } from '../utils/googleCalendar';
 
 interface SettingsViewProps {
   settings: AppSettings;
@@ -39,6 +51,79 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [smallThresh, setSmallThresh] = useState(settings.smallSuggestionThresholdPercent);
   const [realityThresh, setRealityThresh] = useState(settings.realityCheckThresholdPercent);
   const [autoSync, setAutoSync] = useState(settings.autoImportGCal);
+
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatusMsg, setSyncStatusMsg] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(auth.currentUser);
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(user => {
+      setCurrentUser(user);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleSyncRealGoogleCalendar = async () => {
+    setIsSyncing(true);
+    setSyncStatusMsg({ type: 'info', text: 'Connecting to Google Calendar API...' });
+
+    try {
+      let token = getStoredAccessToken();
+      if (!token) {
+        setSyncStatusMsg({ type: 'info', text: 'Opening Google OAuth sign-in popup...' });
+        const res = await signInWithGoogleCalendar();
+        token = res.accessToken;
+        setCurrentUser(res.user);
+      }
+
+      setSyncStatusMsg({ type: 'info', text: 'Fetching events from your primary Google Calendar...' });
+      const realEvents = await fetchRealGoogleCalendarEvents(token);
+
+      // Convert real events into tasks
+      const gcalTasks = realEvents.map(convertGCalEventToTask);
+      const existingIds = new Set(tasks.map(t => t.googleCalendarEventId).filter(Boolean));
+      const toAdd = gcalTasks.filter(t => t.googleCalendarEventId && !existingIds.has(t.googleCalendarEventId));
+
+      if (toAdd.length > 0) {
+        onImportData([...toAdd, ...tasks], sleepRecords, { ...settings, googleCalendarConnected: true });
+        setSyncStatusMsg({
+          type: 'success',
+          text: `Synced successfully! Retrieved ${realEvents.length} events from your Google Calendar (${toAdd.length} new tasks added).`
+        });
+      } else {
+        onUpdateSettings({ ...settings, googleCalendarConnected: true });
+        setSyncStatusMsg({
+          type: 'success',
+          text: `Synced successfully! Retrieved ${realEvents.length} events from your Google Calendar. All tasks are up to date.`
+        });
+      }
+    } catch (err: any) {
+      const msg = err?.message || '';
+      if (msg.includes('closed') || msg.includes('cancelled') || msg.includes('popup')) {
+        setSyncStatusMsg({
+          type: 'info',
+          text: 'Google sign-in popup was closed before completing authorization.'
+        });
+      } else {
+        console.warn('Settings GCal sync notice:', msg);
+        setSyncStatusMsg({
+          type: 'error',
+          text: `Sync notice: ${msg || 'Error communicating with Google Calendar API'}`
+        });
+      }
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleDisconnectGoogle = async () => {
+    if (window.confirm('Disconnect your Google account from Personal Calibration?')) {
+      await signOutGoogle();
+      setCurrentUser(null);
+      onUpdateSettings({ ...settings, googleCalendarConnected: false });
+      setSyncStatusMsg({ type: 'info', text: 'Disconnected Google Calendar account.' });
+    }
+  };
 
   const handleSaveThresholds = (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,29 +198,74 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
 
-          <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${
-            settings.googleCalendarConnected
-              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-              : 'bg-slate-100 text-slate-600 border-slate-200'
-          }`}>
-            {settings.googleCalendarConnected ? 'Connected (Read-only)' : 'Disconnected'}
-          </span>
+          <div className="flex items-center space-x-2">
+            <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${
+              settings.googleCalendarConnected && getStoredAccessToken()
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                : 'bg-slate-100 text-slate-600 border-slate-200'
+            }`}>
+              {settings.googleCalendarConnected && getStoredAccessToken() ? 'Connected' : 'Disconnected'}
+            </span>
+          </div>
         </div>
+
+        {currentUser && (
+          <div className="bg-indigo-50/60 border border-indigo-100 rounded-xl p-3 flex items-center justify-between text-xs">
+            <div className="flex items-center space-x-2 text-indigo-900">
+              <UserCheck className="w-4 h-4 text-[#4361ee]" />
+              <span className="font-medium">Account:</span>
+              <span className="font-bold">{currentUser.email || currentUser.displayName || 'Google Account'}</span>
+            </div>
+            <button
+              onClick={handleDisconnectGoogle}
+              className="text-slate-500 hover:text-red-600 flex items-center space-x-1 font-medium transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Disconnect</span>
+            </button>
+          </div>
+        )}
+
+        {syncStatusMsg && (
+          <div className={`p-3.5 rounded-xl border text-xs flex items-start space-x-2.5 ${
+            syncStatusMsg.type === 'success'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : syncStatusMsg.type === 'error'
+              ? 'bg-red-50 border-red-200 text-red-800'
+              : 'bg-indigo-50 border-indigo-200 text-indigo-800'
+          }`}>
+            {syncStatusMsg.type === 'error' ? (
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
+            ) : syncStatusMsg.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
+            ) : (
+              <RefreshCw className="w-4 h-4 shrink-0 mt-0.5 animate-spin text-[#4361ee]" />
+            )}
+            <p className="leading-relaxed font-medium">{syncStatusMsg.text}</p>
+          </div>
+        )}
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
           <p className="text-xs text-slate-600 max-w-md leading-relaxed">
-            Personal Calibration reads your scheduled calendar events to record original predictions. Original predictions are kept even if calendar events are shifted later.
+            Personal Calibration connects directly to your Google Calendar to record predictions from actual events. Your original prediction timestamps are preserved even if events are rescheduled later.
           </p>
 
           <button
-            onClick={onConnectGoogleCalendar}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-colors shrink-0 ${
-              settings.googleCalendarConnected
-                ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200'
-                : 'bg-[#4361ee] hover:bg-[#3852d0] text-white shadow-xs'
-            }`}
+            onClick={handleSyncRealGoogleCalendar}
+            disabled={isSyncing}
+            className="px-4 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 bg-[#4361ee] hover:bg-[#3852d0] text-white shadow-xs disabled:opacity-60 flex items-center justify-center space-x-2"
           >
-            {settings.googleCalendarConnected ? 'Re-Sync Google Calendar' : 'Connect Google Calendar'}
+            {isSyncing ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>Syncing Calendar...</span>
+              </>
+            ) : (
+              <>
+                <Calendar className="w-4 h-4" />
+                <span>{getStoredAccessToken() ? 'Sync Google Calendar Now' : 'Sign In & Sync Google Account'}</span>
+              </>
+            )}
           </button>
         </div>
       </div>

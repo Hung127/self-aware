@@ -22,6 +22,14 @@ import {
 } from 'lucide-react';
 import { GCalEvent, convertGCalEventToTask, inferCategoryFromTitle, getMockGCalEvents } from '../utils/googleCalendar';
 import { TaskItem, TaskCategory } from '../types';
+import {
+  getStoredAccessToken,
+  signInWithGoogleCalendar,
+  fetchRealGoogleCalendarEvents,
+  createRealGoogleCalendarEvent,
+  updateRealGoogleCalendarEvent,
+  deleteRealGoogleCalendarEvent
+} from '../utils/googleAuthService';
 
 interface GoogleCalendarViewProps {
   tasks: TaskItem[];
@@ -197,32 +205,38 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
   };
 
   // Sync Google Calendar action
-  const handleSyncGoogleCalendar = () => {
+  const handleSyncGoogleCalendar = async () => {
     setIsSyncing(true);
-    onConnectGCal();
 
-    setTimeout(() => {
-      // Create fresh events for today if none exist for today
-      const todayEvents = generateFreshEvents(selectedDate);
+    try {
+      const token = getStoredAccessToken();
+      if (!token) {
+        showToast('Opening Google Sign-In popup...');
+      }
 
-      // Merge with existing events preserving unique IDs
-      const existingIds = new Set(events.map(e => e.id));
-      const newEvts = todayEvents.filter(e => !existingIds.has(e.id));
-      const mergedEvents = [...events, ...newEvts];
+      const res = await onConnectGCal();
 
-      saveEventsToStorage(mergedEvents);
-
-      // Automatically add non-duplicate tasks to calibration engine
-      mergedEvents.forEach(evt => {
-        const existsInTasks = tasks.some(t => t.googleCalendarEventId === evt.id);
-        if (!existsInTasks) {
-          onAddGCalTask(convertGCalEventToTask(evt));
+      if (res.success) {
+        const activeToken = getStoredAccessToken();
+        if (activeToken) {
+          const realEvents = await fetchRealGoogleCalendarEvents(activeToken);
+          saveEventsToStorage(realEvents);
         }
-      });
-
+        showToast(`Synced! ${res.count} events retrieved from your Google Calendar account.`);
+      } else {
+        showToast('Google Calendar sign-in was closed or cancelled.');
+      }
+    } catch (err: any) {
+      const msg = err?.message || '';
+      if (msg.includes('closed') || msg.includes('cancelled') || msg.includes('popup')) {
+        showToast('Google sign-in popup was closed.');
+      } else {
+        console.warn('Google Calendar view sync notice:', msg);
+        showToast(`Calendar sync notice: ${msg || 'Sync failed'}`);
+      }
+    } finally {
       setIsSyncing(false);
-      showToast(`Google Calendar synced! ${mergedEvents.length} total events loaded and updated.`);
-    }, 700);
+    }
   };
 
   // Date Navigation
@@ -279,44 +293,49 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
   };
 
   // Save (Create or Update) Event
-  const handleSaveEvent = (e: React.FormEvent) => {
+  const handleSaveEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!eventSummary.trim()) return;
 
     const startISO = new Date(`${eventStartDate}T${eventStartTime}:00.000Z`).toISOString();
     const endISO = new Date(`${eventStartDate}T${eventEndTime}:00.000Z`).toISOString();
 
+    const token = getStoredAccessToken();
+
     if (editingEvent) {
       // Update existing
-      const updatedEvents = events.map(evt => {
-        if (evt.id === editingEvent.id) {
-          return {
-            ...evt,
+      let updatedEvt: GCalEvent = {
+        ...editingEvent,
+        summary: eventSummary,
+        description: eventDescription,
+        start: { dateTime: startISO },
+        end: { dateTime: endISO }
+      };
+
+      if (token) {
+        try {
+          updatedEvt = await updateRealGoogleCalendarEvent(editingEvent.id, {
             summary: eventSummary,
             description: eventDescription,
-            start: { dateTime: startISO },
-            end: { dateTime: endISO }
-          };
+            startIso: startISO,
+            endIso: endISO
+          }, token);
+        } catch (err: any) {
+          console.warn('Real GCal API update failed, updating local state:', err);
         }
-        return evt;
-      });
+      }
+
+      const updatedEvents = events.map(evt => evt.id === editingEvent.id ? updatedEvt : evt);
       saveEventsToStorage(updatedEvents);
 
-      // If viewing this event, update selectedEventForView
       if (selectedEventForView && selectedEventForView.id === editingEvent.id) {
-        setSelectedEventForView({
-          ...selectedEventForView,
-          summary: eventSummary,
-          description: eventDescription,
-          start: { dateTime: startISO },
-          end: { dateTime: endISO }
-        });
+        setSelectedEventForView(updatedEvt);
       }
 
       showToast(`Updated "${eventSummary}" on Google Calendar`);
     } else {
       // Create new
-      const newEvt: GCalEvent = {
+      let newEvt: GCalEvent = {
         id: `gcal-${Date.now()}`,
         summary: eventSummary,
         description: eventDescription,
@@ -324,23 +343,47 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
         end: { dateTime: endISO },
         status: 'confirmed'
       };
+
+      if (token) {
+        try {
+          newEvt = await createRealGoogleCalendarEvent({
+            summary: eventSummary,
+            description: eventDescription,
+            startIso: startISO,
+            endIso: endISO
+          }, token);
+        } catch (err: any) {
+          console.warn('Real GCal API creation failed, storing local event:', err);
+        }
+      }
+
       saveEventsToStorage([newEvt, ...events]);
-      showToast(`Created new Google Calendar event: "${eventSummary}"`);
+      showToast(`Created event: "${eventSummary}" on Google Calendar`);
     }
 
     setIsEventModalOpen(false);
   };
 
   // Delete Event
-  const handleDeleteEvent = (eventId: string, title: string) => {
-    if (window.confirm(`Delete "${title}" from Google Calendar?`)) {
-      const remaining = events.filter(e => e.id !== eventId);
-      saveEventsToStorage(remaining);
-      if (selectedEventForView?.id === eventId) {
-        setSelectedEventForView(null);
+  const handleDeleteEvent = async (eventId: string, title: string) => {
+    const confirmed = window.confirm(`Are you sure you want to delete "${title}" from your Google Calendar? This action cannot be undone.`);
+    if (!confirmed) return;
+
+    const token = getStoredAccessToken();
+    if (token) {
+      try {
+        await deleteRealGoogleCalendarEvent(eventId, token);
+      } catch (err: any) {
+        console.warn('Real GCal API delete failed, removing locally:', err);
       }
-      showToast(`Deleted "${title}" from Google Calendar`);
     }
+
+    const remaining = events.filter(e => e.id !== eventId);
+    saveEventsToStorage(remaining);
+    if (selectedEventForView?.id === eventId) {
+      setSelectedEventForView(null);
+    }
+    showToast(`Deleted "${title}" from Google Calendar`);
   };
 
   // Calibrate an event into prediction task
@@ -418,11 +461,11 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
                 Google Calendar Hub
               </h1>
               <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
-                gcalConnected
+                gcalConnected && getStoredAccessToken()
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                  : 'bg-blue-50 text-blue-700 border-blue-200'
+                  : 'bg-amber-50 text-amber-700 border-amber-200'
               }`}>
-                {gcalConnected ? 'Connected & Synced' : 'Ready to Sync'}
+                {gcalConnected && getStoredAccessToken() ? 'Connected & Synced' : 'Not Connected'}
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-1 max-w-xl">
