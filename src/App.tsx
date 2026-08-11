@@ -22,6 +22,7 @@ import { runSystemValidationSuite } from './utils/validationSuite';
 
 import { Navigation } from './components/Navigation';
 import { TodayView } from './components/TodayView';
+import { GoogleCalendarView } from './components/GoogleCalendarView';
 import { CalibrationView } from './components/CalibrationView';
 import { HistoryView } from './components/HistoryView';
 import { SettingsView } from './components/SettingsView';
@@ -32,7 +33,7 @@ import { TaskReflectionModal } from './components/TaskReflectionModal';
 import { ValidationReportModal } from './components/ValidationReportModal';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'today' | 'calibration' | 'history' | 'settings'>('today');
+  const [activeTab, setActiveTab] = useState<'today' | 'calendar' | 'calibration' | 'history' | 'settings'>('today');
 
   // Core persistent state
   const [tasks, setTasks] = useState<TaskItem[]>([]);
@@ -267,6 +268,20 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'calendar' && (
+          <GoogleCalendarView
+            tasks={tasks}
+            onAddGCalTask={(task) => {
+              const exists = tasks.some(t => t.id === task.id || (task.googleCalendarEventId && t.googleCalendarEventId === task.googleCalendarEventId));
+              if (!exists) {
+                handleSetTasks([task, ...tasks]);
+              }
+            }}
+            gcalConnected={settings.googleCalendarConnected}
+            onConnectGCal={handleConnectGoogleCalendar}
+          />
+        )}
+
         {activeTab === 'calibration' && (
           <CalibrationView
             tasks={tasks}
@@ -324,10 +339,13 @@ export default function App() {
         onSaveSleep={handleSaveSleep}
       />
 
-      {reflectionTask && (
+      {isReflectionModalOpen && reflectionTask && (
         <TaskReflectionModal
           isOpen={isReflectionModalOpen}
-          onClose={() => setIsReflectionModalOpen(false)}
+          onClose={() => {
+            setIsReflectionModalOpen(false);
+            setReflectionTask(null);
+          }}
           task={reflectionTask}
           onSaveReflection={handleSaveReflection}
         />

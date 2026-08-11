@@ -2,8 +2,8 @@ import React from 'react';
 import { LayoutDashboard, Target, History, Settings, Moon, Plus, Calendar } from 'lucide-react';
 
 interface NavigationProps {
-  activeTab: 'today' | 'calibration' | 'history' | 'settings';
-  setActiveTab: (tab: 'today' | 'calibration' | 'history' | 'settings') => void;
+  activeTab: 'today' | 'calendar' | 'calibration' | 'history' | 'settings';
+  setActiveTab: (tab: 'today' | 'calendar' | 'calibration' | 'history' | 'settings') => void;
   onOpenNewTask: () => void;
   onOpenSleepLog: () => void;
   gcalConnected: boolean;
@@ -47,6 +47,18 @@ export const Navigation: React.FC<NavigationProps> = ({
             >
               <LayoutDashboard className="w-4 h-4" />
               <span>Today</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('calendar')}
+              className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === 'calendar'
+                  ? 'bg-slate-100 text-slate-900 font-semibold'
+                  : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+              }`}
+            >
+              <Calendar className="w-4 h-4 text-blue-600" />
+              <span>Calendar</span>
             </button>
 
             <button
