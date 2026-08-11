@@ -1,0 +1,6 @@
+{
+  "name": "Personal Calibration",
+  "description": "Evidence-based self-knowledge app that compares planned expectations with actual execution, sleep, and confidence to improve prediction calibration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
