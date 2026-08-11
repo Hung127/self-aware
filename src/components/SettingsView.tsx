@@ -13,7 +13,8 @@ import {
   RefreshCw,
   LogOut,
   UserCheck,
-  AlertCircle
+  AlertCircle,
+  Sparkles
 } from 'lucide-react';
 import {
   getStoredAccessToken,
@@ -28,7 +29,7 @@ interface SettingsViewProps {
   settings: AppSettings;
   onUpdateSettings: (newSettings: AppSettings) => void;
   onRunValidationSuite: () => void;
-  onSeedSampleData: () => void;
+  onSeedSampleData: (preset?: 'standard' | 'rich' | 'edge' | 'empty' | 'generated') => void;
   onClearAllData: () => void;
   tasks: TaskItem[];
   sleepRecords: SleepRecord[];
@@ -117,12 +118,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleDisconnectGoogle = async () => {
-    if (window.confirm('Disconnect your Google account from Personal Calibration?')) {
-      await signOutGoogle();
-      setCurrentUser(null);
-      onUpdateSettings({ ...settings, googleCalendarConnected: false });
-      setSyncStatusMsg({ type: 'info', text: 'Disconnected Google Calendar account.' });
-    }
+    await signOutGoogle();
+    setCurrentUser(null);
+    onUpdateSettings({ ...settings, googleCalendarConnected: false });
+    setSyncStatusMsg({ type: 'info', text: 'Disconnected Google Calendar account.' });
   };
 
   const handleSaveThresholds = (e: React.FormEvent) => {
@@ -373,53 +372,136 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </p>
       </div>
 
-      {/* 4. Data Backup & Reset */}
+      {/* 4. Data Seeding & Test Presets */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-5">
-        <div className="flex items-center space-x-3 border-b border-slate-100 pb-4">
-          <div className="p-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-700">
-            <Database className="w-5 h-5" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div className="flex items-center space-x-3">
+            <div className="p-2.5 rounded-xl bg-indigo-50 border border-indigo-100 text-[#4361ee]">
+              <Database className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="font-bold text-base text-slate-900">Testing &amp; Data Seeding Presets</h2>
+              <p className="text-xs text-slate-500">Seed or generate calibrated test data to verify insights, reality checks, and history</p>
+            </div>
           </div>
-          <div>
-            <h2 className="font-bold text-base text-slate-900">Data Management</h2>
-            <p className="text-xs text-slate-500">Export, import, or seed sample calibration records</p>
-          </div>
+
+          <button
+            onClick={() => onSeedSampleData('generated')}
+            className="flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#4361ee] to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold text-xs shadow-sm hover:shadow transition-all"
+          >
+            <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+            <span>Generate Data</span>
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <button
-            onClick={onSeedSampleData}
-            className="flex items-center justify-center space-x-1.5 p-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 text-xs font-semibold transition-colors"
+            onClick={() => onSeedSampleData('generated')}
+            className="flex flex-col items-start p-3.5 rounded-xl bg-indigo-50/70 hover:bg-indigo-100/70 border border-indigo-200 text-left transition-all group"
           >
-            <RotateCcw className="w-4 h-4 text-[#4361ee]" />
-            <span>Seed Sample Data</span>
+            <div className="flex items-center space-x-1.5 text-[#4361ee] font-bold text-xs mb-1">
+              <Sparkles className="w-4 h-4 text-indigo-600 group-hover:scale-110 transition-transform" />
+              <span>Generate Data</span>
+            </div>
+            <p className="text-[11px] text-slate-600 leading-relaxed">
+              Dynamically generates ~16 fresh calibrated tasks &amp; 8 sleep logs across past 7 days.
+            </p>
           </button>
 
           <button
-            onClick={handleExportJson}
-            className="flex items-center justify-center space-x-1.5 p-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 text-xs font-semibold transition-colors"
+            onClick={() => onSeedSampleData('standard')}
+            className="flex flex-col items-start p-3.5 rounded-xl bg-slate-50 hover:bg-indigo-50/50 border border-slate-200 hover:border-indigo-200 text-left transition-all group"
           >
-            <Download className="w-4 h-4 text-indigo-600" />
-            <span>Export Backup</span>
+            <div className="flex items-center space-x-1.5 text-slate-800 font-bold text-xs mb-1">
+              <RotateCcw className="w-4 h-4 text-[#4361ee] group-hover:rotate-[-45deg] transition-transform" />
+              <span>Standard Seed</span>
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              10 tasks showing ~43% programming underestimate &amp; ~27m evening start delay.
+            </p>
           </button>
-
-          <label className="flex items-center justify-center space-x-1.5 p-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 text-xs font-semibold cursor-pointer transition-colors">
-            <Upload className="w-4 h-4 text-emerald-600" />
-            <span>Import Backup</span>
-            <input
-              type="file"
-              accept=".json"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-          </label>
 
           <button
-            onClick={onClearAllData}
-            className="flex items-center justify-center space-x-1.5 p-3 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-semibold transition-colors"
+            onClick={() => onSeedSampleData('rich')}
+            className="flex flex-col items-start p-3.5 rounded-xl bg-slate-50 hover:bg-emerald-50/50 border border-slate-200 hover:border-emerald-200 text-left transition-all group"
           >
-            <Trash2 className="w-4 h-4 text-rose-600" />
-            <span>Clear All Data</span>
+            <div className="flex items-center space-x-1.5 text-emerald-700 font-bold text-xs mb-1">
+              <Database className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition-transform" />
+              <span>Rich Multi-Category</span>
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              16 items across all 6 categories (Programming, Writing, Reading, Personal, Studying).
+            </p>
           </button>
+
+          <button
+            onClick={() => onSeedSampleData('edge')}
+            className="flex flex-col items-start p-3.5 rounded-xl bg-slate-50 hover:bg-amber-50/50 border border-slate-200 hover:border-amber-200 text-left transition-all group"
+          >
+            <div className="flex items-center space-x-1.5 text-amber-700 font-bold text-xs mb-1">
+              <ShieldCheck className="w-4 h-4 text-amber-600 group-hover:scale-110 transition-transform" />
+              <span>Edge &amp; Boundary</span>
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Midnight boundary tasks, 0% exact duration error, and 3x postponed items.
+            </p>
+          </button>
+
+          <button
+            onClick={() => onSeedSampleData('empty')}
+            className="flex flex-col items-start p-3.5 rounded-xl bg-slate-50 hover:bg-rose-50/50 border border-slate-200 hover:border-rose-200 text-left transition-all group"
+          >
+            <div className="flex items-center space-x-1.5 text-slate-700 font-bold text-xs mb-1">
+              <Trash2 className="w-4 h-4 text-rose-500 group-hover:scale-110 transition-transform" />
+              <span>Empty Canvas</span>
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Reset to 0 records to verify "Not enough data yet" initial state guidance.
+            </p>
+          </button>
+        </div>
+
+        <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <span className="text-slate-500 font-medium">
+            Active Dataset Status: <strong className="text-slate-800">{tasks.length} tasks</strong>, <strong className="text-slate-800">{sleepRecords.length} sleep logs</strong> stored.
+          </span>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => onSeedSampleData('generated')}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-[#4361ee] font-semibold transition-colors border border-indigo-200"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Generate Data</span>
+            </button>
+
+            <button
+              onClick={handleExportJson}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold transition-colors"
+            >
+              <Download className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Export JSON</span>
+            </button>
+
+            <label className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold cursor-pointer transition-colors">
+              <Upload className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Import JSON</span>
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+            </label>
+
+            <button
+              onClick={onClearAllData}
+              className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-semibold transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+              <span>Clear All Data</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

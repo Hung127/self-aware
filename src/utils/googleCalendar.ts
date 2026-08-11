@@ -11,10 +11,32 @@ export interface GCalEvent {
 
 export function inferCategoryFromTitle(title: string): TaskCategory {
   const lower = title.toLowerCase();
-  if (lower.includes('code') || lower.includes('bug') || lower.includes('react') || lower.includes('api') || lower.includes('db') || lower.includes('dev') || lower.includes('ml') || lower.includes('programming')) {
+  if (
+    lower.includes('code') ||
+    lower.includes('coding') ||
+    lower.includes('algorithm') ||
+    lower.includes('bug') ||
+    lower.includes('react') ||
+    lower.includes('api') ||
+    lower.includes('db') ||
+    lower.includes('dev') ||
+    lower.includes('ml') ||
+    lower.includes('programming') ||
+    lower.includes('git') ||
+    lower.includes('refactor') ||
+    lower.includes('script')
+  ) {
     return 'Programming';
   }
-  if (lower.includes('study') || lower.includes('dsa') || lower.includes('exam') || lower.includes('lecture') || lower.includes('course') || lower.includes('math')) {
+  if (
+    lower.includes('study') ||
+    lower.includes('dsa') ||
+    lower.includes('exam') ||
+    lower.includes('lecture') ||
+    lower.includes('course') ||
+    lower.includes('math') ||
+    lower.includes('homework')
+  ) {
     return 'Studying';
   }
   if (lower.includes('read') || lower.includes('chapter') || lower.includes('paper') || lower.includes('book')) {

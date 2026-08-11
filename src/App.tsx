@@ -15,6 +15,7 @@ import {
   loadSettings,
   saveSettings,
   resetAllDataToSample,
+  seedPresetData,
   clearAllData
 } from './utils/storage';
 import { convertGCalEventToTask, getMockGCalEvents } from './utils/googleCalendar';
@@ -56,6 +57,16 @@ export default function App() {
 
   const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
   const [validationResults, setValidationResults] = useState<TestResult[]>([]);
+
+  // Toast notification banner state
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(prev => (prev === msg ? null : prev));
+    }, 3500);
+  };
 
   // Load initial data on mount
   useEffect(() => {
@@ -142,9 +153,8 @@ export default function App() {
   };
 
   const handleDeleteTask = (taskId: string) => {
-    if (window.confirm('Delete this task prediction record?')) {
-      handleSetTasks(tasks.filter(t => t.id !== taskId));
-    }
+    handleSetTasks(tasks.filter(t => t.id !== taskId));
+    showToast('Task removed from predictions.');
   };
 
   // Reflection handler
@@ -223,24 +233,30 @@ export default function App() {
     setIsValidationModalOpen(true);
   };
 
-  // Reset / Seed Sample Data
-  const handleSeedSampleData = () => {
-    if (window.confirm('Reset all calibration data to initial realistic sample data?')) {
-      const { tasks: sTasks, sleep: sSleep, settings: sSettings } = resetAllDataToSample();
-      setTasks(sTasks);
-      setSleepRecords(sSleep);
-      setSettings(sSettings);
-    }
+  // Reset / Seed / Generate Sample Data
+  const handleSeedSampleData = (preset: 'standard' | 'rich' | 'edge' | 'empty' | 'generated' = 'standard') => {
+    const presetNames: Record<string, string> = {
+      generated: 'Generated 16 fresh tasks & 8 sleep records',
+      standard: 'Loaded Standard Realistic Dataset (10 tasks)',
+      rich: 'Loaded Rich Multi-Category Benchmark (16 tasks)',
+      edge: 'Loaded Edge & Boundary Suite (midnight tasks)',
+      empty: 'Dataset reset to Empty Canvas (0 tasks)'
+    };
+
+    const { tasks: sTasks, sleep: sSleep, settings: sSettings } = seedPresetData(preset);
+    handleSetTasks(sTasks);
+    handleSetSleepRecords(sSleep);
+    handleSetSettings(sSettings);
+    showToast(presetNames[preset] || 'Data preset loaded');
   };
 
   // Clear All Data
   const handleClearAllData = () => {
-    if (window.confirm('Clear ALL data? This will erase all tasks, sleep logs, and settings.')) {
-      const { tasks: cTasks, sleep: cSleep, settings: cSettings } = clearAllData();
-      setTasks(cTasks);
-      setSleepRecords(cSleep);
-      setSettings(cSettings);
-    }
+    const { tasks: cTasks, sleep: cSleep, settings: cSettings } = clearAllData();
+    handleSetTasks(cTasks);
+    handleSetSleepRecords(cSleep);
+    handleSetSettings(cSettings);
+    showToast('All calibration data & storage cleared.');
   };
 
   // Import Backup
@@ -373,6 +389,14 @@ export default function App() {
         onClose={() => setIsValidationModalOpen(false)}
         results={validationResults}
       />
+
+      {/* Floating Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3 rounded-lg shadow-xl border border-slate-700 flex items-center space-x-3 text-sm animate-fade-in font-medium">
+          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>{toastMessage}</span>
+        </div>
+      )}
     </div>
   );
 }

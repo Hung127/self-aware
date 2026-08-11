@@ -1,4 +1,4 @@
-import { TaskItem, SleepRecord, AppSettings } from '../types';
+import { TaskItem, SleepRecord, AppSettings, TaskCategory } from '../types';
 
 const TASKS_KEY = 'personal_calibration_tasks_v1';
 const SLEEP_KEY = 'personal_calibration_sleep_v1';
@@ -396,6 +396,9 @@ export function getInitialSampleSleepRecords(): SleepRecord[] {
 
 export function loadTasks(): TaskItem[] {
   try {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+      return getInitialSampleTasks();
+    }
     const raw = localStorage.getItem(TASKS_KEY);
     if (!raw) {
       const sample = getInitialSampleTasks();
@@ -411,7 +414,9 @@ export function loadTasks(): TaskItem[] {
 
 export function saveTasks(tasks: TaskItem[]): void {
   try {
-    localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
+    }
   } catch (err) {
     console.error('Error saving tasks to localStorage:', err);
   }
@@ -419,6 +424,9 @@ export function saveTasks(tasks: TaskItem[]): void {
 
 export function loadSleepRecords(): SleepRecord[] {
   try {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+      return getInitialSampleSleepRecords();
+    }
     const raw = localStorage.getItem(SLEEP_KEY);
     if (!raw) {
       const sample = getInitialSampleSleepRecords();
@@ -434,7 +442,9 @@ export function loadSleepRecords(): SleepRecord[] {
 
 export function saveSleepRecords(records: SleepRecord[]): void {
   try {
-    localStorage.setItem(SLEEP_KEY, JSON.stringify(records));
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      localStorage.setItem(SLEEP_KEY, JSON.stringify(records));
+    }
   } catch (err) {
     console.error('Error saving sleep records to localStorage:', err);
   }
@@ -442,6 +452,9 @@ export function saveSleepRecords(records: SleepRecord[]): void {
 
 export function loadSettings(): AppSettings {
   try {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+      return DEFAULT_SETTINGS;
+    }
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (!raw) {
       saveSettings(DEFAULT_SETTINGS);
@@ -456,15 +469,406 @@ export function loadSettings(): AppSettings {
 
 export function saveSettings(settings: AppSettings): void {
   try {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    }
   } catch (err) {
     console.error('Error saving settings to localStorage:', err);
   }
 }
 
+export function getRichMultiCategorySampleTasks(): TaskItem[] {
+  const today = getTodayStr();
+  const d1 = getPastDateStr(1);
+  const d2 = getPastDateStr(2);
+  const d3 = getPastDateStr(3);
+  const d4 = getPastDateStr(4);
+  const d5 = getPastDateStr(5);
+  const d6 = getPastDateStr(6);
+  const d7 = getPastDateStr(7);
+
+  const baseTasks = getInitialSampleTasks();
+
+  const additionalTasks: TaskItem[] = [
+    // --- WRITING CATEGORY (Overestimate / Underestimate mix) ---
+    {
+      id: 'task-rich-1',
+      title: 'Quarterly Project Reflection Essay',
+      category: 'Writing',
+      plannedStart: `${d4}T10:00:00.000Z`,
+      plannedEnd: `${d4}T11:30:00.000Z`,
+      plannedDurationMinutes: 90,
+      estimatedDurationMinutes: 90,
+      confidence: 90,
+      originalPlannedStart: `${d4}T10:00:00.000Z`,
+      originalEstimatedDurationMinutes: 90,
+      createdAt: `${d4}T08:00:00.000Z`,
+      execution: {
+        status: 'completed',
+        actualStart: `${d4}T10:00:00.000Z`,
+        actualEnd: `${d4}T12:00:00.000Z`,
+        actualDurationMinutes: 120, // +33% underestimate
+        postponedCount: 0,
+        originalScheduledDate: d4,
+        actualCompletionDate: d4,
+      }
+    },
+    {
+      id: 'task-rich-2',
+      title: 'Blog Post Draft on Calibration Loops',
+      category: 'Writing',
+      plannedStart: `${d6}T14:00:00.000Z`,
+      plannedEnd: `${d6}T16:00:00.000Z`,
+      plannedDurationMinutes: 120,
+      estimatedDurationMinutes: 120,
+      confidence: 80,
+      originalPlannedStart: `${d6}T14:00:00.000Z`,
+      originalEstimatedDurationMinutes: 120,
+      createdAt: `${d6}T08:00:00.000Z`,
+      execution: {
+        status: 'completed',
+        actualStart: `${d6}T14:00:00.000Z`,
+        actualEnd: `${d6}T16:45:00.000Z`,
+        actualDurationMinutes: 165, // +37.5% underestimate
+        postponedCount: 0,
+        originalScheduledDate: d6,
+        actualCompletionDate: d6,
+      }
+    },
+
+    // --- READING CATEGORY (Accurate / Slightly Faster -15%) ---
+    {
+      id: 'task-rich-3',
+      title: 'Designing Data-Intensive Applications Ch. 3',
+      category: 'Reading',
+      plannedStart: `${d2}T09:00:00.000Z`,
+      plannedEnd: `${d2}T10:30:00.000Z`,
+      plannedDurationMinutes: 90,
+      estimatedDurationMinutes: 90,
+      confidence: 90,
+      originalPlannedStart: `${d2}T09:00:00.000Z`,
+      originalEstimatedDurationMinutes: 90,
+      createdAt: `${d2}T08:00:00.000Z`,
+      execution: {
+        status: 'completed',
+        actualStart: `${d2}T09:00:00.000Z`,
+        actualEnd: `${d2}T10:15:00.000Z`,
+        actualDurationMinutes: 75, // -16% faster
+        postponedCount: 0,
+        originalScheduledDate: d2,
+        actualCompletionDate: d2,
+      }
+    },
+    {
+      id: 'task-rich-4',
+      title: 'Machine Learning Survey Paper',
+      category: 'Reading',
+      plannedStart: `${d7}T11:00:00.000Z`,
+      plannedEnd: `${d7}T12:00:00.000Z`,
+      plannedDurationMinutes: 60,
+      estimatedDurationMinutes: 60,
+      confidence: 95,
+      originalPlannedStart: `${d7}T11:00:00.000Z`,
+      originalEstimatedDurationMinutes: 60,
+      createdAt: `${d7}T08:00:00.000Z`,
+      execution: {
+        status: 'completed',
+        actualStart: `${d7}T11:00:00.000Z`,
+        actualEnd: `${d7}T11:50:00.000Z`,
+        actualDurationMinutes: 50, // -16% faster
+        postponedCount: 0,
+        originalScheduledDate: d7,
+        actualCompletionDate: d7,
+      }
+    },
+
+    // --- PERSONAL & OTHER CATEGORY (Start delay ~40 mins) ---
+    {
+      id: 'task-rich-5',
+      title: 'Tax Document Assembly & Filing',
+      category: 'Personal',
+      plannedStart: `${d3}T20:00:00.000Z`,
+      plannedEnd: `${d3}T21:00:00.000Z`,
+      plannedDurationMinutes: 60,
+      estimatedDurationMinutes: 60,
+      confidence: 50,
+      originalPlannedStart: `${d3}T20:00:00.000Z`,
+      originalEstimatedDurationMinutes: 60,
+      createdAt: `${d3}T08:00:00.000Z`,
+      execution: {
+        status: 'completed',
+        actualStart: `${d3}T20:42:00.000Z`, // 42 min delay
+        actualEnd: `${d3}T22:12:00.000Z`,
+        actualDurationMinutes: 90,
+        postponedCount: 1,
+        originalScheduledDate: d3,
+        actualCompletionDate: d3,
+      }
+    },
+    {
+      id: 'task-rich-6',
+      title: 'Weekly Apartment Deep Clean',
+      category: 'Personal',
+      plannedStart: `${d6}T10:00:00.000Z`,
+      plannedEnd: `${d6}T11:30:00.000Z`,
+      plannedDurationMinutes: 90,
+      estimatedDurationMinutes: 90,
+      confidence: 80,
+      originalPlannedStart: `${d6}T10:00:00.000Z`,
+      originalEstimatedDurationMinutes: 90,
+      createdAt: `${d6}T08:00:00.000Z`,
+      execution: {
+        status: 'completed',
+        actualStart: `${d6}T10:15:00.000Z`,
+        actualEnd: `${d6}T11:45:00.000Z`,
+        actualDurationMinutes: 90,
+        postponedCount: 0,
+        originalScheduledDate: d6,
+        actualCompletionDate: d6,
+      }
+    }
+  ];
+
+  return [...baseTasks, ...additionalTasks];
+}
+
+export function getEdgeCaseSampleTasks(): TaskItem[] {
+  const today = getTodayStr();
+  const d1 = getPastDateStr(1);
+  const d2 = getPastDateStr(2);
+
+  return [
+    // 0 min duration / exact match task
+    {
+      id: 'edge-1',
+      title: 'Exact 100% On-Time Task',
+      category: 'Other',
+      plannedStart: `${d1}T08:00:00.000Z`,
+      plannedEnd: `${d1}T09:00:00.000Z`,
+      plannedDurationMinutes: 60,
+      estimatedDurationMinutes: 60,
+      confidence: 90,
+      originalPlannedStart: `${d1}T08:00:00.000Z`,
+      originalEstimatedDurationMinutes: 60,
+      createdAt: `${d1}T07:00:00.000Z`,
+      execution: {
+        status: 'completed',
+        actualStart: `${d1}T08:00:00.000Z`,
+        actualEnd: `${d1}T09:00:00.000Z`,
+        actualDurationMinutes: 60, // Exact 0% error
+        postponedCount: 0,
+        originalScheduledDate: d1,
+        actualCompletionDate: d1,
+      }
+    },
+    // Overnight midnight boundary task
+    {
+      id: 'edge-2',
+      title: 'Midnight Boundary Hackathon Sprint',
+      category: 'Programming',
+      plannedStart: `${d2}T23:00:00.000Z`,
+      plannedEnd: `${d1}T01:00:00.000Z`,
+      plannedDurationMinutes: 120,
+      estimatedDurationMinutes: 120,
+      confidence: 80,
+      originalPlannedStart: `${d2}T23:00:00.000Z`,
+      originalEstimatedDurationMinutes: 120,
+      createdAt: `${d2}T20:00:00.000Z`,
+      execution: {
+        status: 'completed',
+        actualStart: `${d2}T23:10:00.000Z`,
+        actualEnd: `${d1}T01:40:00.000Z`,
+        actualDurationMinutes: 150, // +25%
+        postponedCount: 0,
+        originalScheduledDate: d2,
+        actualCompletionDate: d1,
+      }
+    },
+    // Extremely postponed task (3x)
+    {
+      id: 'edge-3',
+      title: 'Highly Postponed Administrative Task',
+      category: 'Personal',
+      plannedStart: `${today}T15:00:00.000Z`,
+      plannedEnd: `${today}T16:00:00.000Z`,
+      plannedDurationMinutes: 60,
+      estimatedDurationMinutes: 60,
+      confidence: 50,
+      originalPlannedStart: `${getPastDateStr(4)}T15:00:00.000Z`,
+      originalEstimatedDurationMinutes: 60,
+      createdAt: `${getPastDateStr(4)}T08:00:00.000Z`,
+      execution: {
+        status: 'postponed',
+        postponedCount: 3,
+        originalScheduledDate: getPastDateStr(4),
+        reflection: {
+          reason: 'other',
+          notes: 'Postponed 3 times due to shifting priorities.',
+          createdAt: `${today}T15:00:00.000Z`
+        }
+      }
+    }
+  ];
+}
+
+export function generateRandomCalibratedData(): { tasks: TaskItem[]; sleep: SleepRecord[]; settings: AppSettings } {
+  const categories: TaskCategory[] = ['Programming', 'Studying', 'Reading', 'Writing', 'Exercise', 'Personal', 'Other'];
+  
+  const titleTemplates: Record<TaskCategory, string[]> = {
+    Programming: [
+      'Refactor Backend Auth Middleware',
+      'Optimize Database Query Indexes',
+      'Fix Async Race Condition in State',
+      'Build API Endpoint for Analytics',
+      'Unit Tests for Calibration Engine'
+    ],
+    Studying: [
+      'DSA Graph Algorithms Review',
+      'Operating Systems Concurrency Homework',
+      'Machine Learning Model Evaluation',
+      'Linear Algebra Problem Set 4'
+    ],
+    Reading: [
+      'Designing Data-Intensive Applications Ch. 5',
+      'Read Refactoring UI Book Section',
+      'System Architecture Research Paper'
+    ],
+    Writing: [
+      'Draft Technical Specification Document',
+      'Write Sprint Post-Mortem Report',
+      'Weekly Calibration Log Summary'
+    ],
+    Exercise: [
+      'Morning 5k Tempo Run',
+      'Full Body Strength Workout',
+      'High-Intensity Interval Training'
+    ],
+    Personal: [
+      'Tax & Financial Record Organizing',
+      'Weekly Grocery & Meal Planning',
+      'Apartment Cleaning & Maintenance'
+    ],
+    Other: [
+      'Team Synchronization & Roadmap Sync',
+      'Code Review & Pull Request Feedback'
+    ]
+  };
+
+  const generatedTasks: TaskItem[] = [];
+  const generatedSleep: SleepRecord[] = [];
+
+  // Generate sleep records for past 7 days
+  for (let dayOffset = 7; dayOffset >= 0; dayOffset--) {
+    const dateStr = getPastDateStr(dayOffset);
+    // Alternate sleep durations: some days <6h (5.5h), some days 7.5h
+    const isShortSleep = dayOffset % 3 === 0;
+    const plannedBed = '23:00';
+    const actualBed = isShortSleep ? '01:30' : '23:15';
+    const plannedWake = '07:00';
+    const actualWake = '07:00';
+    const actualSleepDurationMinutes = isShortSleep ? 330 : 465;
+
+    generatedSleep.push({
+      id: `sleep-gen-${dayOffset}`,
+      date: dateStr,
+      plannedBedtime: plannedBed,
+      actualBedtime: actualBed,
+      plannedWakeTime: plannedWake,
+      actualWakeTime: actualWake,
+      actualSleepDurationMinutes,
+      isShortSleep
+    });
+
+    // Generate 2 tasks per day
+    categories.forEach((cat, idx) => {
+      if ((dayOffset + idx) % 2 === 0) {
+        const titles = titleTemplates[cat];
+        const title = titles[(dayOffset + idx) % titles.length];
+        const plannedDuration = [45, 60, 90, 120, 180][(dayOffset + idx) % 5];
+        
+        // Multiplier: Programming tasks underestimated by ~40-50%, Reading accurate (-10%), Writing (+25%)
+        let multiplier = 1.0;
+        if (cat === 'Programming') multiplier = 1.45;
+        else if (cat === 'Studying') multiplier = 1.30;
+        else if (cat === 'Writing') multiplier = 1.25;
+        else if (cat === 'Reading') multiplier = 0.90;
+        else if (cat === 'Personal') multiplier = 1.35;
+
+        const actualDuration = Math.round(plannedDuration * multiplier);
+        const startDelayMinutes = cat === 'Programming' || cat === 'Personal' ? 25 : 5;
+        
+        const hour = 9 + (idx * 2) % 10;
+        const plannedStartHourStr = hour < 10 ? `0${hour}` : `${hour}`;
+        const plannedStart = `${dateStr}T${plannedStartHourStr}:00:00.000Z`;
+        const plannedEnd = `${dateStr}T${hour + Math.floor(plannedDuration / 60)}:${plannedDuration % 60 === 0 ? '00' : plannedDuration % 60}:00.000Z`;
+
+        const actualStartMin = startDelayMinutes;
+        const actualStartStr = `${dateStr}T${plannedStartHourStr}:${actualStartMin < 10 ? '0' + actualStartMin : actualStartMin}:00.000Z`;
+        
+        const confidence = [70, 80, 90, 95][(dayOffset + idx) % 4];
+
+        generatedTasks.push({
+          id: `task-gen-${dayOffset}-${idx}`,
+          title,
+          category: cat,
+          plannedStart,
+          plannedEnd,
+          plannedDurationMinutes: plannedDuration,
+          estimatedDurationMinutes: plannedDuration,
+          confidence,
+          originalPlannedStart: plannedStart,
+          originalEstimatedDurationMinutes: plannedDuration,
+          createdAt: `${dateStr}T08:00:00.000Z`,
+          execution: {
+            status: 'completed',
+            actualStart: actualStartStr,
+            actualEnd: `${dateStr}T${hour + Math.floor((plannedDuration + actualDuration) / 60)}:00:00.000Z`,
+            actualDurationMinutes: actualDuration,
+            postponedCount: cat === 'Personal' ? 1 : 0,
+            originalScheduledDate: dateStr,
+            actualCompletionDate: dateStr
+          }
+        });
+      }
+    });
+  }
+
+  const settings = DEFAULT_SETTINGS;
+  saveTasks(generatedTasks);
+  saveSleepRecords(generatedSleep);
+  saveSettings(settings);
+
+  return { tasks: generatedTasks, sleep: generatedSleep, settings };
+}
+
 export function resetAllDataToSample(): { tasks: TaskItem[]; sleep: SleepRecord[]; settings: AppSettings } {
-  const tasks = getInitialSampleTasks();
-  const sleep = getInitialSampleSleepRecords();
+  return seedPresetData('standard');
+}
+
+export function seedPresetData(
+  preset: 'standard' | 'rich' | 'edge' | 'empty' | 'generated'
+): { tasks: TaskItem[]; sleep: SleepRecord[]; settings: AppSettings } {
+  if (preset === 'generated') {
+    return generateRandomCalibratedData();
+  }
+
+  let tasks: TaskItem[] = [];
+  let sleep: SleepRecord[] = [];
+
+  if (preset === 'standard') {
+    tasks = getInitialSampleTasks();
+    sleep = getInitialSampleSleepRecords();
+  } else if (preset === 'rich') {
+    tasks = getRichMultiCategorySampleTasks();
+    sleep = getInitialSampleSleepRecords();
+  } else if (preset === 'edge') {
+    tasks = getEdgeCaseSampleTasks();
+    sleep = getInitialSampleSleepRecords().slice(0, 3);
+  } else if (preset === 'empty') {
+    tasks = [];
+    sleep = [];
+  }
+
   const settings = DEFAULT_SETTINGS;
 
   saveTasks(tasks);
@@ -475,8 +879,20 @@ export function resetAllDataToSample(): { tasks: TaskItem[]; sleep: SleepRecord[
 }
 
 export function clearAllData(): { tasks: TaskItem[]; sleep: SleepRecord[]; settings: AppSettings } {
-  saveTasks([]);
-  saveSleepRecords([]);
-  saveSettings(DEFAULT_SETTINGS);
-  return { tasks: [], sleep: [], settings: DEFAULT_SETTINGS };
+  try {
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      localStorage.removeItem(TASKS_KEY);
+      localStorage.removeItem(SLEEP_KEY);
+      localStorage.removeItem(SETTINGS_KEY);
+      localStorage.removeItem('gcal_events_storage_v1');
+      localStorage.removeItem('personal_cal_gcal_token');
+    }
+    if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem('personal_cal_gcal_token');
+    }
+  } catch (e) {
+    console.error('Error clearing storage:', e);
+  }
+  return seedPresetData('empty');
 }
+

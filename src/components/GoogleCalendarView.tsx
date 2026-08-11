@@ -366,9 +366,6 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
 
   // Delete Event
   const handleDeleteEvent = async (eventId: string, title: string) => {
-    const confirmed = window.confirm(`Are you sure you want to delete "${title}" from your Google Calendar? This action cannot be undone.`);
-    if (!confirmed) return;
-
     const token = getStoredAccessToken();
     if (token) {
       try {
