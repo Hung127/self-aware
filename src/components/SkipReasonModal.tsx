@@ -54,7 +54,6 @@ export const SkipReasonModal: React.FC<SkipReasonModalProps> = ({ task, onClose,
                 onConfirm(task.id, selected);
                 onClose();
               }}
-              className="bg-slate-800 hover:bg-slate-700"
             >
               Skip task
             </Button>

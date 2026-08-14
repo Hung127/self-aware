@@ -189,7 +189,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
       <div>
         <div>
           <p className="mb-2 text-sm font-medium text-blue-700">{new Date().toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}</p>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-950">Today</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Today</h1>
           <p className="mt-1 text-sm text-slate-600">Your planned tasks and active predictions for today.</p>
           {planOnlyCount > 0 && (
             <button
@@ -310,7 +310,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
         {/* Live Reality check hint if user typed duration */}
          {quickReality.shouldWarn && (
-           <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between">
+           <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
               <span className="font-medium">{quickReality.message}</span>
@@ -475,7 +475,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
                       {/* Reflection comment if present */}
                       {task.execution.reflection && (
-                        <p className="text-xs text-amber-900 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
+                        <p className="text-xs text-amber-800 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
                           <strong>Reflection:</strong> "{task.execution.reflection.notes || task.execution.reflection.reason.replace(/_/g, ' ')}"
                         </p>
                       )}
@@ -493,7 +493,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                       {isRunning && (
                         <Button
                           onClick={() => handleFinishTask(task)}
-                          className="bg-emerald-600 hover:bg-emerald-700"
+                          variant="success"
                         >
                           <CheckCircle2 className="w-4 h-4" />
                           Finish

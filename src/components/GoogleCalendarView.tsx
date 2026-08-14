@@ -708,7 +708,7 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
                           </button>
                           <button
                             onClick={() => handleDeleteEvent(evt.id, evt.summary)}
-                            className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                            className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                              aria-label="Delete calendar event"
                              title="Delete calendar event"
                           >
@@ -887,7 +887,8 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
               <Button
                 onClick={() => setSelectedEventForView(null)}
                 size="sm"
-                className="rounded-xl bg-slate-900 hover:bg-slate-800"
+                variant="secondary"
+                className="rounded-xl"
               >
                 Done
               </Button>
@@ -954,7 +955,7 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
                     href={selectedEventForView.htmlLink}
                     target="_blank"
                     rel="noreferrer"
-                    className="p-3.5 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-900 font-bold text-xs flex items-center space-x-2.5 shadow-xs transition-all"
+                    className="p-3.5 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs flex items-center space-x-2.5 shadow-xs transition-all"
                   >
                     <ExternalLink className="w-4 h-4 text-blue-600 shrink-0" />
                     <div className="text-left">
@@ -969,7 +970,7 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
             {/* Calibration Link */}
             <div className="p-4 rounded-xl bg-blue-50/70 border border-blue-100 flex items-center justify-between">
               <div className="space-y-0.5">
-                <div className="text-xs font-bold text-blue-950 flex items-center space-x-1.5">
+                <div className="text-xs font-bold text-blue-800 flex items-center space-x-1.5">
                   <Target className="w-4 h-4 text-blue-600" />
                   <span>Calibration prediction</span>
                 </div>
@@ -985,7 +986,7 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
                  disabled={tasks.some(t => t.googleCalendarEventId === selectedEventForView.id && t.predictionStatus === 'recorded')}
                 className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors ${
                    tasks.some(t => t.googleCalendarEventId === selectedEventForView.id && t.predictionStatus === 'recorded')
-                    ? 'bg-emerald-100 text-emerald-800 cursor-default'
+                    ? 'bg-emerald-100 text-emerald-700 cursor-default'
                     : 'bg-blue-600 text-white hover:bg-blue-700'
                 }`}
               >

@@ -42,14 +42,14 @@ export const ValidationReportModal: React.FC<ValidationReportModalProps> = ({
           {/* Summary status pill */}
           <div className={`p-4 rounded-xl border flex items-center justify-between ${
             allPassed
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-              : 'bg-rose-50 border-rose-200 text-rose-900'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+              : 'bg-red-50 border-red-200 text-red-700'
           }`}>
             <div className="flex items-center space-x-3">
               {allPassed ? (
                 <CheckCircle2 className="w-6 h-6 text-emerald-600" />
               ) : (
-                <XCircle className="w-6 h-6 text-rose-600" />
+                <XCircle className="w-6 h-6 text-red-600" />
               )}
               <div>
                 <span className="font-bold text-base block text-slate-900">
@@ -62,8 +62,8 @@ export const ValidationReportModal: React.FC<ValidationReportModalProps> = ({
             </div>
             <span className={`text-xs font-bold px-3 py-1 rounded-full border ${
               allPassed
-                ? 'bg-emerald-100 border-emerald-300 text-emerald-800'
-                : 'bg-rose-100 border-rose-300 text-rose-800'
+                ? 'bg-emerald-100 border-emerald-300 text-emerald-700'
+                : 'bg-red-100 border-red-300 text-red-700'
             }`}>
               {Math.round((passedCount / totalCount) * 100)}% PASS
             </span>
@@ -80,7 +80,7 @@ export const ValidationReportModal: React.FC<ValidationReportModalProps> = ({
                   {res.passed ? (
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                   ) : (
-                    <XCircle className="w-4 h-4 text-rose-600" />
+                    <XCircle className="w-4 h-4 text-red-600" />
                   )}
                 </div>
                 <div className="space-y-1 flex-1">
@@ -88,8 +88,8 @@ export const ValidationReportModal: React.FC<ValidationReportModalProps> = ({
                     <span className="font-bold text-sm text-slate-900">{res.name}</span>
                     <span className={`text-xs font-semibold uppercase px-2 py-0.5 rounded-md ${
                       res.passed
-                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                        : 'bg-rose-100 text-rose-800 border border-rose-200'
+                        ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                        : 'bg-red-100 text-red-700 border border-red-200'
                     }`}>
                       {res.passed ? 'PASSED' : 'FAILED'}
                     </span>

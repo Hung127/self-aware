@@ -433,7 +433,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
            {realityCheck.shouldWarn && (
             <div className={`p-4 rounded-xl border space-y-3 transition-all ${
               realityCheck.severity === 'reality_check'
-                ? 'bg-amber-50/80 border-amber-200 text-amber-900'
+                ? 'bg-amber-50/80 border-amber-200 text-amber-800'
                 : 'bg-blue-50/80 border-blue-100 text-slate-800'
             }`}>
               <div className="flex items-start space-x-3">

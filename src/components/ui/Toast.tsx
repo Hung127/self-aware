@@ -56,7 +56,7 @@ export const Toast: React.FC<ToastProps> = ({ toast, onClose, onAction }) => {
         <button
           type="button"
           onClick={() => onAction(toast)}
-          className="shrink-0 pt-0.5 text-xs font-bold text-blue-700 underline-offset-2 transition-colors hover:text-blue-900 hover:underline"
+          className="shrink-0 pt-0.5 text-xs font-bold text-blue-700 underline-offset-2 transition-colors hover:text-blue-800 hover:underline"
         >
           {toast.actionLabel}
         </button>

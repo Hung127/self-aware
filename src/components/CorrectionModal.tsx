@@ -51,7 +51,7 @@ export const CorrectionModal: React.FC<CorrectionModalProps> = ({
       title="Correct completed observation"
       description="Recording the true outcome keeps your calibration honest."
       icon={<PenLine className="h-5 w-5" />}
-      iconClassName="border-amber-100 bg-amber-50 text-amber-600"
+      iconClassName="border-blue-100 bg-blue-50 text-blue-600"
       onClose={onClose}
       maxWidth="max-w-lg"
       footer={
@@ -59,7 +59,7 @@ export const CorrectionModal: React.FC<CorrectionModalProps> = ({
           <Button type="button" variant="tertiary" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" form="correction-modal-form" className="bg-amber-600 hover:bg-amber-700">
+          <Button type="submit" form="correction-modal-form">
             <PenLine className="w-4 h-4" />
             Save correction
           </Button>

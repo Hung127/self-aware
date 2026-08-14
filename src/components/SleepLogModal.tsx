@@ -157,8 +157,8 @@ export const SleepLogModal: React.FC<SleepLogModalProps> = ({
           {/* Computed Sleep Display Banner */}
           <div className={`p-4 rounded-xl border flex items-center justify-between ${
             isShortSleep
-              ? 'bg-amber-50 border-amber-200 text-amber-900'
-              : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+              ? 'bg-amber-50 border-amber-200 text-amber-800'
+              : 'bg-emerald-50 border-emerald-200 text-emerald-700'
           }`}>
             <div className="flex items-center space-x-3">
               <Clock className="w-5 h-5 text-current opacity-80" />

@@ -191,7 +191,7 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                   <StatTile
                     label="Mean improvement"
                     value={`${realityCheckData.meanImprovementPercent > 0 ? '+' : ''}${realityCheckData.meanImprovementPercent}%`}
-                    valueClassName={realityCheckData.meanImprovementPercent >= 0 ? 'text-emerald-700' : 'text-rose-700'}
+                    valueClassName={realityCheckData.meanImprovementPercent >= 0 ? 'text-emerald-700' : 'text-red-700'}
                     className="border-emerald-100 bg-emerald-50"
                   />
                   <StatTile
@@ -218,7 +218,7 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs space-y-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2.5">
-                <div className="p-2.5 rounded-xl bg-violet-50 border border-violet-100 text-violet-600">
+                <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-100 text-blue-600">
                   <FlaskConical className="w-5 h-5" />
                 </div>
                 <div>
@@ -246,8 +246,8 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                   label="Phase B · intervention (Reality Check shown)"
                   value={`${experiment.intervention.meanAbsoluteErrorPercent}%`}
                   subLabel={`median ${experiment.intervention.medianAbsoluteErrorPercent}% · ${experiment.intervention.count} predictions`}
-                  valueClassName="text-violet-900"
-                  className="border-violet-100 bg-violet-50"
+                  valueClassName="text-blue-800"
+                  className="border-blue-100 bg-blue-50"
                 />
                 {!experiment.interventionSufficient && (
                   <p className="text-xs font-medium text-amber-700">
@@ -267,7 +267,7 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                   Post-Reality-Check absolute error is lower than baseline — the intervention is associated with more accurate forecasts.
                 </span>
               ) : (
-                <span className="font-semibold text-rose-700">
+                <span className="font-semibold text-red-700">
                   Post-Reality-Check absolute error is not lower than baseline in this sample.
                 </span>
               )}
@@ -299,14 +299,14 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                         next[i] = { ...next[i], note: e.target.value };
                         setSurveyAnswers(next);
                       }}
-                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-violet-600 focus:outline-none placeholder-slate-400"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none placeholder-slate-400"
                     />
                   </div>
                 ))}
               </div>
               <Button
                 onClick={handleSaveSurvey}
-                className="mt-4 bg-violet-600 hover:bg-violet-700"
+                className="mt-4"
               >
                 <Send className="w-3.5 h-3.5" />
                 {surveySaved ? 'Saved' : 'Save answers'}

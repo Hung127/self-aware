@@ -260,7 +260,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                        onClick={() => setDeleteTarget({ id: task.id, title: task.title })}
                        aria-label="Delete prediction from history"
                        title="Delete prediction from history"
-                      className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                      className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -353,7 +353,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                             ? 'bg-amber-50 text-amber-800 border-amber-200'
                             : errorPercent < 0
                             ? 'bg-blue-50 text-blue-800 border-blue-200'
-                            : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                         }`}>
                           {errorPercent > 0
                             ? `+${errorPercent}% Underestimate`
@@ -388,7 +388,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                   <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-start space-x-2.5 text-xs text-amber-800">
                     <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-bold block text-amber-900 uppercase tracking-wider text-xs">
+                      <span className="font-bold block text-amber-800 uppercase tracking-wider text-xs">
                         Why? {task.execution.reflection.reason.replace(/_/g, ' ')}
                       </span>
                       {task.execution.reflection.notes && (
@@ -402,7 +402,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
 
                 {/* Correction audit note */}
                 {task.execution.correction && (
-                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-start space-x-2.5 text-xs text-amber-900">
+                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-start space-x-2.5 text-xs text-amber-800">
                     <PenLine className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                     <div>
                       <span className="font-bold block uppercase tracking-wider text-xs">
