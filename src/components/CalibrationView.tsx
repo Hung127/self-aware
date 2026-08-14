@@ -1,8 +1,10 @@
-import React from 'react';
-import { TaskItem, SleepRecord } from '../types';
+import React, { useState } from 'react';
+import { TaskItem, SleepRecord, AppSettings, ExperimentAnswer } from '../types';
 import {
   calculateOverallInsights,
   formatMinutesToHours,
+  getEvidenceLevel,
+  getExperimentComparison,
   CATEGORIES
 } from '../utils/calibrationEngine';
 import {
@@ -13,17 +15,31 @@ import {
   TrendingUp,
   AlertCircle,
   BarChart2,
-  CalendarCheck
+  CalendarCheck,
+  FlaskConical,
+  Send
 } from 'lucide-react';
 
 interface CalibrationViewProps {
   tasks: TaskItem[];
   sleepRecords: SleepRecord[];
+  settings: AppSettings;
+  onUpdateSettings: (newSettings: AppSettings) => void;
 }
+
+const EXPERIMENT_QUESTIONS = [
+  'Did the historical comparison change your estimate?',
+  'Did you understand why the suggestion appeared?',
+  'Did you trust the evidence?',
+  'Did the final estimate feel more realistic?',
+  'Would you use this before planning a similar task again?'
+];
 
 export const CalibrationView: React.FC<CalibrationViewProps> = ({
   tasks,
-  sleepRecords
+  sleepRecords,
+  settings,
+  onUpdateSettings
 }) => {
   const insights = calculateOverallInsights(tasks, sleepRecords);
 
@@ -32,6 +48,24 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
   const sleepData = insights.sleepImpact;
   const confidenceBrackets = insights.confidenceBrackets;
   const realityCheckData = insights.realityCheckEffectiveness;
+  const experiment = getExperimentComparison(tasks, settings.minObservationsForRealityCheck || 5);
+
+  const [surveyAnswers, setSurveyAnswers] = useState<string[]>(() => {
+    const saved = settings.experimentAnswers || [];
+    return EXPERIMENT_QUESTIONS.map(q => saved.find(a => a.question === q)?.answer || '');
+  });
+  const [surveySaved, setSurveySaved] = useState(false);
+
+  const handleSaveSurvey = () => {
+    const answers: ExperimentAnswer[] = EXPERIMENT_QUESTIONS.map((question, i) => ({
+      question,
+      answer: surveyAnswers[i]?.trim() || '',
+      createdAt: new Date().toISOString()
+    })).filter(a => a.answer.length > 0);
+    onUpdateSettings({ ...settings, experimentAnswers: answers });
+    setSurveySaved(true);
+    setTimeout(() => setSurveySaved(false), 2500);
+  };
 
   // Find strongest recurring category pattern (requires >= 5 completed observations)
   let maxPatternCat = '';
@@ -63,8 +97,14 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                Your calibration
             </h1>
              <p className="max-w-xl text-sm leading-relaxed text-slate-600">
-               How your predictions compare with your execution history.
+                How your predictions compare with your execution history.
             </p>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500 pt-1">
+              <span><strong className="text-slate-700">Plan</strong> — what is scheduled</span>
+              <span><strong className="text-slate-700">Forecast</strong> — what you believe will happen</span>
+              <span><strong className="text-slate-700">Actual</strong> — what was measured</span>
+              <span><strong className="text-slate-700">Calibration</strong> — how different the forecast was from actual</span>
+            </div>
           </div>
 
            <div className="shrink-0 rounded-lg border border-slate-200 bg-slate-50 p-4 text-center min-w-[200px]">
@@ -96,9 +136,9 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                    <p className="text-xs text-slate-500">Did the final planning estimate get closer to actual execution?</p>
                  </div>
                </div>
-               <span className="text-xs text-slate-500 font-semibold bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
-                 {realityCheckData.eligibleTaskCount} evaluated
-               </span>
+                <span className="text-xs text-slate-500 font-semibold bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
+                  {realityCheckData.eligibleTaskCount} evaluated · {getEvidenceLevel(realityCheckData.eligibleTaskCount).replace(/_/g, ' ')}
+                </span>
              </div>
              {realityCheckData.hasEnoughData ? (
                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
@@ -127,11 +167,95 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                </div>
              )}
            </div>
-           <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-3">
-             Positive improvement means the final planning estimate was closer to actual duration. This is separate from general calibration accuracy.
-           </div>
-         </div>
-         {/* CARD 1: TASK DURATION CALIBRATION */}
+            <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-3">
+              Positive improvement means the final planning estimate was closer to actual duration. This is separate from general calibration accuracy.
+            </div>
+          </div>
+
+          {/* EXPERIMENT: BASELINE VS INTERVENTION (Phase A vs Phase B) */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs space-y-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2.5">
+                <div className="p-2.5 rounded-xl bg-violet-50 border border-violet-100 text-violet-600">
+                  <FlaskConical className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-lg text-slate-900">Forecast Accuracy Experiment</h2>
+                  <p className="text-xs text-slate-500">Before Reality Check vs after Reality Check, using the same error definition.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <span className="text-[11px] text-slate-500 block">Phase A · baseline (no Reality Check)</span>
+                <div className="mt-1 flex items-baseline gap-3">
+                  <strong className="text-xl text-slate-900">{experiment.baseline.meanAbsoluteErrorPercent}%</strong>
+                  <span className="text-xs text-slate-500">median {experiment.baseline.medianAbsoluteErrorPercent}% · {experiment.baseline.count} predictions</span>
+                </div>
+                {!experiment.baselineSufficient && (
+                  <span className="text-[11px] text-amber-700 block mt-1">Needs at least {settings.minObservationsForRealityCheck || 5} baseline predictions.</span>
+                )}
+              </div>
+              <div className="p-3 rounded-xl bg-violet-50 border border-violet-100">
+                <span className="text-[11px] text-violet-700 block">Phase B · intervention (Reality Check shown)</span>
+                <div className="mt-1 flex items-baseline gap-3">
+                  <strong className="text-xl text-violet-900">{experiment.intervention.meanAbsoluteErrorPercent}%</strong>
+                  <span className="text-xs text-violet-600">median {experiment.intervention.medianAbsoluteErrorPercent}% · {experiment.intervention.count} predictions</span>
+                </div>
+                {!experiment.interventionSufficient && (
+                  <span className="text-[11px] text-amber-700 block mt-1">Needs at least {settings.minObservationsForRealityCheck || 5} intervention predictions.</span>
+                )}
+              </div>
+            </div>
+
+            <div className="text-sm">
+              {experiment.improved === null ? (
+                <span className="text-slate-500">
+                  Collect {settings.minObservationsForRealityCheck || 5} predictions in each phase to compare forecast accuracy.
+                </span>
+              ) : experiment.improved ? (
+                <span className="font-semibold text-emerald-700">
+                  Post-Reality-Check absolute error is lower than baseline — the intervention is associated with more accurate forecasts.
+                </span>
+              ) : (
+                <span className="font-semibold text-rose-700">
+                  Post-Reality-Check absolute error is not lower than baseline in this sample.
+                </span>
+              )}
+            </div>
+
+            <div className="border-t border-slate-100 pt-4">
+              <h3 className="text-sm font-bold text-slate-800 mb-1">Qualitative questions</h3>
+              <p className="text-xs text-slate-500 mb-3">Optional answers help evaluate trust and understanding, separate from accuracy.</p>
+              <div className="space-y-3">
+                {EXPERIMENT_QUESTIONS.map((q, i) => (
+                  <div key={q}>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">{i + 1}. {q}</label>
+                    <textarea
+                      value={surveyAnswers[i]}
+                      onChange={e => {
+                        const next = [...surveyAnswers];
+                        next[i] = e.target.value;
+                        setSurveyAnswers(next);
+                      }}
+                      rows={2}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-violet-600 focus:bg-white"
+                    />
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={handleSaveSurvey}
+                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-700"
+              >
+                <Send className="w-3.5 h-3.5" />
+                {surveySaved ? 'Saved' : 'Save answers'}
+              </button>
+            </div>
+          </div>
+
+          {/* CARD 1: TASK DURATION CALIBRATION */}
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs flex flex-col justify-between space-y-5">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -173,6 +297,12 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                   ? `↑ Based on ${durationData.totalTasksCount} completed sessions overall`
                   : 'Need at least 5 completed sessions in a category to identify recurring patterns'}
               </span>
+              {maxPatternTasks >= 5 && (
+                <span className="inline-flex items-center gap-1.5 mt-1 rounded-full bg-white border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                  {getEvidenceLevel(maxPatternTasks).replace(/_/g, ' ')}
+                </span>
+              )}
             </div>
 
             {/* Category breakdown list */}
@@ -187,7 +317,12 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                 const isUnder = item.averageErrorPercent > 0;
                 return (
                   <div key={cat} className="flex items-center justify-between text-xs p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-                    <span className="font-semibold text-slate-800">{cat} ({item.taskCount})</span>
+                    <span className="flex items-center gap-2 font-semibold text-slate-800">
+                      {cat} ({item.taskCount})
+                      <span className="rounded-full bg-white border border-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                        {getEvidenceLevel(item.taskCount).replace(/_/g, ' ')}
+                      </span>
+                    </span>
                     <span className={`font-bold ${isUnder ? 'text-amber-700' : 'text-emerald-700'}`}>
                       {isUnder ? `+${item.averageErrorPercent}% underestimate` : item.averageErrorPercent < 0 ? `${item.averageErrorPercent}% overestimate` : `${item.averageErrorPercent}% on target`} ({item.multiplier}×)
                     </span>

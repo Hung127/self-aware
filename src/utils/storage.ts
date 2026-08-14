@@ -504,6 +504,57 @@ export function migrateTaskV0ToV1(t: any): TaskItem {
   };
 }
 
+/**
+ * Normalize imported task records from a JSON backup.
+ * - v0 records are migrated to v1 schema.
+ * - v1 records are re-normalized to fill missing optional fields.
+ * - Invalid records (missing required fields) are rejected with a reason.
+ *
+ * @param raw Raw imported task records
+ * @returns Normalized tasks plus a list of rejected records
+ */
+export function normalizeImportedTasks(raw: any[]): { tasks: TaskItem[]; rejected: string[] } {
+  if (!Array.isArray(raw)) {
+    return { tasks: [], rejected: ['tasks is not an array'] };
+  }
+
+  const tasks: TaskItem[] = [];
+  const rejected: string[] = [];
+
+  raw.forEach((t: any, idx: number) => {
+    try {
+      if (!t || typeof t !== 'object') {
+        rejected.push(`Record ${idx}: not an object`);
+        return;
+      }
+      const required = ['id', 'title', 'category', 'estimatedDurationMinutes'] as const;
+      const missing = required.filter(f => t[f] === undefined || t[f] === null);
+      if (missing.length > 0) {
+        rejected.push(`Record ${idx} (${t.title || t.id || 'unknown'}): missing ${missing.join(', ')}`);
+        return;
+      }
+
+      const recordVersion = t.schemaVersion || 'v0';
+      const normalized = recordVersion === 'v0'
+        ? migrateTaskV0ToV1(t)
+        : {
+            ...t,
+            behavioralTaskType: t.behavioralTaskType || 'other',
+            confidence: typeof t.confidence === 'number' ? t.confidence : 80,
+            predictionStatus: t.predictionStatus || 'recorded',
+            planSource: t.planSource || (t.googleCalendarEventId ? 'google_calendar' : 'manual'),
+            schemaVersion: STORAGE_SCHEMA_VERSION
+          } as TaskItem;
+
+      tasks.push(normalized);
+    } catch (e: any) {
+      rejected.push(`Record ${idx} (${t?.title || t?.id || 'unknown'}): ${e?.message || 'failed to normalize'}`);
+    }
+  });
+
+  return { tasks, rejected };
+}
+
 export function saveTasks(tasks: TaskItem[]): void {
   try {
     if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
@@ -985,6 +1036,7 @@ export function clearAllData(): { tasks: TaskItem[]; sleep: SleepRecord[]; setti
       localStorage.removeItem(SLEEP_KEY);
       localStorage.removeItem(SETTINGS_KEY);
       localStorage.removeItem('gcal_events_storage_v1');
+      localStorage.removeItem('personal_calibration_gcal_events');
       localStorage.removeItem('personal_cal_gcal_token');
     }
     if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined') {

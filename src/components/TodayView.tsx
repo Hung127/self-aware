@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { TaskItem, SleepRecord, AppSettings, TaskCategory, SkipReason } from '../types';
 import type { TaskFormDefaults } from './TaskModal';
-import { CATEGORIES, getRealityCheck, formatMinutesToHours, getHistoricalCalibrationBaseline } from '../utils/calibrationEngine';
+import { CATEGORIES, getRealityCheck, formatMinutesToHours, getHistoricalCalibrationBaseline, calculateEstimationError, getStrongestCalibrationInsight } from '../utils/calibrationEngine';
 import {
   Play,
   CheckCircle2,
@@ -174,7 +174,27 @@ export const TodayView: React.FC<TodayViewProps> = ({
           <p className="mt-1 text-sm text-slate-600">Your planned tasks and active predictions for today.</p>
         </div>
       </div>
-      {/* 1. Sleep Context Banner (Light Blue Widget) */}
+      {/* 1. Strongest calibration insight */}
+      {(() => {
+        const insight = getStrongestCalibrationInsight(tasks, settings.minObservationsForRealityCheck || 5);
+        if (!insight) return null;
+        return (
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-slate-900">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-blue-700">Calibration insight</span>
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600">
+                <strong className="text-slate-900">{insight.sampleCount}</strong> sessions
+                <span className="rounded-full bg-white border border-blue-200 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
+                  {insight.evidenceLevel.replace(/_/g, ' ')}
+                </span>
+              </span>
+            </div>
+            <p className="mt-1.5 text-sm text-slate-700">{insight.message}</p>
+          </div>
+        );
+      })()}
+
+      {/* 2. Sleep Context Banner (Light Blue Widget) */}
       <div className="flex flex-col justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-slate-900 sm:flex-row sm:items-center">
         <div className="flex items-start space-x-3.5">
           <Moon className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" />
@@ -307,7 +327,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
         ) : (
           <div className="space-y-3">
             {todayTasks.map(task => {
-               const taskReality = getRealityCheck(task.category, task.estimatedDurationMinutes, tasks, settings, task.tag, task.id);
+               const taskReality = getRealityCheck(task.category, task.estimatedDurationMinutes, tasks, settings, task.tag, task.behavioralTaskType, task.id);
               const isRunning = task.execution.status === 'in_progress';
               const isDone = task.execution.status === 'completed';
               const isPostponed = task.execution.status === 'postponed';
@@ -397,6 +417,20 @@ export const TodayView: React.FC<TodayViewProps> = ({
                           <span>Actual Start: <strong className="text-slate-800">{new Date(task.execution.actualStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong></span>
                         )}
                       </div>
+
+                      {/* Immediate prediction-vs-actual comparison after a measured completion */}
+                      {isDone && task.execution.durationMeasurementStatus === 'measured' && task.execution.actualDurationMinutes ? (
+                        <div className="mt-1.5 inline-flex items-center gap-2 rounded-lg bg-blue-50 border border-blue-200 px-2.5 py-1 text-xs text-slate-700">
+                          <span>Forecast <strong className="text-slate-900">{formatMinutesToHours(getHistoricalCalibrationBaseline(task))}</strong></span>
+                          <span className="text-slate-400">·</span>
+                          <span>Actual <strong className="text-slate-900">{formatMinutesToHours(task.execution.actualDurationMinutes)}</strong></span>
+                          <span className="text-slate-400">·</span>
+                          <span className={Math.abs(calculateEstimationError(getHistoricalCalibrationBaseline(task), task.execution.actualDurationMinutes)) > 0.3 ? 'font-bold text-amber-700' : 'font-bold text-emerald-700'}>
+                            {calculateEstimationError(getHistoricalCalibrationBaseline(task), task.execution.actualDurationMinutes) > 0 ? '+' : ''}
+                            {Math.round(calculateEstimationError(getHistoricalCalibrationBaseline(task), task.execution.actualDurationMinutes) * 100)}%
+                          </span>
+                        </div>
+                      ) : null}
 
                       {/* Reflection comment if present */}
                       {task.execution.reflection && (

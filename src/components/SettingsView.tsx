@@ -20,10 +20,13 @@ import {
   getStoredAccessToken,
   signInWithGoogleCalendar,
   signOutGoogle,
-  fetchRealGoogleCalendarEvents,
+  fetchAllGoogleCalendarEvents,
+  reconcileGCalEventsWithTasks,
+  listUserCalendars,
   auth
 } from '../utils/googleAuthService';
 import { convertGCalEventToTask } from '../utils/googleCalendar';
+import { STORAGE_SCHEMA_VERSION, normalizeImportedTasks } from '../utils/storage';
 
 interface SettingsViewProps {
   settings: AppSettings;
@@ -57,6 +60,34 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [syncStatusMsg, setSyncStatusMsg] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   const [dataStatusMsg, setDataStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(auth.currentUser);
+  const [calendars, setCalendars] = useState<{ id: string; summary: string; primary: boolean }[]>([]);
+  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [calendarId, setCalendarId] = useState(settings.gcalCalendarId || 'primary');
+
+  const handleLoadCalendars = async () => {
+    if (!getStoredAccessToken()) return;
+    setCalendarLoading(true);
+    try {
+      const list = await listUserCalendars();
+      setCalendars(list);
+    } catch (err: any) {
+      setSyncStatusMsg({ type: 'info', text: `Could not list calendars: ${err?.message || 'unknown error'}` });
+    } finally {
+      setCalendarLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (getStoredAccessToken()) {
+      handleLoadCalendars();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.uid]);
+
+  const handleCalendarChange = (id: string) => {
+    setCalendarId(id);
+    onUpdateSettings({ ...settings, gcalCalendarId: id === 'primary' ? undefined : id });
+  };
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(user => {
@@ -78,22 +109,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         setCurrentUser(res.user);
       }
 
-      setSyncStatusMsg({ type: 'info', text: 'Fetching events from your primary Google Calendar...' });
-      const { events: realEvents } = await fetchRealGoogleCalendarEvents(token);
+      setSyncStatusMsg({ type: 'info', text: 'Fetching events from your Google Calendar...' });
+      const realEvents = await fetchAllGoogleCalendarEvents(token, { calendarId: settings.gcalCalendarId });
+
+      // Reconcile changed events with linked plans, then add new plan candidates
+      const reconciledTasks = reconcileGCalEventsWithTasks(tasks, realEvents);
 
       // Convert real events into tasks
       const gcalTasks = realEvents.map(convertGCalEventToTask);
-      const existingIds = new Set(tasks.map(t => t.googleCalendarEventId).filter(Boolean));
+      const existingIds = new Set(reconciledTasks.map(t => t.googleCalendarEventId).filter(Boolean));
       const toAdd = gcalTasks.filter(t => t.googleCalendarEventId && !existingIds.has(t.googleCalendarEventId));
 
       if (toAdd.length > 0) {
-        onImportData([...toAdd, ...tasks], sleepRecords, { ...settings, googleCalendarConnected: true });
+        onImportData([...toAdd, ...reconciledTasks], sleepRecords, { ...settings, googleCalendarConnected: true });
         setSyncStatusMsg({
           type: 'success',
           text: `Synced successfully! Retrieved ${realEvents.length} events from your Google Calendar (${toAdd.length} new tasks added).`
         });
       } else {
-        onUpdateSettings({ ...settings, googleCalendarConnected: true });
+        onImportData(reconciledTasks, sleepRecords, { ...settings, googleCalendarConnected: true });
         setSyncStatusMsg({
           type: 'success',
           text: `Synced successfully! Retrieved ${realEvents.length} events from your Google Calendar. All tasks are up to date.`
@@ -140,7 +174,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const handleExportJson = () => {
       const exportObject = {
         version: '2.0',
-        schemaVersion: 2,
+        schemaVersion: STORAGE_SCHEMA_VERSION,
       exportedAt: new Date().toISOString(),
       settings,
       tasks,
@@ -164,12 +198,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     reader.onload = event => {
       try {
         const json = JSON.parse(event.target?.result as string);
-        if (Array.isArray(json.tasks) && Array.isArray(json.sleepRecords)) {
-          onImportData(json.tasks, json.sleepRecords, json.settings);
-           setDataStatusMsg({ type: 'success', text: 'Backup imported successfully.' });
-        } else {
-           setDataStatusMsg({ type: 'error', text: 'This file is not a valid calibration backup.' });
+        if (!Array.isArray(json.tasks) || !Array.isArray(json.sleepRecords)) {
+          setDataStatusMsg({ type: 'error', text: 'This file is not a valid calibration backup (missing tasks or sleepRecords arrays).' });
+          return;
         }
+
+        // Normalize + migrate imported tasks (v0 -> v1), reporting invalid records
+        const { tasks: normalizedTasks, rejected } = normalizeImportedTasks(json.tasks);
+        const importedSettings = (json.settings && typeof json.settings === 'object') ? json.settings : undefined;
+
+        onImportData(normalizedTasks, json.sleepRecords, importedSettings);
+        const rejectedNote = rejected.length > 0
+          ? ` ${rejected.length} invalid task record(s) skipped.`
+          : '';
+        setDataStatusMsg({
+          type: rejected.length > 0 ? 'warning' : 'success',
+          text: rejectedNote
+            ? `Backup imported with ${rejectedNote.trim()}`
+            : 'Backup imported successfully.'
+        });
       } catch (err) {
          setDataStatusMsg({ type: 'error', text: 'The backup file could not be read.' });
       }
@@ -271,6 +318,36 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             )}
           </button>
         </div>
+
+        {getStoredAccessToken() && (
+          <div className="border-t border-slate-100 pt-3 flex flex-col sm:flex-row sm:items-center gap-3">
+            <label className="text-xs font-semibold text-slate-700 shrink-0">
+              Calendar
+            </label>
+            <div className="flex flex-1 items-center gap-2">
+              <select
+                value={calendarId}
+                onChange={e => handleCalendarChange(e.target.value)}
+                disabled={calendarLoading}
+                className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white"
+              >
+                <option value="primary">Primary calendar (default)</option>
+                {calendars
+                  .filter(c => !c.primary)
+                  .map(c => (
+                    <option key={c.id} value={c.id}>{c.summary}</option>
+                  ))}
+              </select>
+              <button
+                onClick={handleLoadCalendars}
+                disabled={calendarLoading}
+                className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-60"
+              >
+                {calendarLoading ? 'Loading...' : 'Refresh list'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 2. Calibration behavior */}

@@ -17,7 +17,9 @@ import {
   isDurationCalibrationEligible,
   isCompletionCalibrationEligible,
   formatMinutesToHours,
-  getEvidenceLevel
+  getEvidenceLevel,
+  getStrongestCalibrationInsight,
+  getExperimentComparison
 } from './calibrationEngine';
 import {
   getInitialSampleTasks,
@@ -26,7 +28,8 @@ import {
   generateRandomCalibratedData,
   getInitialSampleSleepRecords,
   loadTasks,
-  migrateTaskV0ToV1
+  migrateTaskV0ToV1,
+  normalizeImportedTasks
 } from './storage';
 import { inferCategoryFromTitle, convertGCalEventToTask, GCalEvent } from './googleCalendar';
 import { CALENDAR_SCOPE, reconcileGCalEventsWithTasks, fetchRealGoogleCalendarEvents } from './googleAuthService';
@@ -2492,6 +2495,196 @@ export function runSystemValidationSuite(
     });
   } catch (e: any) {
     results.push({ name: 'Qualitative User Understanding', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Test 56: Strongest Calibration Insight is Evidence-Gated
+  try {
+    const emptyInsight = getStrongestCalibrationInsight([], 5);
+    const onlyUnderEstimate: TaskItem[] = Array.from({ length: 6 }, (_, i) => ({
+      id: `strong-${i}`,
+      title: `Task ${i}`,
+      category: 'Programming',
+      plannedStart: '2026-08-10T10:00:00.000Z',
+      plannedEnd: '2026-08-10T12:00:00.000Z',
+      plannedDurationMinutes: 120,
+      estimatedDurationMinutes: 120,
+      confidence: 80,
+      originalPlannedStart: '2026-08-10T10:00:00.000Z',
+      originalEstimatedDurationMinutes: 60,
+      predictionStatus: 'recorded',
+      createdAt: '2026-08-10T08:00:00.000Z',
+      execution: {
+        status: 'completed',
+        actualStart: '2026-08-10T10:00:00.000Z',
+        actualEnd: '2026-08-10T12:00:00.000Z',
+        actualDurationMinutes: 120,
+        postponedCount: 0,
+        originalScheduledDate: '2026-08-10',
+        durationMeasurementStatus: 'measured'
+      }
+    }));
+    const insight = getStrongestCalibrationInsight(onlyUnderEstimate, 5);
+    const pass =
+      emptyInsight === null &&
+      insight !== null &&
+      insight.sampleCount === 6 &&
+      insight.medianSignedErrorPercent > 0 &&
+      insight.evidenceLevel === 'early_pattern';
+    results.push({
+      name: 'Strongest Calibration Insight is Evidence-Gated',
+      passed: pass,
+      details: pass
+        ? 'Insight returns null below evidence threshold and surfaces the strongest measured pattern above it.'
+        : `Insight mismatch: empty=${emptyInsight}, insight=${JSON.stringify(insight)}`
+    });
+  } catch (e: any) {
+    results.push({ name: 'Strongest Calibration Insight is Evidence-Gated', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Test 57: Experiment Comparison Groups Baseline vs Intervention
+  try {
+    const makeMeasured = (id: string, originalMin: number, actualMin: number, withRC: boolean): TaskItem => ({
+      id,
+      title: id,
+      category: 'Programming',
+      plannedStart: '2026-08-10T10:00:00.000Z',
+      plannedEnd: '2026-08-10T12:00:00.000Z',
+      plannedDurationMinutes: 120,
+      estimatedDurationMinutes: actualMin,
+      confidence: 80,
+      originalPlannedStart: '2026-08-10T10:00:00.000Z',
+      originalEstimatedDurationMinutes: originalMin,
+      predictionStatus: 'recorded',
+      createdAt: '2026-08-10T08:00:00.000Z',
+      ...(withRC ? {
+        realityCheck: {
+          shown: true,
+          originalPredictionMinutes: originalMin,
+          finalPredictionMinutes: actualMin,
+          chosenDurationMinutes: actualMin,
+          userDecision: 'accepted_suggestion' as const,
+          createdAt: '2026-08-10T10:15:00.000Z'
+        }
+      } : {}),
+      execution: {
+        status: 'completed',
+        actualStart: '2026-08-10T10:00:00.000Z',
+        actualEnd: '2026-08-10T12:00:00.000Z',
+        actualDurationMinutes: actualMin,
+        postponedCount: 0,
+        originalScheduledDate: '2026-08-10',
+        durationMeasurementStatus: 'measured'
+      }
+    });
+    // Baseline: original 60 vs actual 120 (+100%) x5
+    const baseline = Array.from({ length: 5 }, (_, i) => makeMeasured(`base-${i}`, 60, 120, false));
+    // Intervention: original 60, suggested brought to 90 vs actual 100 (+11%) x5
+    const intervention = Array.from({ length: 5 }, (_, i) => makeMeasured(`int-${i}`, 60, 100, true));
+    const comp = getExperimentComparison([...baseline, ...intervention], 5);
+    const pass =
+      comp.baseline.count === 5 &&
+      comp.intervention.count === 5 &&
+      comp.baseline.meanAbsoluteErrorPercent === 100 &&
+      comp.intervention.meanAbsoluteErrorPercent === Math.round((40 / 60) * 100) &&
+      comp.improved === true;
+    results.push({
+      name: 'Experiment Comparison Groups Baseline vs Intervention',
+      passed: pass,
+      details: pass
+        ? 'Baseline and intervention groups are split correctly and use the same absolute error definition.'
+        : `Experiment mismatch: ${JSON.stringify(comp)}`
+    });
+  } catch (e: any) {
+    results.push({ name: 'Experiment Comparison Groups Baseline vs Intervention', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Test 58: Imported Task Normalization (migration, rejection, round-trip)
+  try {
+    const v0 = {
+      id: 'import-v0-1',
+      title: 'Legacy Imported',
+      category: 'Programming',
+      estimatedDurationMinutes: 90,
+      plannedDurationMinutes: 90,
+      confidence: 80,
+      plannedStart: '2026-08-10T10:00:00.000Z',
+      googleCalendarEventId: 'gcal-import-1'
+    };
+    const v1 = {
+      id: 'import-v1-1',
+      title: 'Modern Imported',
+      category: 'Studying',
+      behavioralTaskType: 'testing',
+      estimatedDurationMinutes: 45,
+      plannedStart: '2026-08-11T10:00:00.000Z',
+      schemaVersion: 'v1',
+      execution: { status: 'completed', actualDurationMinutes: 50, postponedCount: 0 }
+    };
+    const invalid = { id: 'import-bad-1', title: 'Broken' }; // missing category + estimate
+    const { tasks: normalized, rejected } = normalizeImportedTasks([v0, v1, invalid]);
+
+    const migrated = normalized.find(t => t.id === 'import-v0-1');
+    const modern = normalized.find(t => t.id === 'import-v1-1');
+    const pass =
+      normalized.length === 2 &&
+      rejected.length === 1 &&
+      migrated?.schemaVersion === 'v1' &&
+      migrated?.behavioralTaskType === 'other' &&
+      migrated?.originalEstimatedDurationMinutes === 90 &&
+      modern?.behavioralTaskType === 'testing' &&
+      modern?.schemaVersion === 'v1';
+    results.push({
+      name: 'Imported Task Normalization',
+      passed: pass,
+      details: pass
+        ? 'v0 records migrate, v1 records keep explicit fields, invalid records are rejected.'
+        : `Normalization mismatch: ${normalized.length} ok / ${rejected.length} rejected`
+    });
+  } catch (e: any) {
+    results.push({ name: 'Imported Task Normalization', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Test 59: Reality Check Considers Behavioral Task Type
+  try {
+    const rcTasks: TaskItem[] = Array.from({ length: 7 }, (_, i) => ({
+      id: `rc-type-${i}`,
+      title: `RC ${i}`,
+      category: 'Programming',
+      behavioralTaskType: 'debugging',
+      plannedStart: '2026-08-10T10:00:00.000Z',
+      plannedEnd: '2026-08-10T12:00:00.000Z',
+      plannedDurationMinutes: 120,
+      estimatedDurationMinutes: 100,
+      confidence: 80,
+      originalPlannedStart: '2026-08-10T10:00:00.000Z',
+      originalEstimatedDurationMinutes: 100,
+      predictionStatus: 'recorded',
+      createdAt: '2026-08-10T08:00:00.000Z',
+      execution: {
+        status: 'completed',
+        actualStart: '2026-08-10T10:00:00.000Z',
+        actualEnd: '2026-08-10T13:00:00.000Z',
+        actualDurationMinutes: 180,
+        postponedCount: 0,
+        originalScheduledDate: '2026-08-10',
+        durationMeasurementStatus: 'measured'
+      }
+    }));
+    const withType = getRealityCheck('Programming', 120, rcTasks, { minObservationsForRealityCheck: 5 } as AppSettings, undefined, 'debugging');
+    const withoutType = getRealityCheck('Programming', 120, rcTasks, { minObservationsForRealityCheck: 5 } as AppSettings, undefined, undefined, 'nonexistent-id');
+    const pass =
+      withType.matchedBy === 'category_and_task_type' &&
+      withType.sampleCount === 7 &&
+      withoutType.matchedBy === 'category';
+    results.push({
+      name: 'Reality Check Considers Behavioral Task Type',
+      passed: pass,
+      details: pass
+        ? 'Behavioral task type narrows the reference class in Reality Check when evidence allows.'
+        : `RC taskType mismatch: withType=${withType.matchedBy}(${withType.sampleCount}), withoutType=${withoutType.matchedBy}`
+    });
+  } catch (e: any) {
+    results.push({ name: 'Reality Check Considers Behavioral Task Type', passed: false, details: `Failed with exception: ${e.message}` });
   }
 
   return results;

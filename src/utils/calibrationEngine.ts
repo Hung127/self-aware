@@ -14,6 +14,8 @@ import {
   AccuracyOverTimeCalibration,
   OverallCalibrationInsights,
   RealityCheckEffectiveness,
+  StrongestCalibrationInsight,
+  ExperimentComparison,
   EvidenceLevel,
   BehavioralTaskType
 } from '../types';
@@ -301,6 +303,7 @@ export function getRealityCheck(
   allTasks: TaskItem[],
   settings: AppSettings,
   tag?: string,
+  taskType?: BehavioralTaskType,
   currentTaskId?: string
 ): RealityCheckSuggestion {
   if (!estimatedDurationMinutes || estimatedDurationMinutes <= 0) {
@@ -320,7 +323,7 @@ export function getRealityCheck(
 
   const minObs = settings.minObservationsForRealityCheck || 5;
   const refClass = getReferenceClass(
-    { category, tag, id: currentTaskId },
+    { category, tag, id: currentTaskId, taskType },
     allTasks,
     minObs
   );
@@ -415,6 +418,95 @@ export function getRealityCheck(
     message: msg,
     suggestedDurationMinutes: medianActual,
     matchedBy: refClass.matchedBy
+  };
+}
+
+/**
+ * Returns the single strongest evidence-backed calibration pattern for Today's primary UI.
+ * Only categories with at least `minObservations` completed measured sessions and a
+ * median signed error magnitude of at least `minErrorPercent` are considered.
+ *
+ * @returns The strongest insight, or null when evidence is insufficient or no meaningful pattern exists
+ */
+export function getStrongestCalibrationInsight(
+  tasks: TaskItem[],
+  minObservations: number = 5,
+  minErrorPercent: number = 15
+): StrongestCalibrationInsight | null {
+  const candidates: StrongestCalibrationInsight[] = [];
+
+  CATEGORIES.forEach(cat => {
+    const ref = getReferenceClass({ category: cat }, tasks, minObservations);
+    if (ref.sampleCount < minObservations) return;
+    candidates.push({
+      category: cat,
+      medianSignedErrorPercent: ref.medianSignedError * 100,
+      sampleCount: ref.sampleCount,
+      evidenceLevel: getEvidenceLevel(ref.sampleCount),
+      message: ''
+    });
+  });
+
+  if (candidates.length === 0) return null;
+
+  candidates.sort((a, b) => Math.abs(b.medianSignedErrorPercent) - Math.abs(a.medianSignedErrorPercent));
+  const top = candidates[0];
+
+  if (Math.abs(top.medianSignedErrorPercent) < minErrorPercent) return null;
+
+  const absPct = Math.abs(Math.round(top.medianSignedErrorPercent));
+  const direction = top.medianSignedErrorPercent > 0
+    ? 'take longer than you forecast'
+    : 'finish faster than you forecast';
+  top.message = `On ${top.category.toLowerCase()} tasks you usually ${direction} by about ${absPct}%.`;
+  return top;
+}
+
+/**
+ * Compares baseline (no Reality Check) vs intervention (Reality Check shown) forecast
+ * error for the within-user experiment (Phase A vs Phase B). Uses the same absolute
+ * error definition in both phases.
+ */
+export function getExperimentComparison(
+  tasks: TaskItem[],
+  minObservations: number = 5
+): ExperimentComparison {
+  const measured = tasks.filter(t =>
+    t.predictionStatus !== 'not_recorded' &&
+    t.execution.status === 'completed' &&
+    t.execution.durationMeasurementStatus !== 'unknown' &&
+    !!t.execution.actualDurationMinutes &&
+    t.execution.actualDurationMinutes > 0 &&
+    getHistoricalCalibrationBaseline(t) > 0
+  );
+
+  const baseline = measured.filter(t => !t.realityCheck);
+  const intervention = measured.filter(t => t.realityCheck && t.realityCheck.shown);
+
+  const absErrPercent = (t: TaskItem) =>
+    calculateAbsoluteError(getHistoricalCalibrationBaseline(t), t.execution.actualDurationMinutes!) * 100;
+
+  const baseErrors = baseline.map(absErrPercent);
+  const intErrors = intervention.map(absErrPercent);
+
+  const enough = (n: number) => n >= minObservations;
+
+  return {
+    baseline: {
+      count: baseErrors.length,
+      meanAbsoluteErrorPercent: Math.round(calculateMean(baseErrors)),
+      medianAbsoluteErrorPercent: Math.round(calculateMedian(baseErrors))
+    },
+    intervention: {
+      count: intErrors.length,
+      meanAbsoluteErrorPercent: Math.round(calculateMean(intErrors)),
+      medianAbsoluteErrorPercent: Math.round(calculateMedian(intErrors))
+    },
+    baselineSufficient: enough(baseErrors.length),
+    interventionSufficient: enough(intErrors.length),
+    improved: enough(baseErrors.length) && enough(intErrors.length)
+      ? calculateMean(intErrors) < calculateMean(baseErrors)
+      : null
   };
 }
 

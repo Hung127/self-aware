@@ -17,12 +17,13 @@ import {
   seedPresetData,
   clearAllData
 } from './utils/storage';
-import { convertGCalEventToTask, getMockGCalEvents, GCalEvent } from './utils/googleCalendar';
+import { convertGCalEventToTask, GCalEvent } from './utils/googleCalendar';
 import { calculateRescheduledPlan } from './utils/calibrationEngine';
 import {
   getStoredAccessToken,
   signInWithGoogleCalendar,
-  fetchRealGoogleCalendarEvents
+  fetchAllGoogleCalendarEvents,
+  reconcileGCalEventsWithTasks
 } from './utils/googleAuthService';
 import { runSystemValidationSuite } from './utils/validationSuite';
 
@@ -213,15 +214,20 @@ export default function App() {
         token = authResult.accessToken;
       }
 
-      const { events: realEvents } = await fetchRealGoogleCalendarEvents(token);
+      const realEvents = await fetchAllGoogleCalendarEvents(token, { calendarId: settings.gcalCalendarId });
+      const reconciledTasks = reconcileGCalEventsWithTasks(tasks, realEvents);
+
+      // Convert real events into tasks (plan candidates only)
       const newGCalTasks = realEvents.map(convertGCalEventToTask);
 
       // Merge non-duplicate GCal tasks
-      const existingGCalIds = new Set(tasks.map(t => t.googleCalendarEventId).filter(Boolean));
+      const existingGCalIds = new Set(reconciledTasks.map(t => t.googleCalendarEventId).filter(Boolean));
       const toAdd = newGCalTasks.filter(t => t.googleCalendarEventId && !existingGCalIds.has(t.googleCalendarEventId));
 
       if (toAdd.length > 0) {
-        handleSetTasks([...toAdd, ...tasks]);
+        handleSetTasks([...toAdd, ...reconciledTasks]);
+      } else {
+        handleSetTasks(reconciledTasks);
       }
       handleSetSettings({ ...settings, googleCalendarConnected: true });
       return { success: true, count: realEvents.length };
@@ -325,6 +331,8 @@ export default function App() {
           <CalibrationView
             tasks={tasks}
             sleepRecords={sleepRecords}
+            settings={settings}
+            onUpdateSettings={handleSetSettings}
           />
         )}
 

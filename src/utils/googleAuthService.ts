@@ -151,21 +151,24 @@ export const listUserCalendars = async (): Promise<{ id: string; summary: string
 export const CALENDAR_SCOPE: 'read-only' | 'read-write' = 'read-only';
 
 /**
- * Fetch real user events directly from Google Calendar API v3 with pagination support.
- * Uses incremental sync tokens to avoid re-fetching unchanged events.
+ * Fetch one page of real user events from Google Calendar API v3.
  *
- * @param pageToken Optional page/nextSyncToken for incremental synchronization
- * @param maxResults Maximum number of events to return (default 250)
+ * Incremental synchronization tokens (nextSyncToken) are intentionally deferred for
+ * MVP: pagination is handled, but unchanged-event incremental sync is documented as
+ * future work (see AI_AGENT/IMPROVEMENT_IMPLEMENTATION_PLAN.md Phase 11 item 2).
+ *
+ * @param token OAuth bearer token (never sent as a URL query param)
+ * @param options Optional calendar id, page token, and page size
  * @returns Parsed GCal events and next page token
  */
 export const fetchRealGoogleCalendarEvents = async (
-  pageToken?: string,
-  maxResults: number = 250
+  token: string,
+  options?: { calendarId?: string; pageToken?: string; maxResults?: number }
 ): Promise<{ events: GCalEvent[]; nextPageToken?: string }> => {
-  const activeToken = pageToken ? undefined : (getStoredAccessToken());
-  const tokenForApi = pageToken ? pageToken : getStoredAccessToken();
+  const calendarId = options?.calendarId || 'primary';
+  const maxResults = options?.maxResults || 250;
 
-  if (!tokenForApi) {
+  if (!token) {
     throw new Error('Not authenticated with Google. Please sign in first.');
   }
 
@@ -174,13 +177,13 @@ export const fetchRealGoogleCalendarEvents = async (
   const timeMin = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString();
   const timeMax = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-  const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&timeMin=${encodeURIComponent(
+  const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?singleEvents=true&orderBy=startTime&timeMin=${encodeURIComponent(
     timeMin
-  )}&timeMax=${encodeURIComponent(timeMax)}&maxResults=${maxResults}&${pageToken ? `pageToken=${pageToken}` : ''}`;
+  )}&timeMax=${encodeURIComponent(timeMax)}&maxResults=${maxResults}${options?.pageToken ? `&pageToken=${encodeURIComponent(options.pageToken)}` : ''}`;
 
   const response = await fetch(url, {
     headers: {
-      Authorization: `Bearer ${tokenForApi}`,
+      Authorization: `Bearer ${token}`,
       Accept: 'application/json'
     }
   });
@@ -213,6 +216,34 @@ export const fetchRealGoogleCalendarEvents = async (
     }),
     nextPageToken: data.nextPageToken
   };
+};
+
+/**
+ * Fetch all events for a calendar by following nextPageToken pagination.
+ * Caps at MAX_PAGES to avoid unbounded requests.
+ */
+export const MAX_FETCH_PAGES = 5;
+
+export const fetchAllGoogleCalendarEvents = async (
+  token: string,
+  options?: { calendarId?: string; maxResults?: number }
+): Promise<GCalEvent[]> => {
+  const allEvents: GCalEvent[] = [];
+  let pageToken: string | undefined;
+  let pages = 0;
+
+  do {
+    const page = await fetchRealGoogleCalendarEvents(token, {
+      calendarId: options?.calendarId,
+      maxResults: options?.maxResults,
+      pageToken
+    });
+    allEvents.push(...page.events);
+    pageToken = page.nextPageToken;
+    pages += 1;
+  } while (pageToken && pages < MAX_FETCH_PAGES);
+
+  return allEvents;
 };
 
 

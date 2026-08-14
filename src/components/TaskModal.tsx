@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { TaskItem, TaskCategory, AppSettings, TaskPredictionDecision } from '../types';
-import { CATEGORIES, getRealityCheck, formatMinutesToHours } from '../utils/calibrationEngine';
+import { TaskItem, TaskCategory, AppSettings, TaskPredictionDecision, BehavioralTaskType } from '../types';
+import { CATEGORIES, getRealityCheck, PROGRAMMING_TASK_TYPES, formatMinutesToHours } from '../utils/calibrationEngine';
 import { Target, AlertTriangle, Info, Clock, X, Check, Shield } from 'lucide-react';
 
 interface TaskModalProps {
@@ -41,6 +41,9 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   const [title, setTitle] = useState(existingTask?.title || initialValues?.title || '');
   const [category, setCategory] = useState<TaskCategory>(existingTask?.category || initialValues?.category || 'Programming');
   const [tag, setTag] = useState(existingTask?.tag || initialValues?.tag || '');
+  const [behavioralTaskType, setBehavioralTaskType] = useState<BehavioralTaskType>(
+    existingTask?.behavioralTaskType || 'other'
+  );
   const [scheduledDate, setScheduledDate] = useState(
     existingTask?.plannedStart ? existingTask.plannedStart.split('T')[0] : initialValues?.plannedStart?.split('T')[0] || todayStr
   );
@@ -69,14 +72,15 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     existingTask?.realityCheck?.userDecision ?? null
   );
 
-  // Reality Check evaluation based on current category, estimated duration, tag
-  const realityCheck = getRealityCheck(category, estimatedMinutes, allTasks, settings, tag, existingTask?.id);
+  // Reality Check evaluation based on current category, estimated duration, tag, task type
+  const realityCheck = getRealityCheck(category, estimatedMinutes, allTasks, settings, tag, behavioralTaskType, existingTask?.id);
 
   useEffect(() => {
     if (existingTask) {
       setTitle(existingTask.title);
       setCategory(existingTask.category);
       setTag(existingTask.tag || '');
+      setBehavioralTaskType(existingTask.behavioralTaskType || 'other');
       setScheduledDate(existingTask.plannedStart.split('T')[0]);
       setStartTime(new Date(existingTask.plannedStart).toTimeString().substring(0, 5));
       setPlannedMinutes(existingTask.plannedDurationMinutes || existingTask.estimatedDurationMinutes);
@@ -176,6 +180,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       title: title.trim(),
       category,
       tag: tag.trim() || undefined,
+      behavioralTaskType,
       plannedStart: startDateTime,
       plannedEnd: endDateTime,
       plannedDurationMinutes: plannedMinutes,
@@ -288,6 +293,29 @@ export const TaskModal: React.FC<TaskModalProps> = ({
               />
             </div>
           </div>
+
+          {category === 'Programming' && (
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+                Task type <span className="text-xs font-normal text-slate-400">(optional, for reference class)</span>
+              </label>
+              <select
+                value={behavioralTaskType}
+                onChange={e => setBehavioralTaskType(e.target.value as BehavioralTaskType)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
+              >
+                {PROGRAMMING_TASK_TYPES.map(bt => (
+                  <option key={bt} value={bt}>
+                    {bt}
+                  </option>
+                ))}
+                <option value="other">other</option>
+              </select>
+              <p className="mt-1 text-xs text-slate-500">
+                Narrower reference class: implementation, debugging, testing, documentation.
+              </p>
+            </div>
+          )}
 
           {/* Start Time, Planned Schedule Duration & Estimated Prediction Duration */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

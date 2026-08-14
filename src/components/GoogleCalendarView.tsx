@@ -20,12 +20,12 @@ import {
   Sparkles,
   Link2
 } from 'lucide-react';
-import { GCalEvent, inferCategoryFromTitle, getMockGCalEvents } from '../utils/googleCalendar';
+import { GCalEvent, inferCategoryFromTitle } from '../utils/googleCalendar';
 import { TaskItem, TaskCategory } from '../types';
 import {
   getStoredAccessToken,
   signInWithGoogleCalendar,
-  fetchRealGoogleCalendarEvents,
+  fetchAllGoogleCalendarEvents,
   createRealGoogleCalendarEvent,
   updateRealGoogleCalendarEvent,
   deleteRealGoogleCalendarEvent
@@ -89,7 +89,7 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
   const [eventStartTime, setEventStartTime] = useState('09:00');
   const [eventEndTime, setEventEndTime] = useState('10:00');
 
-  // Load initial events from local storage or generate default set matching current date
+  // Load initial events from local storage (no fake seeding in production)
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_GCAL_KEY);
     if (saved) {
@@ -104,10 +104,8 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
       }
     }
 
-    // Generate sample events for today and tomorrow
-    const initialEvents = generateFreshEvents(new Date());
-    setEvents(initialEvents);
-    localStorage.setItem(STORAGE_GCAL_KEY, JSON.stringify(initialEvents));
+    // No saved events: show an empty calendar until a real sync or import happens
+    setEvents([]);
   }, []);
 
   // Synchronize local tasks that have googleCalendarEventId into renderable events state
@@ -161,41 +159,6 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
     });
   }, [tasks]);
 
-  const generateFreshEvents = (baseDate: Date): GCalEvent[] => {
-    const dateStr = formatLocalDate(baseDate);
-
-    const tomorrowDate = new Date(baseDate);
-    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
-    const tomorrowStr = formatLocalDate(tomorrowDate);
-
-    return [
-      {
-        id: `gcal-evt-today-1-${Date.now()}`,
-        summary: 'Deep Learning Transformer Architecture Reading',
-        description: 'Review Vaswani et al. paper and implementation details in PyTorch.',
-        start: { dateTime: `${dateStr}T09:00:00.000Z` },
-        end: { dateTime: `${dateStr}T11:00:00.000Z` },
-        status: 'confirmed'
-      },
-      {
-        id: `gcal-evt-today-2-${Date.now()}`,
-        summary: 'Data Structures & Algorithms Problem Practice',
-        description: 'Solve 3 graph traversal problems on LeetCode.',
-        start: { dateTime: `${dateStr}T14:00:00.000Z` },
-        end: { dateTime: `${dateStr}T16:00:00.000Z` },
-        status: 'confirmed'
-      },
-      {
-        id: `gcal-evt-tomorrow-1-${Date.now()}`,
-        summary: 'Mobile UI Layout & Responsiveness Audit',
-        description: 'Audit mobile navigation touch targets and accessibility.',
-        start: { dateTime: `${tomorrowStr}T10:00:00.000Z` },
-        end: { dateTime: `${tomorrowStr}T11:30:00.000Z` },
-        status: 'confirmed'
-      }
-    ];
-  };
-
   const saveEventsToStorage = (newEvents: GCalEvent[]) => {
     setEvents(newEvents);
     localStorage.setItem(STORAGE_GCAL_KEY, JSON.stringify(newEvents));
@@ -221,7 +184,7 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
       if (res.success) {
         const activeToken = getStoredAccessToken();
         if (activeToken) {
-          const { events: realEvents } = await fetchRealGoogleCalendarEvents(activeToken);
+          const realEvents = await fetchAllGoogleCalendarEvents(activeToken);
           saveEventsToStorage(realEvents);
         }
         showToast(`Synced! ${res.count} events retrieved from your Google Calendar account.`);

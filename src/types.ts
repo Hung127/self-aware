@@ -156,6 +156,30 @@ export interface RealityCheckSuggestion {
   matchedBy?: 'category_and_tag' | 'category' | 'category_and_task_type' | 'none';
 }
 
+export interface StrongestCalibrationInsight {
+  category: TaskCategory;
+  message: string;
+  medianSignedErrorPercent: number;
+  sampleCount: number;
+  evidenceLevel: EvidenceLevel;
+}
+
+export interface ExperimentComparison {
+  baseline: {
+    count: number;
+    meanAbsoluteErrorPercent: number;
+    medianAbsoluteErrorPercent: number;
+  };
+  intervention: {
+    count: number;
+    meanAbsoluteErrorPercent: number;
+    medianAbsoluteErrorPercent: number;
+  };
+  baselineSufficient: boolean;
+  interventionSufficient: boolean;
+  improved: boolean | null; // null when either group has insufficient data
+}
+
 export interface SleepGroupMetrics {
   eligibleTaskCount: number;
   completedTaskCount: number;
@@ -275,6 +299,14 @@ export interface AppSettings {
   minObservationsForRealityCheck: number; // Default 5
   smallSuggestionThresholdPercent: number; // Default 15
   realityCheckThresholdPercent: number; // Default 30
+  gcalCalendarId?: string; // Selected Google Calendar for sync (default: primary)
+  experimentAnswers?: ExperimentAnswer[]; // Optional qualitative survey responses
+}
+
+export interface ExperimentAnswer {
+  question: string;
+  answer: string;
+  createdAt: string;
 }
 
 export interface TestResult {
