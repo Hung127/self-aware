@@ -288,18 +288,19 @@ export const reconcileGCalEventsWithTasks = (
 };
 
 /**
- * Create a new event on user's primary Google Calendar
+ * Create a new event on the user's selected Google Calendar (defaults to primary).
  */
 export const createRealGoogleCalendarEvent = async (
   eventData: { summary: string; description?: string; startIso: string; endIso: string },
-  token?: string
+  token?: string,
+  calendarId: string = 'primary'
 ): Promise<GCalEvent> => {
   const activeToken = token || getStoredAccessToken();
   if (!activeToken) {
     throw new Error('Not authenticated with Google Calendar.');
   }
 
-  const url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+  const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`;
   const body = {
     summary: eventData.summary,
     description: eventData.description || '',
@@ -333,19 +334,20 @@ export const createRealGoogleCalendarEvent = async (
 };
 
 /**
- * Update an existing event on user's primary Google Calendar
+ * Update an existing event on the user's selected Google Calendar (defaults to primary).
  */
 export const updateRealGoogleCalendarEvent = async (
   eventId: string,
   eventData: { summary: string; description?: string; startIso: string; endIso: string },
-  token?: string
+  token?: string,
+  calendarId: string = 'primary'
 ): Promise<GCalEvent> => {
   const activeToken = token || getStoredAccessToken();
   if (!activeToken) {
     throw new Error('Not authenticated with Google Calendar.');
   }
 
-  const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(eventId)}`;
+  const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`;
   const body = {
     summary: eventData.summary,
     description: eventData.description || '',
@@ -379,15 +381,15 @@ export const updateRealGoogleCalendarEvent = async (
 };
 
 /**
- * Delete an event from user's primary Google Calendar
+ * Delete an event from the user's selected Google Calendar (defaults to primary).
  */
-export const deleteRealGoogleCalendarEvent = async (eventId: string, token?: string): Promise<void> => {
+export const deleteRealGoogleCalendarEvent = async (eventId: string, token?: string, calendarId: string = 'primary'): Promise<void> => {
   const activeToken = token || getStoredAccessToken();
   if (!activeToken) {
     throw new Error('Not authenticated with Google Calendar.');
   }
 
-  const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(eventId)}`;
+  const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`;
   const response = await fetch(url, {
     method: 'DELETE',
     headers: {

@@ -159,9 +159,11 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     }
 
     const immutableOriginalEstimate = existingTask
-      ? (existingTask.originalEstimatedDurationMinutes || existingTask.estimatedDurationMinutes)
+      ? (existingTask.originalEstimatedDurationMinutes || initialUserPrediction || estimatedMinutes)
       : initialUserPrediction;
 
+    // When no Reality Check is shown, drop any stale record from a previous
+    // edit so metadata never describes a prediction that no longer exists.
     const realityCheckDecision: TaskPredictionDecision | undefined = realityCheck.shouldWarn
       ? {
           shown: true,
@@ -173,7 +175,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
           finalPredictionMinutes: estimatedMinutes,
           createdAt: new Date().toISOString()
         }
-      : existingTask?.realityCheck;
+      : undefined;
 
     const task: TaskItem = {
       id: existingTask?.id || `task-${Date.now()}`,
@@ -469,9 +471,15 @@ export const TaskModal: React.FC<TaskModalProps> = ({
           )}
 
            {!realityCheck.shouldWarn && (
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 flex items-center space-x-2.5 text-xs">
-              <Shield className="w-4 h-4 text-slate-400 shrink-0" />
-              <span>{realityCheck.message}</span>
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 flex items-start space-x-2.5 text-xs">
+              <Shield className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+              <span>
+                {realityCheck.state === 'no_data' && realityCheck.sampleCount === 0
+                  ? 'No comparable completed history yet. This prediction becomes part of your calibration baseline.'
+                  : realityCheck.state === 'insufficient_data'
+                  ? `Early stage — ${realityCheck.message.toLowerCase()}`
+                  : realityCheck.message}
+              </span>
             </div>
           )}
 

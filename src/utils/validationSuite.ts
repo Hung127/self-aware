@@ -29,8 +29,11 @@ import {
   getInitialSampleSleepRecords,
   loadTasks,
   migrateTaskV0ToV1,
-  normalizeImportedTasks
+  normalizeImportedTasks,
+  sanitizeSettings,
+  normalizeSleepRecords
 } from './storage';
+import { updateTaskExecution, mergeTaskEdit, correctCompletedObservation } from './taskGuard';
 import { inferCategoryFromTitle, convertGCalEventToTask, GCalEvent } from './googleCalendar';
 import { CALENDAR_SCOPE, reconcileGCalEventsWithTasks, fetchRealGoogleCalendarEvents } from './googleAuthService';
 
@@ -2685,6 +2688,504 @@ export function runSystemValidationSuite(
     });
   } catch (e: any) {
     results.push({ name: 'Reality Check Considers Behavioral Task Type', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Test 60: Completed Execution Is Immutable
+  try {
+    const completed: TaskItem = {
+      id: 'imm-exec-1',
+      title: 'Immutable Exec',
+      category: 'Programming',
+      plannedStart: '2026-08-10T10:00:00.000Z',
+      plannedEnd: '2026-08-10T12:00:00.000Z',
+      plannedDurationMinutes: 120,
+      estimatedDurationMinutes: 100,
+      confidence: 80,
+      originalPlannedStart: '2026-08-10T10:00:00.000Z',
+      originalEstimatedDurationMinutes: 100,
+      predictionStatus: 'recorded',
+      createdAt: '2026-08-10T08:00:00.000Z',
+      execution: {
+        status: 'completed',
+        actualStart: '2026-08-10T10:00:00.000Z',
+        actualEnd: '2026-08-10T13:00:00.000Z',
+        actualDurationMinutes: 180,
+        durationMeasurementStatus: 'measured',
+        postponedCount: 0,
+        originalScheduledDate: '2026-08-10',
+        actualCompletionDate: '2026-08-10'
+      }
+    };
+    const rejected = updateTaskExecution(completed, { actualDurationMinutes: 42 });
+    const pass = rejected.ok === false && completed.execution.actualDurationMinutes === 180;
+    results.push({
+      name: 'Completed Execution Is Immutable',
+      passed: pass,
+      details: pass
+        ? 'Execution updates to a completed task are rejected; corrections go through the explicit mechanism.'
+        : `Expected rejection, got ok=${rejected.ok}`
+    });
+  } catch (e: any) {
+    results.push({ name: 'Completed Execution Is Immutable', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Test 61: Immutable Historical Prediction Fields Survive Edits
+  try {
+    const existing: TaskItem = {
+      id: 'imm-pred-1',
+      title: 'Original Title',
+      category: 'Programming',
+      plannedStart: '2026-08-10T10:00:00.000Z',
+      plannedEnd: '2026-08-10T12:00:00.000Z',
+      plannedDurationMinutes: 120,
+      estimatedDurationMinutes: 100,
+      confidence: 80,
+      originalPlannedStart: '2026-08-10T10:00:00.000Z',
+      originalEstimatedDurationMinutes: 100,
+      predictionStatus: 'recorded',
+      createdAt: '2026-08-10T08:00:00.000Z',
+      execution: {
+        status: 'completed',
+        actualDurationMinutes: 180,
+        durationMeasurementStatus: 'measured',
+        postponedCount: 0,
+        originalScheduledDate: '2026-08-10'
+      }
+    };
+    const incoming: TaskItem = {
+      ...existing,
+      title: 'Edited Title',
+      originalEstimatedDurationMinutes: 999,
+      originalPlannedStart: '2099-01-01T00:00:00.000Z',
+      estimatedDurationMinutes: 55,
+      execution: { ...existing.execution, actualDurationMinutes: 1 }
+    };
+    const merged = mergeTaskEdit(existing, incoming);
+    const pass =
+      merged.originalEstimatedDurationMinutes === 100 &&
+      merged.originalPlannedStart === '2026-08-10T10:00:00.000Z' &&
+      merged.predictionStatus === 'recorded' &&
+      merged.execution.actualDurationMinutes === 180 &&
+      merged.title === 'Edited Title' &&
+      merged.estimatedDurationMinutes === 55;
+    results.push({
+      name: 'Immutable Historical Prediction Fields Survive Edits',
+      passed: pass,
+      details: pass
+        ? 'Original forecast, original planned start, and locked execution are preserved on edit.'
+        : `Merge mismatch: original=${merged.originalEstimatedDurationMinutes}, plannedStart=${merged.originalPlannedStart}, exec=${merged.execution.actualDurationMinutes}`
+    });
+  } catch (e: any) {
+    results.push({ name: 'Immutable Historical Prediction Fields Survive Edits', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Test 62: Explicit Correction of Completed Observation
+  try {
+    const completed: TaskItem = {
+      id: 'corr-1',
+      title: 'Correction Target',
+      category: 'Programming',
+      plannedStart: '2026-08-10T10:00:00.000Z',
+      plannedEnd: '2026-08-10T12:00:00.000Z',
+      plannedDurationMinutes: 120,
+      estimatedDurationMinutes: 100,
+      confidence: 80,
+      originalPlannedStart: '2026-08-10T10:00:00.000Z',
+      originalEstimatedDurationMinutes: 100,
+      predictionStatus: 'recorded',
+      createdAt: '2026-08-10T08:00:00.000Z',
+      execution: {
+        status: 'completed',
+        actualDurationMinutes: 200,
+        durationMeasurementStatus: 'measured',
+        postponedCount: 0,
+        originalScheduledDate: '2026-08-10',
+        actualCompletionDate: '2026-08-10'
+      }
+    };
+    const corrected = correctCompletedObservation(completed, {
+      actualDurationMinutes: 95,
+      actualCompletionDate: '2026-08-10',
+      reason: 'Timer left running'
+    });
+    const pass =
+      corrected.execution.actualDurationMinutes === 95 &&
+      corrected.execution.durationMeasurementStatus === 'measured' &&
+      corrected.execution.correction?.previous.actualDurationMinutes === 200 &&
+      corrected.execution.correction?.reason === 'Timer left running';
+    results.push({
+      name: 'Explicit Correction of Completed Observation',
+      passed: pass,
+      details: pass
+        ? 'Correction writes the corrected values and records an audit trail.'
+        : `Correction mismatch: actual=${corrected.execution.actualDurationMinutes}, previous=${corrected.execution.correction?.previous.actualDurationMinutes}`
+    });
+  } catch (e: any) {
+    results.push({ name: 'Explicit Correction of Completed Observation', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Test 63: Postponed -> Executed Lifecycle
+  try {
+    const postponed: TaskItem = {
+      id: 'lifecycle-1',
+      title: 'Postponed Task',
+      category: 'Studying',
+      plannedStart: '2026-08-12T10:00:00.000Z',
+      plannedEnd: '2026-08-12T12:00:00.000Z',
+      plannedDurationMinutes: 120,
+      estimatedDurationMinutes: 120,
+      confidence: 80,
+      originalPlannedStart: '2026-08-10T10:00:00.000Z',
+      originalEstimatedDurationMinutes: 120,
+      predictionStatus: 'recorded',
+      createdAt: '2026-08-09T08:00:00.000Z',
+      execution: {
+        status: 'postponed',
+        postponedCount: 1,
+        originalScheduledDate: '2026-08-10'
+      }
+    };
+    const started = updateTaskExecution(postponed, {
+      status: 'in_progress',
+      actualStart: '2026-08-12T10:05:00.000Z'
+    });
+    const finished = started.ok
+      ? updateTaskExecution(started.task, {
+          status: 'completed',
+          actualEnd: '2026-08-12T12:30:00.000Z',
+          actualDurationMinutes: 145,
+          durationMeasurementStatus: 'measured',
+          actualCompletionDate: '2026-08-12'
+        })
+      : { ok: false as const, error: 'start rejected' };
+    const lockedAfter = finished.ok
+      ? updateTaskExecution(finished.task, { actualDurationMinutes: 1 })
+      : { ok: false as const, error: 'never finished' };
+    const calibration = calculateCompletionCalibration(finished.ok ? [finished.task] : [postponed]);
+    const pass =
+      started.ok === true &&
+      finished.ok === true &&
+      finished.ok && finished.task.execution.status === 'completed' &&
+      finished.ok && finished.task.execution.originalScheduledDate === '2026-08-10' &&
+      lockedAfter.ok === false &&
+      calibration.completedCount === 1;
+    results.push({
+      name: 'Postponed to Executed Lifecycle',
+      passed: pass,
+      details: pass
+        ? 'A postponed task can start, complete, attribute to its original scheduled date, and lock afterward.'
+        : `Lifecycle mismatch: started=${started.ok}, finished=${finished.ok}, locked=${lockedAfter.ok}, completed=${calibration.completedCount}`
+    });
+  } catch (e: any) {
+    results.push({ name: 'Postponed to Executed Lifecycle', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Test 64: Reality Check Distinguishes All Five States
+  try {
+    const mkCompleted = (id: string, actual: number, category: TaskCategory = 'Reading'): TaskItem => ({
+      id,
+      title: `RC ${id}`,
+      category,
+      plannedStart: '2026-08-10T10:00:00.000Z',
+      plannedEnd: '2026-08-10T12:00:00.000Z',
+      plannedDurationMinutes: 120,
+      estimatedDurationMinutes: 100,
+      confidence: 80,
+      originalPlannedStart: '2026-08-10T10:00:00.000Z',
+      originalEstimatedDurationMinutes: 100,
+      predictionStatus: 'recorded',
+      createdAt: '2026-08-10T08:00:00.000Z',
+      execution: {
+        status: 'completed',
+        actualDurationMinutes: actual,
+        durationMeasurementStatus: 'measured',
+        postponedCount: 0,
+        originalScheduledDate: '2026-08-10'
+      }
+    });
+    const settings5 = { minObservationsForRealityCheck: 5, smallSuggestionThresholdPercent: 15, realityCheckThresholdPercent: 30 } as AppSettings;
+
+    const noData = getRealityCheck('Reading', 120, [], settings5);
+    const insufficient = getRealityCheck('Reading', 120, [mkCompleted('a', 90), mkCompleted('b', 95)], settings5);
+    const within = getRealityCheck('Reading', 100, Array.from({ length: 5 }, (_, i) => mkCompleted(`w${i}`, 105)), settings5);
+    const soft = getRealityCheck('Reading', 100, Array.from({ length: 5 }, (_, i) => mkCompleted(`s${i}`, 120)), settings5);
+    const strong = getRealityCheck('Reading', 100, Array.from({ length: 5 }, (_, i) => mkCompleted(`t${i}`, 150)), settings5);
+
+    const pass =
+      noData.state === 'no_data' && !noData.shouldWarn &&
+      insufficient.state === 'insufficient_data' && !insufficient.shouldWarn &&
+      within.state === 'within_expected_range' && !within.shouldWarn &&
+      soft.state === 'soft_warning' && soft.severity === 'small' && soft.shouldWarn &&
+      strong.state === 'strong_warning' && strong.severity === 'reality_check' && strong.shouldWarn;
+    results.push({
+      name: 'Reality Check Distinguishes All Five States',
+      passed: pass,
+      details: pass
+        ? 'no_data, insufficient_data, within_expected_range, soft_warning, strong_warning are all distinct.'
+        : `State mismatch: ${noData.state}/${insufficient.state}/${within.state}/${soft.state}/${strong.state}`
+    });
+  } catch (e: any) {
+    results.push({ name: 'Reality Check Distinguishes All Five States', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Test 65: Start-Time Delays Are Signed (Early Is Negative, Never Clamped)
+  try {
+    const mkStarted = (id: string, actualStart: string): TaskItem => ({
+      id,
+      title: `Start ${id}`,
+      category: 'Writing',
+      plannedStart: '2026-08-10T10:00:00.000Z',
+      plannedEnd: '2026-08-10T11:00:00.000Z',
+      plannedDurationMinutes: 60,
+      estimatedDurationMinutes: 60,
+      confidence: 80,
+      originalPlannedStart: '2026-08-10T10:00:00.000Z',
+      originalEstimatedDurationMinutes: 60,
+      predictionStatus: 'recorded',
+      createdAt: '2026-08-10T08:00:00.000Z',
+      execution: {
+        status: 'completed',
+        actualStart,
+        actualDurationMinutes: 60,
+        durationMeasurementStatus: 'measured',
+        postponedCount: 0,
+        originalScheduledDate: '2026-08-10'
+      }
+    });
+    const allEarly = [
+      mkStarted('e1', '2026-08-10T09:50:00.000Z'),
+      mkStarted('e2', '2026-08-10T09:45:00.000Z'),
+      mkStarted('e3', '2026-08-10T09:55:00.000Z')
+    ];
+    const calibration = calculateStartTimeCalibration(allEarly);
+    const pass = calibration.averageDelayMinutes < 0 && calibration.medianDelayMinutes < 0;
+    results.push({
+      name: 'Start-Time Delays Are Signed',
+      passed: pass,
+      details: pass
+        ? `Early starts stay negative (avg ${calibration.averageDelayMinutes} min) instead of being clamped to zero.`
+        : `Delays were clamped: averageDelayMinutes=${calibration.averageDelayMinutes}`
+    });
+  } catch (e: any) {
+    results.push({ name: 'Start-Time Delays Are Signed', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Test 66: Sleep-Context Denominator Excludes No-Record Dates
+  try {
+    const mkSleepTask = (id: string, date: string): TaskItem => ({
+      id,
+      title: `Sleep ${id}`,
+      category: 'Exercise',
+      plannedStart: `${date}T10:00:00.000Z`,
+      plannedEnd: `${date}T11:00:00.000Z`,
+      plannedDurationMinutes: 60,
+      estimatedDurationMinutes: 60,
+      confidence: 80,
+      originalPlannedStart: `${date}T10:00:00.000Z`,
+      originalEstimatedDurationMinutes: 60,
+      predictionStatus: 'recorded',
+      createdAt: `${date}T08:00:00.000Z`,
+      execution: {
+        status: 'completed',
+        actualDurationMinutes: 60,
+        durationMeasurementStatus: 'measured',
+        postponedCount: 0,
+        originalScheduledDate: date
+      }
+    });
+    const tasks = [
+      mkSleepTask('d1a', '2026-08-10'),
+      mkSleepTask('d1b', '2026-08-10'),
+      mkSleepTask('d2', '2026-08-11')
+    ];
+    const sleepRecords = [
+      { id: 's1', date: '2026-08-10', plannedBedtime: '23:00', actualBedtime: '23:30', plannedWakeTime: '07:00', actualWakeTime: '05:30', actualSleepDurationMinutes: 360, isShortSleep: true }
+    ];
+    const impact = calculateSleepImpact(tasks, sleepRecords);
+    const shortMetrics = impact.shortSleepMetrics;
+    const pass =
+      impact.shortSleepDaysCount === 1 &&
+      impact.normalSleepDaysCount === 0 &&
+      shortMetrics !== undefined && shortMetrics.eligibleTaskCount === 2 &&
+      impact.completionDropPercent === 0;
+    results.push({
+      name: 'Sleep-Context Denominator Excludes No-Record Dates',
+      passed: pass,
+      details: pass
+        ? 'Tasks on dates without a sleep record are excluded from both sleep groups.'
+        : `Sleep denominator mismatch: short days=${impact.shortSleepDaysCount}, short eligible=${shortMetrics?.eligibleTaskCount}, normal days=${impact.normalSleepDaysCount}`
+    });
+  } catch (e: any) {
+    results.push({ name: 'Sleep-Context Denominator Excludes No-Record Dates', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Test 67: isShortSleep Is Derived From Duration on Load
+  try {
+    const { records } = normalizeSleepRecords([
+      { id: 'long', date: '2026-08-10', actualSleepDurationMinutes: 420 },
+      { id: 'short', date: '2026-08-11', actualSleepDurationMinutes: 300 }
+    ]);
+    const long = records.find(r => r.id === 'long');
+    const short = records.find(r => r.id === 'short');
+    const pass = long !== undefined && short !== undefined && long.isShortSleep === false && short.isShortSleep === true;
+    results.push({
+      name: 'isShortSleep Derived From Duration',
+      passed: pass,
+      details: pass
+        ? 'Sleep records normalize isShortSleep from actualSleepDurationMinutes (< 6h).'
+        : `Derivation mismatch: long=${long?.isShortSleep}, short=${short?.isShortSleep}`
+    });
+  } catch (e: any) {
+    results.push({ name: 'isShortSleep Derived From Duration', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Test 68: Imported Tasks Are Structurally Normalized
+  try {
+    const missingExec = {
+      id: 'imp-1',
+      title: 'Imported Task',
+      category: 'Programming',
+      estimatedDurationMinutes: 90,
+      plannedStart: '2026-08-15T10:00:00.000Z'
+    };
+    const badCategory = {
+      id: 'imp-2',
+      title: 'Bad Category',
+      category: 'WeirdCategory',
+      estimatedDurationMinutes: 90,
+      plannedStart: '2026-08-15T10:00:00.000Z',
+      execution: { status: 'not_started', postponedCount: 0 }
+    };
+    const { tasks: normalized, rejected } = normalizeImportedTasks([missingExec, badCategory]);
+    const good = normalized.find(t => t.id === 'imp-1');
+    const pass =
+      good !== undefined &&
+      good.execution.status === 'not_started' &&
+      good.execution.postponedCount === 0 &&
+      good.execution.originalScheduledDate === '2026-08-15' &&
+      rejected.length === 1 &&
+      rejected[0].includes('unknown category');
+    results.push({
+      name: 'Imported Tasks Are Structurally Normalized',
+      passed: pass,
+      details: pass
+        ? 'Missing execution is defaulted and invalid categories are rejected with a reason.'
+        : `Import mismatch: normalized=${normalized.length}, rejected=${rejected.length}, good=${good?.execution.status}`
+    });
+  } catch (e: any) {
+    results.push({ name: 'Imported Tasks Are Structurally Normalized', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Test 69: v0 Migration Is Idempotent and Does Not Fabricate Estimates
+  try {
+    const noEstimate = {
+      id: 'v0-min',
+      title: 'Legacy Task',
+      category: 'Personal',
+      estimatedDurationMinutes: undefined,
+      plannedStart: '2026-08-10T10:00:00.000Z',
+      plannedEnd: '2026-08-10T11:00:00.000Z',
+      plannedDurationMinutes: undefined
+    };
+    const first = migrateTaskV0ToV1(noEstimate);
+    const second = migrateTaskV0ToV1(first);
+    const pass =
+      first.originalEstimatedDurationMinutes === 0 &&
+      second.originalEstimatedDurationMinutes === 0 &&
+      first.behavioralTaskType === second.behavioralTaskType &&
+      first.originalPlannedStart === second.originalPlannedStart &&
+      first.schemaVersion === 'v1';
+    results.push({
+      name: 'v0 Migration Is Idempotent and Does Not Fabricate Estimates',
+      passed: pass,
+      details: pass
+        ? 'Missing estimates migrate to 0 (never silently 60) and re-migration is stable.'
+        : `Migration mismatch: first=${first.originalEstimatedDurationMinutes}, second=${second.originalEstimatedDurationMinutes}`
+    });
+  } catch (e: any) {
+    results.push({ name: 'v0 Migration Is Idempotent and Does Not Fabricate Estimates', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Test 70: Settings Sanitization Clamps Out-of-Range Values
+  try {
+    const low = sanitizeSettings({ minObservationsForRealityCheck: 1, smallSuggestionThresholdPercent: 15, realityCheckThresholdPercent: 30 });
+    const valid = sanitizeSettings({ minObservationsForRealityCheck: 7, smallSuggestionThresholdPercent: 20, realityCheckThresholdPercent: 40 });
+    const inverted = sanitizeSettings({ minObservationsForRealityCheck: 5, smallSuggestionThresholdPercent: 30, realityCheckThresholdPercent: 10 });
+    const pass =
+      low.minObservationsForRealityCheck === 5 &&
+      valid.minObservationsForRealityCheck === 7 &&
+      valid.smallSuggestionThresholdPercent === 20 &&
+      valid.realityCheckThresholdPercent === 40 &&
+      inverted.realityCheckThresholdPercent === 30;
+    results.push({
+      name: 'Settings Sanitization Clamps Out-of-Range Values',
+      passed: pass,
+      details: pass
+        ? 'minObservations floors at 3/default and thresholds stay coherent.'
+        : `Sanitize mismatch: low=${low.minObservationsForRealityCheck}, inverted RC=${inverted.realityCheckThresholdPercent}`
+    });
+  } catch (e: any) {
+    results.push({ name: 'Settings Sanitization Clamps Out-of-Range Values', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Test 71: Calendar Reconcile Refreshes Plan While Preserving Prediction History
+  try {
+    const linked: TaskItem = {
+      id: 'reconcile-keep',
+      title: 'Old Summary',
+      category: 'Programming',
+      plannedStart: '2026-08-10T10:00:00.000Z',
+      plannedEnd: '2026-08-10T12:00:00.000Z',
+      plannedDurationMinutes: 120,
+      estimatedDurationMinutes: 130,
+      confidence: 85,
+      originalPlannedStart: '2026-08-10T10:00:00.000Z',
+      originalEstimatedDurationMinutes: 130,
+      predictionStatus: 'recorded',
+      planSource: 'google_calendar',
+      googleCalendarEventId: 'evt-reconcile-1',
+      realityCheck: {
+        shown: true,
+        suggestedDurationMinutes: 100,
+        userDecision: 'accepted_suggestion',
+        originalPredictionMinutes: 130,
+        finalPredictionMinutes: 100,
+        createdAt: '2026-08-09T20:00:00.000Z'
+      },
+      createdAt: '2026-08-09T08:00:00.000Z',
+      execution: {
+        status: 'not_started',
+        postponedCount: 0,
+        originalScheduledDate: '2026-08-10'
+      }
+    };
+    const movedEvent: GCalEvent = {
+      id: 'evt-reconcile-1',
+      summary: 'Moved Summary',
+      start: { dateTime: '2026-08-11T14:00:00.000Z' },
+      end: { dateTime: '2026-08-11T15:30:00.000Z' },
+      status: 'confirmed'
+    };
+    const reconciled = reconcileGCalEventsWithTasks([linked], [movedEvent]);
+    const updated = reconciled.find(t => t.id === 'reconcile-keep');
+    const pass =
+      updated !== undefined &&
+      updated.plannedStart === '2026-08-11T14:00:00.000Z' &&
+      updated.plannedEnd === '2026-08-11T15:30:00.000Z' &&
+      updated.plannedDurationMinutes === 90 &&
+      updated.originalPlannedStart === '2026-08-10T10:00:00.000Z' &&
+      updated.originalEstimatedDurationMinutes === 130 &&
+      updated.realityCheck?.finalPredictionMinutes === 100 &&
+      updated.execution.status === 'not_started';
+    results.push({
+      name: 'Calendar Reconcile Refreshes Plan While Preserving Prediction History',
+      passed: pass,
+      details: pass
+        ? 'Event edits update the plan window while the recorded forecast and Reality Check decision survive.'
+        : `Reconcile mismatch: start=${updated?.plannedStart}, original=${updated?.originalEstimatedDurationMinutes}, rc=${updated?.realityCheck?.finalPredictionMinutes}`
+    });
+  } catch (e: any) {
+    results.push({ name: 'Calendar Reconcile Refreshes Plan While Preserving Prediction History', passed: false, details: `Failed with exception: ${e.message}` });
   }
 
   return results;

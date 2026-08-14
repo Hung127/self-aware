@@ -11,17 +11,20 @@ import {
   RotateCcw,
   SkipForward,
   Trash2,
-  Calendar
+  Calendar,
+  PenLine
 } from 'lucide-react';
 
 interface HistoryViewProps {
   tasks: TaskItem[];
   onDeleteTask: (taskId: string) => void;
+  onCorrectTask: (task: TaskItem) => void;
 }
 
 export const HistoryView: React.FC<HistoryViewProps> = ({
   tasks,
-  onDeleteTask
+  onDeleteTask,
+  onCorrectTask
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -174,31 +177,80 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
+
+                    {isDone && (
+                      <button
+                        onClick={() => onCorrectTask(task)}
+                        title="Correct this completed observation"
+                        aria-label="Correct completed observation"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                      >
+                        <PenLine className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                {/* Side-by-side Expectation vs Reality */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* What I Expected */}
-                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
-                      What I Expected
-                    </span>
-                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-                       <div>
-                         <span className="text-slate-400 block">Original Forecast</span>
-                         <span className="font-bold text-slate-800">{formatMinutesToHours(est)}</span>
-                       </div>
-                       <div>
-                         <span className="text-slate-400 block">Final Plan</span>
-                         <span className="font-bold text-slate-800">{formatMinutesToHours(task.estimatedDurationMinutes)}</span>
-                       </div>
-                       <div>
-                        <span className="text-slate-400 block">Stated Confidence</span>
-                        <span className="font-bold text-blue-600">{task.confidence}%</span>
+                  {/* Side-by-side Expectation vs Reality */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* What I Expected */}
+                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+                        What I Expected
+                      </span>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                        <div>
+                          <span className="text-slate-400 block">Original Forecast</span>
+                          <span className="font-bold text-slate-800">{formatMinutesToHours(est)}</span>
+                        </div>
+                        {task.realityCheck?.shown && task.realityCheck.suggestedDurationMinutes ? (
+                          <div>
+                            <span className="text-slate-400 block">Suggested</span>
+                            <span className="font-bold text-blue-600">{formatMinutesToHours(task.realityCheck.suggestedDurationMinutes)}</span>
+                          </div>
+                        ) : null}
+                        <div>
+                          <span className="text-slate-400 block">Final Plan</span>
+                          <span className="font-bold text-slate-800">{formatMinutesToHours(task.estimatedDurationMinutes)}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block">Stated Confidence</span>
+                          <span className="font-bold text-blue-600">{task.confidence}%</span>
+                        </div>
                       </div>
+
+                      {task.realityCheck?.shown && (
+                        <div className="pt-1.5 border-t border-slate-200">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Decision</span>
+                          <span className="text-xs font-semibold text-slate-700">
+                            {task.realityCheck.userDecision === 'accepted_suggestion'
+                              ? 'Used historical suggestion'
+                              : task.realityCheck.userDecision === 'kept_original'
+                              ? 'Kept original forecast'
+                              : task.realityCheck.userDecision === 'custom_adjusted'
+                              ? 'Custom adjusted'
+                              : 'Prediction recorded'}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Original vs final forecast error */}
+                      {hasActual && task.estimatedDurationMinutes !== est && (
+                        <div className="flex items-center space-x-3 text-[11px] text-slate-600 pt-1">
+                          <span>
+                            Original error: <strong className={Math.round(calculateEstimationError(est, act) * 100) > 0 ? 'text-amber-700' : 'text-emerald-700'}>
+                              {Math.round(calculateEstimationError(est, act) * 100)}%
+                            </strong>
+                          </span>
+                          <span className="text-slate-300">→</span>
+                          <span>
+                            Final error: <strong className={Math.round(calculateEstimationError(task.estimatedDurationMinutes, act) * 100) > 0 ? 'text-amber-700' : 'text-emerald-700'}>
+                              {Math.round(calculateEstimationError(task.estimatedDurationMinutes, act) * 100)}%
+                            </strong>
+                          </span>
+                        </div>
+                      )}
                     </div>
-                  </div>
 
                   {/* What Actually Happened */}
                   <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
@@ -255,6 +307,24 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                           "{task.execution.reflection.notes}"
                         </span>
                       )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Correction audit note */}
+                {task.execution.correction && (
+                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-start space-x-2.5 text-xs text-amber-900">
+                    <PenLine className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold block uppercase tracking-wider text-[10px]">
+                        Observation corrected
+                      </span>
+                      <span className="mt-0.5 block">
+                        Previous: {task.execution.correction.previous.actualDurationMinutes !== undefined
+                          ? formatMinutesToHours(task.execution.correction.previous.actualDurationMinutes)
+                          : 'not measured'}
+                        {task.execution.correction.reason ? ` · ${task.execution.correction.reason}` : ''}
+                      </span>
                     </div>
                   </div>
                 )}

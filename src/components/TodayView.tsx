@@ -13,7 +13,8 @@ import {
   SkipForward,
   Trash2,
   Sparkles,
-  Calendar
+  Calendar,
+  Info
 } from 'lucide-react';
 
 interface TodayViewProps {
@@ -293,6 +294,17 @@ export const TodayView: React.FC<TodayViewProps> = ({
               <span className="font-medium">{quickReality.message}</span>
             </div>
              <span className="ml-2 shrink-0 text-xs font-medium text-amber-800">Review in the next step</span>
+          </div>
+        )}
+
+        {!quickReality.shouldWarn && (quickReality.state === 'no_data' || quickReality.state === 'insufficient_data') && (
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-xs flex items-start space-x-2">
+            <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+            <span className="font-medium">
+              {quickReality.state === 'no_data'
+                ? `No completed ${quickCategory.toLowerCase()} tasks yet. Reality checks calibrate once you finish a few sessions.`
+                : quickReality.message}
+            </span>
           </div>
         )}
       </div>

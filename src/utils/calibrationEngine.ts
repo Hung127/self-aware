@@ -310,6 +310,7 @@ export function getRealityCheck(
     return {
       shouldWarn: false,
       severity: 'none',
+      state: 'no_data',
       historicalAverageMinutes: 0,
       medianActualDurationMinutes: 0,
       meanActualDurationMinutes: 0,
@@ -340,6 +341,7 @@ export function getRealityCheck(
     return {
       shouldWarn: false,
       severity: 'none',
+      state: eligibleInCategory > 0 ? 'insufficient_data' : 'no_data',
       historicalAverageMinutes: estimatedDurationMinutes,
       medianActualDurationMinutes: refClass.medianActualDuration,
       meanActualDurationMinutes: refClass.meanActualDuration,
@@ -369,6 +371,7 @@ export function getRealityCheck(
     return {
       shouldWarn: false,
       severity: 'none',
+      state: 'within_expected_range',
       historicalAverageMinutes: medianActual,
       medianActualDurationMinutes: medianActual,
       meanActualDurationMinutes: meanActual,
@@ -390,6 +393,7 @@ export function getRealityCheck(
     return {
       shouldWarn: true,
       severity: 'small',
+      state: 'soft_warning',
       historicalAverageMinutes: medianActual,
       medianActualDurationMinutes: medianActual,
       meanActualDurationMinutes: meanActual,
@@ -410,6 +414,7 @@ export function getRealityCheck(
   return {
     shouldWarn: true,
     severity: 'reality_check',
+    state: 'strong_warning',
     historicalAverageMinutes: medianActual,
     medianActualDurationMinutes: medianActual,
     meanActualDurationMinutes: meanActual,

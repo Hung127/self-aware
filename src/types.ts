@@ -48,6 +48,13 @@ export type ReflectionCategory =
   | 'underestimated_work'
   | 'other';
 
+export type RealityCheckState =
+  | 'no_data'               // no comparable observations at all
+  | 'insufficient_data'     // some observations but below minObservations
+  | 'within_expected_range' // |diff| below the small-suggestion threshold
+  | 'soft_warning'          // |diff| within soft/strong thresholds
+  | 'strong_warning';       // |diff| above the strong Reality Check threshold
+
 export interface PostExecutionReflection {
   reason: ReflectionCategory;
   notes?: string;
@@ -58,6 +65,15 @@ export interface PostponementEvent {
   postponedAt: string; // ISO string
   fromDate: string;    // YYYY-MM-DD
   toDate?: string;     // YYYY-MM-DD
+}
+
+export interface ExecutionCorrection {
+  createdAt: string; // ISO string
+  previous: {
+    actualDurationMinutes?: number;
+    actualCompletionDate?: string;
+  };
+  reason?: string;
 }
 
 export interface TaskPredictionDecision {
@@ -111,6 +127,7 @@ export interface TaskExecution {
   originalScheduledDate: string; // YYYY-MM-DD
   actualCompletionDate?: string; // YYYY-MM-DD
   reflection?: PostExecutionReflection;
+  correction?: ExecutionCorrection; // Audit trail for explicit observation corrections
 }
 
 export interface TaskItem extends TaskPrediction {
@@ -146,6 +163,7 @@ export interface ReferenceClassStatistics {
 export interface RealityCheckSuggestion {
   shouldWarn: boolean;
   severity: 'none' | 'small' | 'reality_check';
+  state: RealityCheckState;
   historicalAverageMinutes: number; // user-facing typical duration (median)
   medianActualDurationMinutes: number;
   meanActualDurationMinutes: number;

@@ -26,7 +26,7 @@ import {
   auth
 } from '../utils/googleAuthService';
 import { convertGCalEventToTask } from '../utils/googleCalendar';
-import { STORAGE_SCHEMA_VERSION, normalizeImportedTasks } from '../utils/storage';
+import { STORAGE_SCHEMA_VERSION, normalizeImportedTasks, normalizeSleepRecords, sanitizeSettings } from '../utils/storage';
 
 interface SettingsViewProps {
   settings: AppSettings;
@@ -198,23 +198,36 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     reader.onload = event => {
       try {
         const json = JSON.parse(event.target?.result as string);
-        if (!Array.isArray(json.tasks) || !Array.isArray(json.sleepRecords)) {
-          setDataStatusMsg({ type: 'error', text: 'This file is not a valid calibration backup (missing tasks or sleepRecords arrays).' });
+        if (!json || typeof json !== 'object') {
+          setDataStatusMsg({ type: 'error', text: 'This file is not a valid calibration backup.' });
+          return;
+        }
+        if (!Array.isArray(json.tasks)) {
+          setDataStatusMsg({ type: 'error', text: 'This file is not a valid calibration backup (missing tasks array).' });
+          return;
+        }
+        if (json.sleepRecords !== undefined && !Array.isArray(json.sleepRecords)) {
+          setDataStatusMsg({ type: 'error', text: 'This file is not a valid calibration backup (sleepRecords must be an array).' });
+          return;
+        }
+        if (json.settings !== undefined && (typeof json.settings !== 'object' || json.settings === null)) {
+          setDataStatusMsg({ type: 'error', text: 'This file is not a valid calibration backup (settings must be an object).' });
           return;
         }
 
         // Normalize + migrate imported tasks (v0 -> v1), reporting invalid records
         const { tasks: normalizedTasks, rejected } = normalizeImportedTasks(json.tasks);
-        const importedSettings = (json.settings && typeof json.settings === 'object') ? json.settings : undefined;
+        const { records: normalizedSleep, rejected: rejectedSleep } = normalizeSleepRecords(json.sleepRecords || []);
+        const importedSettings = sanitizeSettings(json.settings);
 
-        onImportData(normalizedTasks, json.sleepRecords, importedSettings);
-        const rejectedNote = rejected.length > 0
-          ? ` ${rejected.length} invalid task record(s) skipped.`
+        onImportData(normalizedTasks, normalizedSleep, importedSettings);
+        const skippedNote = rejected.length + rejectedSleep.length > 0
+          ? ` ${rejected.length} task record(s) and ${rejectedSleep.length} sleep record(s) skipped.`
           : '';
         setDataStatusMsg({
-          type: rejected.length > 0 ? 'warning' : 'success',
-          text: rejectedNote
-            ? `Backup imported with ${rejectedNote.trim()}`
+          type: rejected.length + rejectedSleep.length > 0 ? 'warning' : 'success',
+          text: skippedNote
+            ? `Backup imported with ${skippedNote.trim()}`
             : 'Backup imported successfully.'
         });
       } catch (err) {

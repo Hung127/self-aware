@@ -19,6 +19,7 @@ import {
 } from './utils/storage';
 import { convertGCalEventToTask, GCalEvent } from './utils/googleCalendar';
 import { calculateRescheduledPlan } from './utils/calibrationEngine';
+import { updateTaskExecution, mergeTaskEdit, correctCompletedObservation } from './utils/taskGuard';
 import {
   getStoredAccessToken,
   signInWithGoogleCalendar,
@@ -38,6 +39,7 @@ import { TaskModal } from './components/TaskModal';
 import type { TaskFormDefaults } from './components/TaskModal';
 import { SleepLogModal } from './components/SleepLogModal';
 import { TaskReflectionModal } from './components/TaskReflectionModal';
+import { CorrectionModal } from './components/CorrectionModal';
 import { ValidationReportModal } from './components/ValidationReportModal';
 
 export default function App() {
@@ -57,6 +59,9 @@ export default function App() {
 
   const [isReflectionModalOpen, setIsReflectionModalOpen] = useState(false);
   const [reflectionTask, setReflectionTask] = useState<TaskItem | null>(null);
+
+  const [isCorrectionModalOpen, setIsCorrectionModalOpen] = useState(false);
+  const [correctionTask, setCorrectionTask] = useState<TaskItem | null>(null);
 
   const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
   const [validationResults, setValidationResults] = useState<TestResult[]>([]);
@@ -103,7 +108,7 @@ export default function App() {
     const exists = tasks.some(t => t.id === savedTask.id);
     if (exists) {
       handleSetTasks(tasks.map(t => t.id === savedTask.id
-        ? { ...savedTask, execution: t.execution.status === 'completed' ? t.execution : savedTask.execution }
+        ? mergeTaskEdit(t, savedTask)
         : t));
     } else {
       handleSetTasks([savedTask, ...tasks]);
@@ -111,21 +116,36 @@ export default function App() {
   };
 
   const handleUpdateTaskExecution = (taskId: string, updates: Partial<TaskItem['execution']>) => {
-    handleSetTasks(
-      tasks.map(t => {
-        if (t.id === taskId) {
-          if (t.execution.status === 'completed') return t;
-          return {
-            ...t,
-            execution: {
-              ...t.execution,
-              ...updates
-            }
-          };
-        }
+    let rejected = false;
+    const next = tasks.map(t => {
+      if (t.id !== taskId) return t;
+      const result = updateTaskExecution(t, updates);
+      if (!result.ok) {
+        rejected = true;
         return t;
-      })
-    );
+      }
+      return result.task;
+    });
+    if (rejected) {
+      showToast('Completed execution is immutable. Use "Correct" to fix a mistaken observation.');
+    }
+    handleSetTasks(next);
+  };
+
+  // Explicit correction of a completed observation (audited)
+  const handleCorrectTask = (task: TaskItem) => {
+    setCorrectionTask(task);
+    setIsCorrectionModalOpen(true);
+  };
+
+  const handleSaveCorrection = (
+    taskId: string,
+    correction: { actualDurationMinutes: number; actualCompletionDate: string; reason?: string }
+  ) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    handleSetTasks(tasks.map(t => t.id === taskId ? correctCompletedObservation(t, correction) : t));
+    showToast('Completed observation corrected.');
   };
 
   const handleRecordGCalPrediction = (event: GCalEvent) => {
@@ -324,6 +344,7 @@ export default function App() {
             onRecordGCalPrediction={handleRecordGCalPrediction}
             gcalConnected={settings.googleCalendarConnected}
             onConnectGCal={handleConnectGoogleCalendar}
+            calendarId={settings.gcalCalendarId}
           />
         )}
 
@@ -340,6 +361,7 @@ export default function App() {
           <HistoryView
             tasks={tasks}
             onDeleteTask={handleDeleteTask}
+            onCorrectTask={handleCorrectTask}
           />
         )}
 
@@ -396,6 +418,18 @@ export default function App() {
           }}
           task={reflectionTask}
           onSaveReflection={handleSaveReflection}
+        />
+      )}
+
+      {isCorrectionModalOpen && correctionTask && (
+        <CorrectionModal
+          isOpen
+          task={correctionTask}
+          onClose={() => {
+            setIsCorrectionModalOpen(false);
+            setCorrectionTask(null);
+          }}
+          onSaveCorrection={handleSaveCorrection}
         />
       )}
 

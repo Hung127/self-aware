@@ -36,6 +36,7 @@ interface GoogleCalendarViewProps {
   onRecordGCalPrediction: (event: GCalEvent) => void;
   gcalConnected: boolean;
   onConnectGCal: () => void;
+  calendarId?: string;
 }
 
 const STORAGE_GCAL_KEY = 'personal_calibration_gcal_events';
@@ -64,7 +65,8 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
   tasks,
   onRecordGCalPrediction,
   gcalConnected,
-  onConnectGCal
+  onConnectGCal,
+  calendarId = 'primary'
 }) => {
   const [viewMode, setViewMode] = useState<'app_interactive' | 'official_embed'>('app_interactive');
   const [calendarScope, setCalendarScope] = useState<'day' | 'week' | 'all'>('day');
@@ -284,7 +286,7 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
             description: eventDescription,
             startIso: startISO,
             endIso: endISO
-          }, token);
+          }, token, calendarId);
         } catch (err: any) {
           console.warn('Real GCal API update failed, updating local state:', err);
         }
@@ -316,7 +318,7 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
             description: eventDescription,
             startIso: startISO,
             endIso: endISO
-          }, token);
+          }, token, calendarId);
         } catch (err: any) {
           console.warn('Real GCal API creation failed, storing local event:', err);
         }
@@ -335,7 +337,7 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
     const token = getStoredAccessToken();
     if (token) {
       try {
-        await deleteRealGoogleCalendarEvent(eventId, token);
+        await deleteRealGoogleCalendarEvent(eventId, token, calendarId);
       } catch (err: any) {
         console.warn('Real GCal API delete failed, removing locally:', err);
       }
@@ -705,7 +707,7 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
               </div>
             </div>
             <iframe
-              src="https://calendar.google.com/calendar/embed?src=primary&ctz=UTC"
+              src={`https://calendar.google.com/calendar/embed?src=${encodeURIComponent(calendarId)}&ctz=UTC`}
               title="Google Calendar Embed View"
               className="w-full h-full border-none"
             />
@@ -926,7 +928,7 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
 
                 <div className="h-56 rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
                   <iframe
-                    src="https://calendar.google.com/calendar/embed?src=primary&ctz=UTC"
+                    src={`https://calendar.google.com/calendar/embed?src=${encodeURIComponent(calendarId)}&ctz=UTC`}
                     title="Google Calendar Modal Web View"
                     className="w-full h-full border-none"
                   />

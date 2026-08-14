@@ -462,7 +462,7 @@ export function migrateTaskV0ToV1(t: any): TaskItem {
   const estFrom = t.originalEstimatedDurationMinutes
     || t.estimatedDurationMinutes
     || t.plannedDurationMinutes
-    || 60;
+    || 0;
 
   return {
     // Required TaskItem fields
@@ -546,7 +546,12 @@ export function normalizeImportedTasks(raw: any[]): { tasks: TaskItem[]; rejecte
             schemaVersion: STORAGE_SCHEMA_VERSION
           } as TaskItem;
 
-      tasks.push(normalized);
+      const finalized = finalizeImportedTask(normalized, idx);
+      if (finalized.ok === false) {
+        rejected.push(finalized.reason);
+        return;
+      }
+      tasks.push(finalized.task);
     } catch (e: any) {
       rejected.push(`Record ${idx} (${t?.title || t?.id || 'unknown'}): ${e?.message || 'failed to normalize'}`);
     }
@@ -554,6 +559,61 @@ export function normalizeImportedTasks(raw: any[]): { tasks: TaskItem[]; rejecte
 
   return { tasks, rejected };
 }
+
+/**
+ * Applies structural normalization to an imported task and validates that the
+ * result is usable by the calibration engine. Non-fixable records are rejected.
+ */
+function finalizeImportedTask(t: TaskItem, idx: number): { ok: true; task: TaskItem } | { ok: false; reason: string } {
+  const label = `Record ${idx} (${t.title || t.id || 'unknown'})`;
+
+  if (!VALID_CATEGORIES.includes(t.category)) {
+    return { ok: false, reason: `${label}: unknown category "${t.category}"` };
+  }
+
+  const confidence = typeof t.confidence === 'number' ? Math.min(100, Math.max(0, t.confidence)) : 80;
+  const plannedStart = typeof t.plannedStart === 'string' ? t.plannedStart : '';
+  const plannedEnd = typeof t.plannedEnd === 'string' ? t.plannedEnd : '';
+
+  const originalScheduledDate = t.execution?.originalScheduledDate
+    || plannedStart.split('T')[0]
+    || new Date().toISOString().split('T')[0];
+
+  const execution = {
+    status: t.execution?.status || 'not_started',
+    postponedCount: typeof t.execution?.postponedCount === 'number' ? t.execution.postponedCount : 0,
+    actualStart: typeof t.execution?.actualStart === 'string' ? t.execution.actualStart : undefined,
+    actualEnd: typeof t.execution?.actualEnd === 'string' ? t.execution.actualEnd : undefined,
+    actualDurationMinutes: typeof t.execution?.actualDurationMinutes === 'number'
+      ? Math.max(0, t.execution.actualDurationMinutes)
+      : undefined,
+    durationMeasurementStatus: t.execution?.durationMeasurementStatus,
+    skipReason: t.execution?.skipReason,
+    postponedEvents: Array.isArray(t.execution?.postponedEvents) ? t.execution.postponedEvents : undefined,
+    originalScheduledDate,
+    actualCompletionDate: typeof t.execution?.actualCompletionDate === 'string'
+      ? t.execution.actualCompletionDate
+      : undefined,
+    reflection: t.execution?.reflection,
+    correction: t.execution?.correction
+  } as TaskItem['execution'];
+
+  return {
+    ok: true,
+    task: {
+      ...t,
+      confidence,
+      plannedStart,
+      plannedEnd,
+      execution,
+      schemaVersion: STORAGE_SCHEMA_VERSION
+    }
+  };
+}
+
+const VALID_CATEGORIES: string[] = [
+  'Programming', 'Studying', 'Reading', 'Writing', 'Exercise', 'Personal', 'Other'
+];
 
 export function saveTasks(tasks: TaskItem[]): void {
   try {
@@ -576,7 +636,7 @@ export function loadSleepRecords(): SleepRecord[] {
       saveSleepRecords(sample);
       return sample;
     }
-    return JSON.parse(raw);
+    return normalizeSleepRecords(JSON.parse(raw)).records;
   } catch (err) {
     console.error('Error loading sleep records from localStorage:', err);
     return getInitialSampleSleepRecords();
@@ -603,19 +663,66 @@ export function loadSettings(): AppSettings {
       saveSettings(DEFAULT_SETTINGS);
       return DEFAULT_SETTINGS;
     }
-    const parsed = JSON.parse(raw);
-    return {
-      ...DEFAULT_SETTINGS,
-      ...parsed,
-      minObservationsForRealityCheck:
-        typeof parsed.minObservationsForRealityCheck === 'number' && parsed.minObservationsForRealityCheck >= 3
-          ? parsed.minObservationsForRealityCheck
-          : DEFAULT_SETTINGS.minObservationsForRealityCheck
-    };
+    return sanitizeSettings(JSON.parse(raw));
   } catch (err) {
     console.error('Error loading settings from localStorage:', err);
     return DEFAULT_SETTINGS;
   }
+}
+
+/**
+ * Sanitizes raw settings so stored or imported values can never violate the
+ * calibration guarantees (e.g. minObservationsForRealityCheck >= 3).
+ */
+export function sanitizeSettings(raw: any): AppSettings {
+  const base = { ...DEFAULT_SETTINGS, ...(raw && typeof raw === 'object' ? raw : {}) };
+  return {
+    ...base,
+    minObservationsForRealityCheck:
+      typeof base.minObservationsForRealityCheck === 'number' && base.minObservationsForRealityCheck >= 3
+        ? Math.round(base.minObservationsForRealityCheck)
+        : DEFAULT_SETTINGS.minObservationsForRealityCheck,
+    smallSuggestionThresholdPercent:
+      typeof base.smallSuggestionThresholdPercent === 'number' && base.smallSuggestionThresholdPercent > 0
+        ? Math.round(base.smallSuggestionThresholdPercent)
+        : DEFAULT_SETTINGS.smallSuggestionThresholdPercent,
+    realityCheckThresholdPercent:
+      typeof base.realityCheckThresholdPercent === 'number' && base.realityCheckThresholdPercent > base.smallSuggestionThresholdPercent
+        ? Math.round(base.realityCheckThresholdPercent)
+        : DEFAULT_SETTINGS.realityCheckThresholdPercent
+  };
+}
+
+/**
+ * Normalizes sleep records, deriving `isShortSleep` from the recorded duration
+ * so the flag can never drift out of sync with `actualSleepDurationMinutes`.
+ */
+export function normalizeSleepRecords(raw: any[]): { records: SleepRecord[]; rejected: string[] } {
+  if (!Array.isArray(raw)) {
+    return { records: [], rejected: ['sleepRecords is not an array'] };
+  }
+  const records: SleepRecord[] = [];
+  const rejected: string[] = [];
+  raw.forEach((s: any, idx: number) => {
+    if (!s || typeof s !== 'object' || !s.id || !s.date) {
+      rejected.push(`Sleep record ${idx}: missing id or date`);
+      return;
+    }
+    const duration = typeof s.actualSleepDurationMinutes === 'number'
+      ? Math.max(0, s.actualSleepDurationMinutes)
+      : 0;
+    records.push({
+      id: String(s.id),
+      date: String(s.date),
+      plannedBedtime: typeof s.plannedBedtime === 'string' ? s.plannedBedtime : '23:00',
+      actualBedtime: typeof s.actualBedtime === 'string' ? s.actualBedtime : '00:30',
+      plannedWakeTime: typeof s.plannedWakeTime === 'string' ? s.plannedWakeTime : '07:00',
+      actualWakeTime: typeof s.actualWakeTime === 'string' ? s.actualWakeTime : '07:00',
+      actualSleepDurationMinutes: duration,
+      isShortSleep: duration < 360
+    });
+  });
+  return { records, rejected };
 }
 
 export function saveSettings(settings: AppSettings): void {
