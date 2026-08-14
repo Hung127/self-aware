@@ -494,15 +494,17 @@ export function calculateStartTimeCalibration(tasks: TaskItem[]): StartTimeCalib
   if (startedTasks.length === 0) {
     return {
       averageDelayMinutes: 0,
+      medianDelayMinutes: 0,
       onTimeStartRatePercent: 100,
       totalSessionsCount: 0,
-      eveningDelayMinutes: 0
+      eveningDelayMinutes: 0,
+      hasEnoughData: false
     };
   }
 
-  let totalDelay = 0;
+  const delays: number[] = [];
   let onTimeCount = 0;
-  let eveningDelayTotal = 0;
+  const eveningDelays: number[] = [];
   let eveningCount = 0;
 
   startedTasks.forEach(t => {
@@ -510,7 +512,7 @@ export function calculateStartTimeCalibration(tasks: TaskItem[]): StartTimeCalib
     const plannedStartStr = t.originalPlannedStart || t.plannedStart;
     const delayMins = calculateStartDelayMinutes(plannedStartStr, t.execution.actualStart!);
 
-    totalDelay += Math.max(0, delayMins);
+    delays.push(delayMins);
 
     if (delayMins <= 5) {
       onTimeCount++;
@@ -518,20 +520,23 @@ export function calculateStartTimeCalibration(tasks: TaskItem[]): StartTimeCalib
 
     const startHour = getNominalHour(plannedStartStr);
     if (startHour >= 18) {
-      eveningDelayTotal += Math.max(0, delayMins);
+      eveningDelays.push(delayMins);
       eveningCount++;
     }
   });
 
-  const avgDelay = Math.round(totalDelay / startedTasks.length);
+  const avgDelay = Math.round(calculateMean(delays));
+  const medianDelay = Math.round(calculateMedian(delays));
   const onTimeRate = Math.round((onTimeCount / startedTasks.length) * 100);
-  const avgEveningDelay = eveningCount > 0 ? Math.round(eveningDelayTotal / eveningCount) : avgDelay;
+  const avgEveningDelay = eveningCount > 0 ? Math.round(calculateMean(eveningDelays)) : avgDelay;
 
   return {
     averageDelayMinutes: avgDelay,
+    medianDelayMinutes: medianDelay,
     onTimeStartRatePercent: onTimeRate,
     totalSessionsCount: startedTasks.length,
-    eveningDelayMinutes: avgEveningDelay
+    eveningDelayMinutes: avgEveningDelay,
+    hasEnoughData: startedTasks.length >= 5
   };
 }
 

@@ -303,14 +303,14 @@ export function runSystemValidationSuite(
     ];
 
     const startCalib = calculateStartTimeCalibration(delayTasks);
-    const pass = startCalib.averageDelayMinutes === 35 && startCalib.totalSessionsCount === 1;
+    const pass = startCalib.averageDelayMinutes === 35 && startCalib.medianDelayMinutes === 35 && startCalib.totalSessionsCount === 1;
 
     results.push({
       name: 'Start-Time Delay Calibration Engine',
       passed: pass,
       details: pass
         ? 'Start-time delay correctly identifies 35 minute delay on planned 19:00 vs actual 19:35 start.'
-        : `Start delay failed: expected 35m, got ${startCalib.averageDelayMinutes}m`
+        : `Start delay failed: expected 35m, got ${startCalib.averageDelayMinutes}m / median ${startCalib.medianDelayMinutes}m`
     });
   } catch (e: any) {
     results.push({
@@ -2093,6 +2093,33 @@ export function runSystemValidationSuite(
     });
   } catch (e: any) {
     results.push({ name: 'Reality Check Effectiveness Metric', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Phase 6 invariant: early starts retain signed delay instead of being clamped to zero.
+  try {
+    const base = tasks.find(t => t.execution.actualStart);
+    if (!base) throw new Error('No started task available for signed-delay test');
+    const earlyTask: TaskItem = {
+      ...base,
+      id: `${base.id}-early-start`,
+      originalPlannedStart: '2026-08-10T19:00:00.000Z',
+      plannedStart: '2026-08-10T19:00:00.000Z',
+      execution: { ...base.execution, status: 'completed', actualStart: '2026-08-10T18:50:00.000Z' }
+    };
+    const lateTask: TaskItem = {
+      ...earlyTask,
+      id: `${base.id}-late-start`,
+      execution: { ...earlyTask.execution, actualStart: '2026-08-10T19:35:00.000Z' }
+    };
+    const metrics = calculateStartTimeCalibration([earlyTask, lateTask]);
+    const pass = metrics.averageDelayMinutes === 13 && metrics.medianDelayMinutes === 13 && !metrics.hasEnoughData;
+    results.push({
+      name: 'Signed Start Delay and Evidence Gate',
+      passed: pass,
+      details: pass ? 'Early (-10m) and late (+35m) starts remain signed, with recurring insight gated below 5 sessions.' : `Signed delay mismatch: ${JSON.stringify(metrics)}`
+    });
+  } catch (e: any) {
+    results.push({ name: 'Signed Start Delay and Evidence Gate', passed: false, details: `Failed with exception: ${e.message}` });
   }
 
   // Release 2 invariant: skipped tasks contribute completion evidence, never duration evidence.

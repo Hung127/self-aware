@@ -185,9 +185,11 @@ export interface DurationCalibration {
 
 export interface StartTimeCalibration {
   averageDelayMinutes: number;
+  medianDelayMinutes: number;
   onTimeStartRatePercent: number; // e.g. 40% (8 of 20)
   totalSessionsCount: number;
   eveningDelayMinutes: number; // Start after 18:00
+  hasEnoughData: boolean;
 }
 
 export interface ConfidenceCalibration {

@@ -223,10 +223,12 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                 Starting Delay Pattern
               </span>
               <p className="text-base font-bold text-blue-600">
-                 {startTimeData.totalSessionsCount > 0 ? `Average delay: ${startTimeData.averageDelayMinutes} minutes` : 'Not enough data for a start-time pattern yet.'}
+                  {startTimeData.hasEnoughData
+                    ? `Usually start ${Math.abs(startTimeData.medianDelayMinutes)} minutes ${startTimeData.medianDelayMinutes >= 0 ? 'later' : 'earlier'} than planned.`
+                    : startTimeData.totalSessionsCount > 0 ? 'Early start-time signal, not a recurring pattern yet.' : 'Not enough data for a start-time pattern yet.'}
               </p>
               <span className="text-[11px] text-slate-400 block">
-                 {startTimeData.totalSessionsCount > 0 ? `Based on ${startTimeData.totalSessionsCount} start recordings` : 'Record task starts to build this comparison.'}
+                  {startTimeData.totalSessionsCount > 0 ? `Based on ${startTimeData.totalSessionsCount} start recordings${startTimeData.hasEnoughData ? '' : '; need 5 for a recurring pattern'}` : 'Record task starts to build this comparison.'}
               </span>
             </div>
 
@@ -247,7 +249,7 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                   <span className="text-slate-500">Tasks planned after 18:00</span>
                 </div>
                 <span className="text-sm font-bold text-slate-800">
-                  +{startTimeData.eveningDelayMinutes} min avg delay
+                   {startTimeData.eveningDelayMinutes >= 0 ? '+' : ''}{startTimeData.eveningDelayMinutes} min signed delay
                 </span>
               </div>
             </div>
