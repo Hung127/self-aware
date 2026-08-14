@@ -190,24 +190,23 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-xl shadow-xl text-slate-900 my-8 max-h-[90vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/40 p-4">
+      <div role="dialog" aria-modal="true" aria-labelledby="prediction-modal-title" className="my-8 flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
           <div className="flex items-center space-x-2.5">
-            <div className="p-2 rounded-lg bg-blue-50 border border-blue-100 text-blue-600">
-              <Target className="w-5 h-5" />
-            </div>
+            <Target className="h-5 w-5 text-blue-600" />
             <div>
-              <h3 className="font-bold text-lg text-slate-900">
-                {existingTask ? 'Edit Task Prediction' : 'New Planned Task'}
+              <h3 id="prediction-modal-title" className="text-lg font-bold text-slate-900">
+                {existingTask ? 'Edit prediction' : 'Record a prediction'}
               </h3>
-              <p className="text-xs text-slate-500">Record your expectation before starting</p>
+              <p className="text-sm text-slate-500">Capture what is scheduled and what you believe will happen.</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            aria-label="Close prediction dialog"
+            className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
           >
             <X className="w-5 h-5" />
           </button>
@@ -215,10 +214,14 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
         {/* Modal Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
+          <div className="border-b border-slate-100 pb-5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">1. Plan</p>
+            <p className="mt-1 text-sm text-slate-600">What is scheduled?</p>
+          </div>
           {/* Title */}
           <div>
-            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-              Task Title
+            <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+              Task name
             </label>
             <input
               type="text"
@@ -231,9 +234,9 @@ export const TaskModal: React.FC<TaskModalProps> = ({
           </div>
 
           {/* Category & Tag & Date */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
-              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+            <label className="mb-1.5 block text-sm font-semibold text-slate-700">
                 Category
               </label>
               <select
@@ -251,7 +254,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
             <div>
               <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-                Sub-tag <span className="text-[10px] text-slate-400 font-normal">(Opt)</span>
+                Tag <span className="text-xs font-normal text-slate-400">(optional)</span>
               </label>
               <input
                 type="text"
@@ -263,7 +266,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+            <label className="mb-1.5 block text-sm font-semibold text-slate-700">
                 Date
               </label>
               <input
@@ -279,8 +282,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
           {/* Start Time, Planned Schedule Duration & Estimated Prediction Duration */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-                Planned Start
+              <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+                Start time
               </label>
               <input
                 type="time"
@@ -292,8 +295,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-                Schedule Plan <span className="text-[10px] text-slate-400 font-normal">(Block)</span>
+              <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+                Schedule block <span className="text-xs font-normal text-slate-400">(plan)</span>
               </label>
               <div className="flex items-center space-x-1.5">
                 <input
@@ -313,8 +316,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-blue-600 uppercase tracking-wider mb-1.5">
-                Prediction Forecast
+              <label className="mb-1.5 block text-sm font-semibold text-blue-700">
+                Forecast duration
               </label>
               <div className="flex items-center space-x-1.5">
                 <input
@@ -334,11 +337,15 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             </div>
           </div>
 
+          <div className="border-b border-slate-100 pb-5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">2. Prediction</p>
+            <p className="mt-1 text-sm text-slate-600">How long do you think this will take?</p>
+          </div>
           {/* Stated Confidence Slider */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-                Stated Confidence
+              <label className="text-sm font-semibold text-slate-700">
+                Confidence <span className="font-normal text-slate-500">(optional)</span>
               </label>
               <span className="text-sm font-bold text-blue-600">{confidence}%</span>
             </div>
@@ -358,8 +365,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             </div>
           </div>
 
-          {/* LIVE REALITY CHECK BANNER */}
-          {realityCheck.shouldWarn && (
+           {/* LIVE REALITY CHECK BANNER */}
+           {realityCheck.shouldWarn && (
             <div className={`p-4 rounded-xl border space-y-3 transition-all ${
               realityCheck.severity === 'reality_check'
                 ? 'bg-amber-50/80 border-amber-200 text-amber-900'
@@ -375,8 +382,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 </div>
                 <div className="space-y-1 flex-1">
                   <div className="flex items-center justify-between flex-wrap gap-1">
-                    <span className="font-bold text-sm text-slate-900">
-                      {realityCheck.severity === 'reality_check' ? 'Reality Check' : 'Historical Calibration Note'}
+                     <span className="font-bold text-sm text-slate-900">
+                       {realityCheck.severity === 'reality_check' ? '3. Reality Check' : '3. Historical calibration'}
                     </span>
                     <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600">
                       {realityCheck.sampleCount} similar tasks observed {realityCheck.matchedBy === 'category_and_tag' ? `(${tag})` : ''}
@@ -389,8 +396,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
               </div>
 
               <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between flex-wrap gap-2">
-                <span className="text-xs text-slate-600">
-                  Your estimate: <strong className="text-slate-800">{formatMinutesToHours(estimatedMinutes)}</strong> | Typical: <strong className="text-blue-600">{formatMinutesToHours(realityCheck.suggestedDurationMinutes)}</strong>
+                   <span className="text-xs text-slate-600">
+                   Your forecast: <strong className="text-slate-800">{formatMinutesToHours(initialUserPrediction)}</strong> | Typical actual: <strong className="text-blue-600">{formatMinutesToHours(realityCheck.suggestedDurationMinutes)}</strong>
                 </span>
                 
                 <div className="flex items-center space-x-2">
@@ -416,34 +423,38 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                     }`}
                   >
                     {userDecision === 'accepted_suggestion' && <Check className="w-3.5 h-3.5" />}
-                    <span>Adjust to {formatMinutesToHours(realityCheck.suggestedDurationMinutes)}</span>
+                     <span>Use {formatMinutesToHours(realityCheck.suggestedDurationMinutes)}</span>
                   </button>
                 </div>
               </div>
             </div>
           )}
 
-          {!realityCheck.shouldWarn && (
+           {!realityCheck.shouldWarn && (
             <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 flex items-center space-x-2.5 text-xs">
               <Shield className="w-4 h-4 text-slate-400 shrink-0" />
               <span>{realityCheck.message}</span>
             </div>
           )}
 
-          {/* Form Actions */}
+           <div className="border-b border-slate-100 pb-1">
+             <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">4. Decision</p>
+             <p className="mt-1 text-sm text-slate-600">Your forecast stays separate from the schedule and remains in your history.</p>
+           </div>
+           {/* Form Actions */}
           <div className="flex items-center justify-end space-x-3 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+               className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-2xs transition-colors"
+               className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
             >
-              {existingTask ? 'Save Task' : 'Record Task Prediction'}
+               {existingTask ? 'Save prediction' : 'Record prediction'}
             </button>
           </div>
         </form>

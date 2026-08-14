@@ -20,8 +20,8 @@ export const ValidationReportModal: React.FC<ValidationReportModalProps> = ({
   const allPassed = passedCount === totalCount;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-2xl shadow-xl text-slate-900 my-8 max-h-[90vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/40 p-4">
+      <div role="dialog" aria-modal="true" aria-labelledby="validation-title" className="my-8 flex max-h-[calc(100vh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-xl">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
           <div className="flex items-center space-x-2.5">
@@ -29,13 +29,14 @@ export const ValidationReportModal: React.FC<ValidationReportModalProps> = ({
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-lg text-slate-900">System Data & Edge Case Validation</h3>
+              <h3 id="validation-title" className="font-bold text-lg text-slate-900">System data validation</h3>
               <p className="text-xs text-slate-500">Automated test suite verification for personal calibration heuristics</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+             aria-label="Close validation report"
+             className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
           >
             <X className="w-5 h-5" />
           </button>

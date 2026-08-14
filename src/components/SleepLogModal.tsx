@@ -67,7 +67,7 @@ export const SleepLogModal: React.FC<SleepLogModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+      <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/40 p-4">
       <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg shadow-xl text-slate-900 my-8 max-h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
@@ -81,8 +81,9 @@ export const SleepLogModal: React.FC<SleepLogModalProps> = ({
             </div>
           </div>
           <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+             onClick={onClose}
+             aria-label="Close sleep dialog"
+             className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
           >
             <X className="w-5 h-5" />
           </button>
@@ -103,7 +104,7 @@ export const SleepLogModal: React.FC<SleepLogModalProps> = ({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">
                 Planned Bedtime
@@ -130,7 +131,7 @@ export const SleepLogModal: React.FC<SleepLogModalProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">
                 Planned Wake Time
@@ -166,8 +167,8 @@ export const SleepLogModal: React.FC<SleepLogModalProps> = ({
             <div className="flex items-center space-x-3">
               <Clock className="w-5 h-5 text-current opacity-80" />
               <div>
-                <span className="text-xs font-bold block opacity-75 uppercase tracking-wider">
-                  Computed Duration
+                <span className="block text-sm font-semibold opacity-75">
+                  Recorded duration
                 </span>
                 <span className="text-lg font-bold">
                   {hours}h {mins}m
@@ -179,12 +180,12 @@ export const SleepLogModal: React.FC<SleepLogModalProps> = ({
               {isShortSleep ? (
                 <>
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                  <span className="text-amber-800">Short Sleep (&lt;6h)</span>
+                  <span className="text-amber-800">Short-sleep context</span>
                 </>
               ) : (
                 <>
                   <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-                  <span className="text-emerald-800">Sufficient Sleep</span>
+                  <span className="text-slate-700">Recorded</span>
                 </>
               )}
             </div>

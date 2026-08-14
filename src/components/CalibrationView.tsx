@@ -49,28 +49,28 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
   }
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto pb-16 text-slate-900">
+    <div className="mx-auto max-w-6xl space-y-8 pb-16 text-slate-900">
       {/* Top Banner */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xs">
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-600 text-xs font-bold uppercase tracking-wider">
+             <div className="inline-flex items-center gap-2 text-sm font-semibold text-blue-700">
               <Target className="w-3.5 h-3.5" />
               <span>Personal Behavioral Mirror</span>
             </div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
-              YOUR CALIBRATION
+             <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+               Your calibration
             </h1>
-            <p className="text-slate-500 text-sm max-w-xl leading-relaxed">
-              How accurately do you predict your own behavior? Here is what your historical execution evidence shows.
+             <p className="max-w-xl text-sm leading-relaxed text-slate-600">
+               How your predictions compare with your execution history.
             </p>
           </div>
 
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 shrink-0 text-center space-y-1 min-w-[200px]">
+           <div className="shrink-0 rounded-lg border border-slate-200 bg-slate-50 p-4 text-center min-w-[200px]">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
               Same-Day Completion
             </span>
-            <span className="text-3xl font-extrabold text-blue-600">
+               <span className="text-3xl font-bold text-blue-600">
               {insights.sameDayCompletionRatePercent}%
             </span>
             <span className="text-[11px] text-slate-400 block">
@@ -80,7 +80,7 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
         </div>
       </div>
 
-      {/* 4 Major Observation Cards Grid */}
+       {/* Evidence hierarchy: strongest pattern first, supporting observations below. */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* CARD 1: TASK DURATION CALIBRATION */}
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs flex flex-col justify-between space-y-5">
@@ -112,7 +112,7 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                     You overestimate <span className="underline">{maxPatternCat.toLowerCase()}</span> tasks by {Math.abs(maxPatternError)}% on average.
                   </>
                 ) : durationData.totalTasksCount >= 5 ? (
-                  <>You predict overall task durations with high accuracy.</>
+                   <>No recurring duration pattern is supported yet.</>
                 ) : (
                   <>Not enough data yet.</>
                 )}
@@ -174,10 +174,10 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                 Starting Delay Pattern
               </span>
               <p className="text-base font-bold text-blue-600">
-                Average delay: {startTimeData.averageDelayMinutes} minutes
+                 {startTimeData.totalSessionsCount > 0 ? `Average delay: ${startTimeData.averageDelayMinutes} minutes` : 'Not enough data for a start-time pattern yet.'}
               </p>
               <span className="text-[11px] text-slate-400 block">
-                ↑ Based on {startTimeData.totalSessionsCount} start recordings
+                 {startTimeData.totalSessionsCount > 0 ? `Based on ${startTimeData.totalSessionsCount} start recordings` : 'Record task starts to build this comparison.'}
               </span>
             </div>
 
@@ -231,7 +231,7 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
               </span>
               <p className="text-base font-bold text-blue-600">
                 {sleepData.hasEnoughData ? (
-                  <>&lt;6h sleep → {sleepData.completionDropPercent}% fewer planned tasks completed.</>
+                   <>&lt;6h sleep sessions had {sleepData.completionDropPercent}% fewer planned tasks completed.</>
                 ) : (
                   <>Not enough data yet.</>
                 )}
@@ -247,7 +247,7 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-center space-y-1">
                 <span className="text-[11px] text-slate-500 font-semibold block">Sufficient Sleep (&ge;6h)</span>
                 <span className="text-xl font-extrabold text-emerald-600">
-                  {sleepData.normalSleepCompletionRate}%
+                   {sleepData.hasEnoughData ? `${sleepData.normalSleepCompletionRate}%` : '—'}
                 </span>
                 <span className="text-[10px] text-slate-400 block">Completion Rate</span>
               </div>
@@ -255,7 +255,7 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-center space-y-1">
                 <span className="text-[11px] text-slate-500 font-semibold block">Short Sleep (&lt;6h)</span>
                 <span className="text-xl font-extrabold text-amber-600">
-                  {sleepData.shortSleepCompletionRate}%
+                   {sleepData.hasEnoughData ? `${sleepData.shortSleepCompletionRate}%` : '—'}
                 </span>
                 <span className="text-[10px] text-slate-400 block">Completion Rate</span>
               </div>
@@ -386,12 +386,12 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
               ))}
             </div>
 
-            <div className="p-3.5 rounded-xl bg-blue-50/60 border border-blue-100 flex items-center justify-between text-xs text-slate-700">
+             <div className="p-3.5 rounded-xl bg-blue-50/60 border border-blue-100 flex items-center justify-between text-xs text-slate-700">
               <span className="font-medium">
                 Initial error: <strong>{insights.accuracyOverTime.earliestErrorPercent}%</strong> → Recent error: <strong>{insights.accuracyOverTime.recentErrorPercent}%</strong>
               </span>
               <span className="text-slate-500 text-[11px]">
-                Goal: Closer to 0% estimation error
+                 Closer to 0% means more accurate
               </span>
             </div>
           </div>

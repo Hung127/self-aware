@@ -157,63 +157,60 @@ export const TodayView: React.FC<TodayViewProps> = ({
   };
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto pb-12 text-slate-900">
+    <div className="mx-auto max-w-5xl space-y-8 pb-12 text-slate-900">
+      <div>
+        <div>
+          <p className="mb-2 text-sm font-medium text-blue-700">{new Date().toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}</p>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-950">Today</h1>
+          <p className="mt-1 text-sm text-slate-600">Your planned tasks and active predictions for today.</p>
+        </div>
+      </div>
       {/* 1. Sleep Context Banner (Light Blue Widget) */}
-      <div className="bg-blue-50/70 border border-blue-100 rounded-2xl p-5 shadow-2xs text-slate-900 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-slate-900 sm:flex-row sm:items-center">
         <div className="flex items-start space-x-3.5">
-          <div className="p-3 rounded-xl bg-blue-100 border border-blue-200 text-blue-600 shrink-0">
-            <Moon className="w-6 h-6" />
-          </div>
+          <Moon className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" />
           <div>
-            <div className="flex items-center space-x-2">
-              <span className="font-extrabold text-base text-slate-900">Last Night Sleep Context</span>
-              <span className="text-xs text-slate-500 font-medium">({todayStr})</span>
-            </div>
+            <span className="font-semibold text-slate-900">Sleep context</span>
             {todaySleep ? (
-              <p className="text-xs text-slate-600 mt-1">
-                Actual sleep: <strong className="text-slate-900 font-bold">{formatMinutesToHours(todaySleep.actualSleepDurationMinutes)}</strong> ({todaySleep.actualBedtime} bedtime → {todaySleep.actualWakeTime} wake).
+              <p className="mt-1 text-sm text-slate-600">
+                {formatMinutesToHours(todaySleep.actualSleepDurationMinutes)} recorded last night. <span className="text-slate-500">Available for later comparison.</span>
                 {todaySleep.isShortSleep && (
-                  <span className="text-amber-700 font-semibold ml-1">
-                    ⚠ Short sleep day (&lt;6h). Focus and historical completion rates tend to drop on short sleep days.
-                  </span>
+                  <span className="ml-1 font-medium text-amber-700">Short-sleep context</span>
                 )}
               </p>
             ) : (
-              <p className="text-xs text-slate-500 mt-1">
-                No sleep recorded for last night. Logging sleep helps correlate execution gaps.
-              </p>
+              <p className="mt-1 text-sm text-slate-600">No sleep record for last night.</p>
             )}
           </div>
         </div>
 
         <button
           onClick={onOpenSleepLog}
-          className="shrink-0 text-xs font-bold px-4 py-2 rounded-xl bg-white hover:bg-slate-50 text-blue-600 border border-blue-200 shadow-2xs transition-colors"
+          className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100"
         >
-          {todaySleep ? 'Update Sleep Record' : '+ Log Last Night Sleep'}
+          {todaySleep ? 'Update sleep' : 'Log sleep'}
         </button>
       </div>
 
       {/* 2. Quick Task Prediction Creator Bar */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs text-slate-900 space-y-4">
+      <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <Sparkles className="w-4 h-4 text-blue-600" />
-            <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
-              Quick Plan &amp; Calibrate
-            </h2>
+            <Sparkles className="h-4 w-4 text-blue-600" />
+            <div><h2 className="font-semibold text-slate-900">Make a prediction</h2><p className="mt-0.5 text-sm text-slate-600">Start with a task name, then review your forecast and history.</p></div>
           </div>
-          <span className="text-xs text-slate-400 font-medium">Instant Reality Check</span>
+           <span className="hidden text-xs font-medium text-slate-500 sm:inline">Plan → Prediction → Reality Check</span>
         </div>
 
         <form onSubmit={handleQuickSubmit} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
           <div className="md:col-span-5">
             <input
               type="text"
-              placeholder="Task name (e.g., Read ML paper, DSA Practice)..."
+               aria-label="Task name"
+               placeholder="Task name"
               value={quickTitle}
               onChange={e => setQuickTitle(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white placeholder-slate-400"
+               className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-600 focus:bg-white"
             />
           </div>
 
@@ -221,7 +218,8 @@ export const TodayView: React.FC<TodayViewProps> = ({
             <select
               value={quickCategory}
               onChange={e => setQuickCategory(e.target.value as TaskCategory)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
+               aria-label="Category"
+               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 focus:border-blue-600 focus:bg-white"
             >
               {CATEGORIES.map(cat => (
                 <option key={cat} value={cat}>
@@ -235,7 +233,8 @@ export const TodayView: React.FC<TodayViewProps> = ({
             <select
               value={quickEstMins}
               onChange={e => setQuickEstMins(parseInt(e.target.value))}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-blue-600 font-semibold text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
+               aria-label="Forecast duration"
+               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 focus:border-blue-600 focus:bg-white"
             >
               <option value={30}>30 mins</option>
               <option value={60}>1h 00m</option>
@@ -249,28 +248,22 @@ export const TodayView: React.FC<TodayViewProps> = ({
           <div className="md:col-span-2">
             <button
               type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-4 py-2.5 rounded-xl shadow-2xs transition-colors flex items-center justify-center space-x-1"
+               className="flex w-full items-center justify-center gap-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
             >
               <Plus className="w-4 h-4" />
-              <span>Add</span>
+               <span>Review prediction</span>
             </button>
           </div>
         </form>
 
         {/* Live Reality check hint if user typed duration */}
-        {quickReality.shouldWarn && (
-          <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between">
+         {quickReality.shouldWarn && (
+           <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
               <span className="font-medium">{quickReality.message}</span>
             </div>
-            <button
-              type="button"
-              onClick={() => setQuickEstMins(quickReality.suggestedDurationMinutes)}
-              className="font-bold underline text-amber-800 hover:text-amber-950 ml-2 text-xs shrink-0"
-            >
-              Calibrate to {formatMinutesToHours(quickReality.suggestedDurationMinutes)}
-            </button>
+             <span className="ml-2 shrink-0 text-xs font-medium text-amber-800">Review in the next step</span>
           </div>
         )}
       </div>
@@ -361,7 +354,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                         {isRunning && (
                           <span className="inline-flex items-center space-x-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-600 text-white animate-pulse">
                             <Clock className="w-3.5 h-3.5" />
-                            <span>In Progress: {formatSecondsToHMS(elapsedSecs)}</span>
+                            <span>In progress: {formatSecondsToHMS(elapsedSecs)}</span>
                           </span>
                         )}
 
@@ -389,7 +382,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
                       {/* Prediction metrics line */}
                       <div className="flex items-center space-x-4 text-xs text-slate-500 pt-0.5">
-                        <span>Planned: <strong className="text-slate-800">{formatMinutesToHours(task.estimatedDurationMinutes)}</strong></span>
+               <span>Forecast: <strong className="text-slate-800">{formatMinutesToHours(task.estimatedDurationMinutes)}</strong></span>
                         <span>Confidence: <strong className="text-slate-800">{task.confidence}%</strong></span>
                         {task.execution.actualStart && (
                           <span>Actual Start: <strong className="text-slate-800">{new Date(task.execution.actualStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong></span>
@@ -405,11 +398,11 @@ export const TodayView: React.FC<TodayViewProps> = ({
                     </div>
 
                     {/* Right execution controls */}
-                    <div className="flex items-center space-x-2 shrink-0">
+                     <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
                       {!isDone && !isRunning && (
                         <button
                           onClick={() => handleStartTask(task)}
-                          className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-2xs transition-colors"
+                           className="flex min-h-10 items-center space-x-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
                         >
                           <Play className="w-3.5 h-3.5 fill-current" />
                           <span>Start</span>
@@ -419,10 +412,10 @@ export const TodayView: React.FC<TodayViewProps> = ({
                       {isRunning && (
                         <button
                           onClick={() => handleFinishTask(task)}
-                          className="flex items-center space-x-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-2xs transition-colors"
+                           className="flex min-h-10 items-center space-x-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
                         >
                           <CheckCircle2 className="w-4 h-4" />
-                          <span>Finish Task</span>
+                           <span>Finish</span>
                         </button>
                       )}
 
@@ -447,9 +440,9 @@ export const TodayView: React.FC<TodayViewProps> = ({
                       )}
 
                       <button
-                        onClick={() => onDeleteTask(task.id)}
-                        title="Delete prediction"
-                        className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                           onClick={() => window.confirm(`Delete "${task.title}" from predictions?`) && onDeleteTask(task.id)}
+                           aria-label="Delete prediction"
+                           className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>

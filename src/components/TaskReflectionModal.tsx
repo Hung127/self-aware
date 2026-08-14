@@ -43,21 +43,20 @@ export const TaskReflectionModal: React.FC<TaskReflectionModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg shadow-xl text-slate-900 my-8 max-h-[90vh] flex flex-col overflow-hidden">
+      <div role="dialog" aria-modal="true" aria-labelledby="reflection-modal-title" className="my-8 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
           <div className="flex items-center space-x-2.5">
-            <div className="p-2 rounded-lg bg-blue-50 border border-blue-100 text-blue-600">
-              <HelpCircle className="w-5 h-5" />
-            </div>
+             <HelpCircle className="h-5 w-5 text-blue-600" />
             <div>
-              <h3 className="font-bold text-lg text-slate-900">What happened?</h3>
-              <p className="text-xs text-slate-500">Learn from the gap between prediction and reality</p>
+               <h3 id="reflection-modal-title" className="text-lg font-bold text-slate-900">What changed the outcome?</h3>
+               <p className="text-sm text-slate-500">Your reason explains the result but does not change the calculated error.</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+             aria-label="Close reflection dialog"
+             className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
           >
             <X className="w-5 h-5" />
           </button>
@@ -81,8 +80,8 @@ export const TaskReflectionModal: React.FC<TaskReflectionModalProps> = ({
 
           {/* Options */}
           <div>
-            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2.5">
-              Select Primary Factor
+             <label className="mb-2.5 block text-sm font-semibold text-slate-700">
+               Choose one reason
             </label>
             <div className="space-y-2">
               {REFLECTION_OPTIONS.map(opt => (
@@ -91,7 +90,7 @@ export const TaskReflectionModal: React.FC<TaskReflectionModalProps> = ({
                   onClick={() => setSelectedReason(opt.value)}
                   className={`flex items-center space-x-3 p-3 rounded-xl border cursor-pointer transition-all ${
                     selectedReason === opt.value
-                      ? 'bg-blue-50 border-blue-600 text-slate-900 font-bold'
+                       ? 'bg-blue-50 border-blue-600 text-slate-900 font-semibold'
                       : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                   }`}
                 >
@@ -111,12 +110,12 @@ export const TaskReflectionModal: React.FC<TaskReflectionModalProps> = ({
 
           {/* Optional notes */}
           <div>
-            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-              Optional Context / Learnings
+             <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+               Optional note
             </label>
             <textarea
               rows={2}
-              placeholder="e.g., Unexpected edge cases in PR comments..."
+               placeholder="What would you remember next time?"
               value={notes}
               onChange={e => setNotes(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
@@ -128,16 +127,16 @@ export const TaskReflectionModal: React.FC<TaskReflectionModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+               className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
             >
-              Skip Reflection
+               Skip for now
             </button>
             <button
               type="submit"
-              className="flex items-center space-x-1.5 px-5 py-2 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-2xs transition-colors"
+               className="flex items-center space-x-1.5 rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
             >
               <CheckCircle className="w-4 h-4" />
-              <span>Record Reflection</span>
+               <span>Save reflection</span>
             </button>
           </div>
         </form>

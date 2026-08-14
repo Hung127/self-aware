@@ -266,7 +266,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] text-[#1a1a1a] font-sans selection:bg-[#4361ee] selection:text-white flex flex-col">
+    <div className="flex min-h-screen flex-col bg-[var(--color-background)] font-sans text-[var(--color-text-primary)]">
       {/* Top Navigation */}
       <Navigation
         activeTab={activeTab}
@@ -281,7 +281,7 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
         {activeTab === 'today' && (
           <TodayView
             tasks={tasks}
@@ -344,7 +344,7 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-200 bg-white text-slate-500 text-xs py-6 mt-12">
+      <footer className="mt-12 border-t border-slate-200 bg-white py-6 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 text-center space-y-1">
           <p className="font-medium text-slate-600">
             Personal Calibration — Don't optimize your schedule. Understand the accuracy of your own predictions.
@@ -356,21 +356,21 @@ export default function App() {
       </footer>
 
       {/* Modals */}
-      <TaskModal
-        isOpen={isTaskModalOpen}
-        onClose={() => setIsTaskModalOpen(false)}
-        onSaveTask={handleSaveTask}
-        existingTask={editingTask}
-        allTasks={tasks}
-        settings={settings}
-        initialValues={taskFormDefaults}
-      />
+      {isTaskModalOpen && <TaskModal
+          isOpen
+          onClose={() => setIsTaskModalOpen(false)}
+          onSaveTask={handleSaveTask}
+          existingTask={editingTask}
+          allTasks={tasks}
+          settings={settings}
+          initialValues={taskFormDefaults}
+        />}
 
-      <SleepLogModal
-        isOpen={isSleepLogModalOpen}
-        onClose={() => setIsSleepLogModalOpen(false)}
-        onSaveSleep={handleSaveSleep}
-      />
+      {isSleepLogModalOpen && <SleepLogModal
+          isOpen
+          onClose={() => setIsSleepLogModalOpen(false)}
+          onSaveSleep={handleSaveSleep}
+        />}
 
       {isReflectionModalOpen && reflectionTask && (
         <TaskReflectionModal
@@ -384,15 +384,15 @@ export default function App() {
         />
       )}
 
-      <ValidationReportModal
-        isOpen={isValidationModalOpen}
-        onClose={() => setIsValidationModalOpen(false)}
-        results={validationResults}
-      />
+      {isValidationModalOpen && <ValidationReportModal
+          isOpen
+          onClose={() => setIsValidationModalOpen(false)}
+          results={validationResults}
+        />}
 
       {/* Floating Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3 rounded-lg shadow-xl border border-slate-700 flex items-center space-x-3 text-sm animate-fade-in font-medium">
+        <div role="status" aria-live="polite" className="fixed bottom-6 right-6 z-50 flex max-w-[calc(100vw-2rem)] items-center space-x-3 rounded-lg border border-slate-700 bg-slate-900 px-5 py-3 text-sm font-medium text-white shadow-xl">
           <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
           <span>{toastMessage}</span>
         </div>
