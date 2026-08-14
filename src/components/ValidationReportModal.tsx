@@ -1,6 +1,7 @@
 import React from 'react';
 import { TestResult } from '../types';
-import { ShieldCheck, CheckCircle2, XCircle, X } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, XCircle } from 'lucide-react';
+import { ModalShell } from './ui/ModalShell';
 
 interface ValidationReportModalProps {
   isOpen: boolean;
@@ -20,29 +21,27 @@ export const ValidationReportModal: React.FC<ValidationReportModalProps> = ({
   const allPassed = passedCount === totalCount;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/40 p-4">
-      <div role="dialog" aria-modal="true" aria-labelledby="validation-title" className="my-8 flex max-h-[calc(100vh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-xl">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
-          <div className="flex items-center space-x-2.5">
-            <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-600">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 id="validation-title" className="font-bold text-lg text-slate-900">System data validation</h3>
-              <p className="text-xs text-slate-500">Automated test suite verification for personal calibration heuristics</p>
-            </div>
-          </div>
+    <ModalShell
+      title="System data validation"
+      description="Automated test suite verification for personal calibration heuristics"
+      icon={<ShieldCheck className="h-5 w-5" />}
+      iconClassName="border-emerald-100 bg-emerald-50 text-emerald-600"
+      onClose={onClose}
+      maxWidth="max-w-2xl"
+      initialFocus="none"
+      footer={
+        <div className="flex justify-end">
           <button
+            type="button"
             onClick={onClose}
-             aria-label="Close validation report"
-             className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+            autoFocus
+            className="px-5 py-2 rounded-xl text-sm font-bold bg-slate-200 hover:bg-slate-300 text-slate-800 transition-colors"
           >
-            <X className="w-5 h-5" />
+            Close Report
           </button>
         </div>
-
-        {/* Body */}
+      }
+    >
         <div className="p-6 space-y-4 overflow-y-auto flex-1">
           {/* Summary status pill */}
           <div className={`p-4 rounded-xl border flex items-center justify-between ${
@@ -91,7 +90,7 @@ export const ValidationReportModal: React.FC<ValidationReportModalProps> = ({
                 <div className="space-y-1 flex-1">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-sm text-slate-900">{res.name}</span>
-                    <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-md ${
+                    <span className={`text-xs font-semibold uppercase px-2 py-0.5 rounded-md ${
                       res.passed
                         ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                         : 'bg-rose-100 text-rose-800 border border-rose-200'
@@ -107,17 +106,6 @@ export const ValidationReportModal: React.FC<ValidationReportModalProps> = ({
             ))}
           </div>
         </div>
-
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end shrink-0">
-          <button
-            onClick={onClose}
-            className="px-5 py-2 rounded-xl text-sm font-bold bg-slate-200 hover:bg-slate-300 text-slate-800 transition-colors"
-          >
-            Close Report
-          </button>
-        </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 };

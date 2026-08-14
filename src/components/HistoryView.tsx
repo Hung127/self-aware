@@ -12,12 +12,14 @@ import {
   SkipForward,
   Trash2,
   Calendar,
-  PenLine
+  PenLine,
+  X
 } from 'lucide-react';
+import { ConfirmDialog } from './ui/ConfirmDialog';
 
 interface HistoryViewProps {
   tasks: TaskItem[];
-  onDeleteTask: (taskId: string) => void;
+  onDeleteTask: (taskId: string, options?: { permanent?: boolean }) => void;
   onCorrectTask: (task: TaskItem) => void;
 }
 
@@ -29,6 +31,13 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+
+  const clearFilters = () => {
+    setSelectedCategory('All');
+    setStatusFilter('All');
+  };
 
   // Filter tasks
   const filteredTasks = tasks.filter(t => {
@@ -43,7 +52,8 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
 
   // Sort by date descending
   const sortedTasks = [...filteredTasks].sort((a, b) => {
-    return new Date(b.plannedStart).getTime() - new Date(a.plannedStart).getTime();
+    const diff = new Date(b.plannedStart).getTime() - new Date(a.plannedStart).getTime();
+    return sortOrder === 'newest' ? diff : -diff;
   });
 
   return (
@@ -53,9 +63,9 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
         <div>
              <div className="flex items-center gap-2">
              <History className="h-5 w-5 text-blue-600" />
-             <h1 className="text-2xl font-bold tracking-tight text-slate-900">Prediction history</h1>
+             <h1 className="text-3xl font-bold tracking-tight text-slate-900">Prediction history</h1>
           </div>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-sm text-slate-600 mt-1">
             Compare "What I expected" vs "What actually happened"
           </p>
         </div>
@@ -96,14 +106,91 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
              <option value="skipped">Skipped</option>
            </select>
          </div>
+         <div className="flex flex-col gap-1.5">
+           <label className="text-sm font-semibold text-slate-700">Sort</label>
+           <select aria-label="Sort order" value={sortOrder} onChange={e => setSortOrder(e.target.value as 'newest' | 'oldest')} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 focus:border-blue-600">
+             <option value="newest">Newest first</option>
+             <option value="oldest">Oldest first</option>
+           </select>
+         </div>
         </div>
+
+       {/* Active filter chips + count */}
+       {(selectedCategory !== 'All' || statusFilter !== 'All') && (
+         <div className="flex flex-wrap items-center gap-2">
+           {selectedCategory !== 'All' && (
+             <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
+               Category: {selectedCategory}
+               <button
+                 type="button"
+                 onClick={() => setSelectedCategory('All')}
+                 aria-label="Clear category filter"
+                 className="rounded-full p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+               >
+                 <X className="h-3.5 w-3.5" />
+               </button>
+             </span>
+           )}
+           {statusFilter !== 'All' && (
+             <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
+               Status: {statusFilter}
+               <button
+                 type="button"
+                 onClick={() => setStatusFilter('All')}
+                 aria-label="Clear status filter"
+                 className="rounded-full p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+               >
+                 <X className="h-3.5 w-3.5" />
+               </button>
+             </span>
+           )}
+           <button
+             type="button"
+             onClick={clearFilters}
+             className="rounded-full px-2 py-1 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-50"
+           >
+             Clear filters
+           </button>
+           <span className="ml-auto text-xs font-medium text-slate-500">
+             {sortedTasks.length} {sortedTasks.length === 1 ? 'prediction' : 'predictions'}
+           </span>
+         </div>
+       )}
 
       {/* Task Comparison Cards */}
       {sortedTasks.length === 0 ? (
         <div className="p-12 rounded-2xl bg-white border border-slate-200 text-center space-y-2">
           <Calendar className="w-8 h-8 text-slate-400 mx-auto" />
-           <h3 className="text-base font-bold text-slate-800">No prediction history yet</h3>
-           <p className="text-sm text-slate-500">Complete, postpone, or skip a prediction to compare your forecast with reality.</p>
+          <h3 className="text-base font-bold text-slate-800">
+            {searchTerm
+              ? `No predictions match "${searchTerm}"`
+              : selectedCategory !== 'All' || statusFilter !== 'All'
+              ? 'No predictions match the current filters'
+              : 'No prediction history yet'}
+          </h3>
+          <p className="text-sm text-slate-500">
+            {searchTerm || selectedCategory !== 'All' || statusFilter !== 'All'
+              ? 'Try a different search or clear your filters.'
+              : 'Complete, postpone, or skip a prediction to compare your forecast with reality.'}
+          </p>
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              className="rounded-lg px-3 py-2 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-50"
+            >
+              Clear search
+            </button>
+          )}
+          {(selectedCategory !== 'All' || statusFilter !== 'All') && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="rounded-lg px-3 py-2 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-50"
+            >
+              Clear filters
+            </button>
+          )}
         </div>
       ) : (
         <div className="space-y-4">
@@ -171,9 +258,10 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                      )}
 
                     <button
-                       onClick={() => window.confirm(`Delete "${task.title}" from prediction history?`) && onDeleteTask(task.id)}
+                       onClick={() => setDeleteTarget({ id: task.id, title: task.title })}
                        aria-label="Delete prediction from history"
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                       title="Delete prediction from history"
+                      className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -182,10 +270,10 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                       <button
                         onClick={() => onCorrectTask(task)}
                         title="Correct this completed observation"
-                        aria-label="Correct completed observation"
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                        className="flex h-10 items-center space-x-1.5 rounded-lg px-3 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-50"
                       >
-                        <PenLine className="w-4 h-4" />
+                        <PenLine className="w-3.5 h-3.5" />
+                        <span>Correct</span>
                       </button>
                     )}
                   </div>
@@ -221,7 +309,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
 
                       {task.realityCheck?.shown && (
                         <div className="pt-1.5 border-t border-slate-200">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Decision</span>
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-0.5">Decision</span>
                           <span className="text-xs font-semibold text-slate-700">
                             {task.realityCheck.userDecision === 'accepted_suggestion'
                               ? 'Used historical suggestion'
@@ -236,7 +324,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
 
                       {/* Original vs final forecast error */}
                       {hasActual && task.estimatedDurationMinutes !== est && (
-                        <div className="flex items-center space-x-3 text-[11px] text-slate-600 pt-1">
+                        <div className="flex items-center space-x-3 text-xs text-slate-600 pt-1">
                           <span>
                             Original error: <strong className={Math.round(calculateEstimationError(est, act) * 100) > 0 ? 'text-amber-700' : 'text-emerald-700'}>
                               {Math.round(calculateEstimationError(est, act) * 100)}%
@@ -299,7 +387,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                   <div className="p-3 rounded-xl bg-[#fff8e1] border border-[#ffe082] flex items-start space-x-2.5 text-xs text-[#92400e]">
                     <AlertCircle className="w-4 h-4 text-[#b45309] shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-bold block text-[#78350f] uppercase tracking-wider text-[10px]">
+                      <span className="font-bold block text-[#78350f] uppercase tracking-wider text-xs">
                         Why? {task.execution.reflection.reason.replace(/_/g, ' ')}
                       </span>
                       {task.execution.reflection.notes && (
@@ -316,7 +404,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                   <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-start space-x-2.5 text-xs text-amber-900">
                     <PenLine className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-bold block uppercase tracking-wider text-[10px]">
+                      <span className="font-bold block uppercase tracking-wider text-xs">
                         Observation corrected
                       </span>
                       <span className="mt-0.5 block">
@@ -332,6 +420,18 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
             );
           })}
         </div>
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          title="Remove from history?"
+          message={`"${deleteTarget.title}" will be permanently deleted from prediction history.`}
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          tone="danger"
+          onConfirm={() => onDeleteTask(deleteTarget.id, { permanent: true })}
+          onClose={() => setDeleteTarget(null)}
+        />
       )}
     </div>
   );

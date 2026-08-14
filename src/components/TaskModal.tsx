@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { TaskItem, TaskCategory, AppSettings, TaskPredictionDecision, BehavioralTaskType } from '../types';
 import { CATEGORIES, getRealityCheck, PROGRAMMING_TASK_TYPES, formatMinutesToHours } from '../utils/calibrationEngine';
-import { Target, AlertTriangle, Info, Clock, X, Check, Shield } from 'lucide-react';
+import { Target, AlertTriangle, Info, Clock, Check, Shield } from 'lucide-react';
+import { ModalShell } from './ui/ModalShell';
+
+const QUICK_FORECAST_CHIPS = [30, 60, 90, 120, 180];
 
 interface TaskModalProps {
   isOpen: boolean;
@@ -207,30 +210,32 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/40 p-4">
-      <div role="dialog" aria-modal="true" aria-labelledby="prediction-modal-title" className="my-8 flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
-        {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
-          <div className="flex items-center space-x-2.5">
-            <Target className="h-5 w-5 text-blue-600" />
-            <div>
-              <h3 id="prediction-modal-title" className="text-lg font-bold text-slate-900">
-                {existingTask ? 'Edit prediction' : 'Record a prediction'}
-              </h3>
-              <p className="text-sm text-slate-500">Capture what is scheduled and what you believe will happen.</p>
-            </div>
-          </div>
+    <ModalShell
+      title={existingTask ? 'Edit prediction' : 'Record a prediction'}
+      description="Capture what is scheduled and what you believe will happen."
+      icon={<Target className="h-5 w-5" />}
+      onClose={onClose}
+      maxWidth="max-w-xl"
+      footer={
+        <div className="flex items-center justify-end space-x-3">
           <button
+            type="button"
             onClick={onClose}
-            aria-label="Close prediction dialog"
-            className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+            className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
           >
-            <X className="w-5 h-5" />
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="prediction-modal-form"
+            className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+          >
+            {existingTask ? 'Save prediction' : 'Record prediction'}
           </button>
         </div>
-
-        {/* Modal Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
+      }
+    >
+        <form id="prediction-modal-form" onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
           <div className="border-b border-slate-100 pb-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">1. Plan</p>
             <p className="mt-1 text-sm text-slate-600">What is scheduled?</p>
@@ -349,7 +354,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                   required
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
                 />
-                <span className="text-[11px] text-slate-400 font-medium whitespace-nowrap">
+                <span className="text-xs text-slate-500 font-medium whitespace-nowrap">
                   ({formatMinutesToHours(plannedMinutes)})
                 </span>
               </div>
@@ -357,7 +362,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-blue-700">
-                Forecast duration
+                Forecast duration <span className="text-xs font-normal text-slate-400">(your prediction)</span>
               </label>
               <div className="flex items-center space-x-1.5">
                 <input
@@ -370,16 +375,34 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                   required
                   className="w-full bg-slate-50 border border-blue-200 rounded-xl px-3 py-2.5 text-blue-600 font-bold text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
                 />
-                <span className="text-[11px] text-slate-500 font-medium whitespace-nowrap">
+                <span className="text-xs text-slate-500 font-medium whitespace-nowrap">
                   ({formatMinutesToHours(estimatedMinutes)})
                 </span>
               </div>
             </div>
           </div>
 
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-slate-500">Quick forecast:</span>
+            {QUICK_FORECAST_CHIPS.map(minutes => (
+              <button
+                key={minutes}
+                type="button"
+                onClick={() => handleEstimateChange(minutes)}
+                className={`rounded-full px-3 py-1.5 text-xs font-bold transition-colors ${
+                  estimatedMinutes === minutes
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                {formatMinutesToHours(minutes)}
+              </button>
+            ))}
+          </div>
+
           <div className="border-b border-slate-100 pb-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">2. Prediction</p>
-            <p className="mt-1 text-sm text-slate-600">How long do you think this will take?</p>
+            <p className="mt-1 text-sm text-slate-600">How long do you think it'll take?</p>
           </div>
           {/* Stated Confidence Slider */}
           <div>
@@ -398,7 +421,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
               onChange={e => setConfidence(parseInt(e.target.value))}
               className="w-full accent-blue-600 bg-slate-200 h-2 rounded-lg cursor-pointer"
             />
-            <div className="flex justify-between text-[10px] text-slate-400 font-semibold mt-1">
+            <div className="flex justify-between text-xs text-slate-500 font-semibold mt-1">
               <span>50% (Uncertain)</span>
               <span>80% (Likely)</span>
               <span>95% (Certain)</span>
@@ -425,7 +448,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                      <span className="font-bold text-sm text-slate-900">
                        {realityCheck.severity === 'reality_check' ? '3. Reality Check' : '3. Historical calibration'}
                     </span>
-                    <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600">
+                    <span className="text-xs font-semibold uppercase px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600">
                       {realityCheck.sampleCount} similar tasks observed {realityCheck.matchedBy === 'category_and_tag' ? `(${tag})` : ''}
                     </span>
                   </div>
@@ -485,26 +508,9 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
            <div className="border-b border-slate-100 pb-1">
              <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">4. Decision</p>
-             <p className="mt-1 text-sm text-slate-600">Your forecast stays separate from the schedule and remains in your history.</p>
+             <p className="mt-1 text-sm text-slate-600">Save to record this prediction in your history.</p>
            </div>
-           {/* Form Actions */}
-          <div className="flex items-center justify-end space-x-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-               className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-               className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
-            >
-               {existingTask ? 'Save prediction' : 'Record prediction'}
-            </button>
-          </div>
         </form>
-      </div>
-    </div>
+    </ModalShell>
   );
 };

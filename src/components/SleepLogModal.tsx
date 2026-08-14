@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { SleepRecord } from '../types';
-import { Moon, Clock, AlertTriangle, CheckCircle, X } from 'lucide-react';
+import { Moon, Clock, AlertTriangle, CheckCircle } from 'lucide-react';
+import { ModalShell } from './ui/ModalShell';
 
 interface SleepLogModalProps {
   isOpen: boolean;
@@ -67,33 +68,35 @@ export const SleepLogModal: React.FC<SleepLogModalProps> = ({
   };
 
   return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/40 p-4">
-      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg shadow-xl text-slate-900 my-8 max-h-[90vh] flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
-          <div className="flex items-center space-x-2.5">
-            <div className="p-2 rounded-lg bg-blue-50 border border-blue-100 text-blue-600">
-              <Moon className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-lg text-slate-900">Log Sleep Context</h3>
-              <p className="text-xs text-slate-500">Sleep context helps explain prediction execution differences</p>
-            </div>
-          </div>
+    <ModalShell
+      title="Log Sleep Context"
+      description="Sleep context helps explain prediction execution differences"
+      icon={<Moon className="h-5 w-5" />}
+      onClose={onClose}
+      maxWidth="max-w-lg"
+      footer={
+        <div className="flex items-center justify-end space-x-3">
           <button
-             onClick={onClose}
-             aria-label="Close sleep dialog"
-             className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
           >
-            <X className="w-5 h-5" />
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="sleep-modal-form"
+            className="px-5 py-2 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-2xs transition-colors"
+          >
+            Save Sleep Record
           </button>
         </div>
-
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
+      }
+    >
+        <form id="sleep-modal-form" onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
           <div>
             <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-              Target Date
+              Target Date <span className="text-xs font-normal normal-case tracking-normal text-slate-400">(usually today)</span>
             </label>
             <input
               type="date"
@@ -190,25 +193,7 @@ export const SleepLogModal: React.FC<SleepLogModalProps> = ({
               )}
             </div>
           </div>
-
-          {/* Actions */}
-          <div className="flex items-center justify-end space-x-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-xl text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-5 py-2 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-2xs transition-colors"
-            >
-              Save Sleep Record
-            </button>
-          </div>
         </form>
-      </div>
-    </div>
+    </ModalShell>
   );
 };

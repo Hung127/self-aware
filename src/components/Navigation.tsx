@@ -52,7 +52,7 @@ export const Navigation: React.FC<NavigationProps> = ({
           {/* Navigation Links */}
           <nav className="hidden items-center gap-1 lg:flex">
             {items.map(({ id, label, icon: Icon }) => (
-              <button key={id} onClick={() => navigate(id)} className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${activeTab === id ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}>
+              <button key={id} onClick={() => navigate(id)} aria-current={activeTab === id ? 'page' : undefined} className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${activeTab === id ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}>
                 <Icon className="h-[18px] w-[18px]" />
                 <span>{label}</span>
               </button>
@@ -62,9 +62,9 @@ export const Navigation: React.FC<NavigationProps> = ({
           {/* Header Actions */}
           <div className="flex items-center space-x-2 sm:space-x-3">
             {gcalConnected && (
-              <span className="hidden md:flex items-center gap-1.5 text-xs font-medium text-emerald-700">
-                <Calendar className="h-3.5 w-3.5" />
-                <span>Calendar connected</span>
+              <span title="Google Calendar connected" className="flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
+                <span className="hidden md:inline">Calendar connected</span>
               </span>
             )}
 
@@ -89,12 +89,34 @@ export const Navigation: React.FC<NavigationProps> = ({
           {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
         {menuOpen && (
-          <nav className="border-t border-slate-100 py-2 lg:hidden">
+          <nav aria-label="Primary" className="border-t border-slate-100 py-2 lg:hidden">
+            {gcalConnected && (
+              <div className="flex items-center gap-1.5 px-3 py-3 text-xs font-medium text-emerald-700">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
+                <span>Google Calendar connected</span>
+              </div>
+            )}
             {items.map(({ id, label, icon: Icon }) => (
-              <button key={id} onClick={() => navigate(id)} className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium ${activeTab === id ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>
+              <button key={id} onClick={() => navigate(id)} aria-current={activeTab === id ? 'page' : undefined} className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium ${activeTab === id ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>
                 <Icon className="h-[18px] w-[18px]" />{label}
               </button>
             ))}
+            <div className="mt-1 flex items-center gap-3 border-t border-slate-100 px-3 py-3">
+              <button
+                onClick={onOpenSleepLog}
+                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                <Moon className="w-4 h-4" />
+                Log sleep
+              </button>
+              <button
+                onClick={onOpenNewTask}
+                className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+              >
+                <Plus className="w-4 h-4" />
+                New Prediction
+              </button>
+            </div>
           </nav>
         )}
       </div>

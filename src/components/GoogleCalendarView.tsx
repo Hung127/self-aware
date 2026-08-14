@@ -10,26 +10,25 @@ import {
   Target,
   ExternalLink,
   RefreshCw,
-  Check,
-  X,
   Globe,
-  Tag,
-  AlertCircle,
   CalendarDays,
-  Layers,
-  Sparkles,
-  Link2
+  Plug,
+  CalendarClock,
+  Loader2
 } from 'lucide-react';
 import { GCalEvent, inferCategoryFromTitle } from '../utils/googleCalendar';
-import { TaskItem, TaskCategory } from '../types';
+import { TaskItem } from '../types';
 import {
   getStoredAccessToken,
-  signInWithGoogleCalendar,
   fetchAllGoogleCalendarEvents,
   createRealGoogleCalendarEvent,
   updateRealGoogleCalendarEvent,
   deleteRealGoogleCalendarEvent
 } from '../utils/googleAuthService';
+import { SegmentedControl } from './ui/SegmentedControl';
+import { ConfirmDialog } from './ui/ConfirmDialog';
+import { ModalShell } from './ui/ModalShell';
+import type { ToastVariant } from './ui/Toast';
 
 interface GoogleCalendarViewProps {
   tasks: TaskItem[];
@@ -37,6 +36,7 @@ interface GoogleCalendarViewProps {
   gcalConnected: boolean;
   onConnectGCal: () => void;
   calendarId?: string;
+  onShowToast?: (message: string, variant?: ToastVariant) => void;
 }
 
 const STORAGE_GCAL_KEY = 'personal_calibration_gcal_events';
@@ -66,19 +66,21 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
   onRecordGCalPrediction,
   gcalConnected,
   onConnectGCal,
-  calendarId = 'primary'
+  calendarId = 'primary',
+  onShowToast
 }) => {
-  const [viewMode, setViewMode] = useState<'app_interactive' | 'official_embed'>('app_interactive');
+  const [viewMode, setViewMode] = useState<'list' | 'embed'>('list');
   const [calendarScope, setCalendarScope] = useState<'day' | 'week' | 'all'>('day');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   // Calendar events state
   const [events, setEvents] = useState<GCalEvent[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [notification, setNotification] = useState<string | null>(null);
+  const [embedLoading, setEmbedLoading] = useState(true);
 
   // Dedicated Interaction Layer / Event Details Modal
   const [selectedEventForView, setSelectedEventForView] = useState<GCalEvent | null>(null);
+  const [showDetailsPreview, setShowDetailsPreview] = useState(false);
 
   // Form modal state (for Create & Edit)
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
@@ -88,8 +90,17 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
   const [eventSummary, setEventSummary] = useState('');
   const [eventDescription, setEventDescription] = useState('');
   const [eventStartDate, setEventStartDate] = useState('');
+  const [eventEndDate, setEventEndDate] = useState('');
   const [eventStartTime, setEventStartTime] = useState('09:00');
   const [eventEndTime, setEventEndTime] = useState('10:00');
+  const [formError, setFormError] = useState<string | null>(null);
+
+  // Delete confirmation state
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+
+  const notify = (msg: string, variant: ToastVariant = 'success') => {
+    onShowToast?.(msg, variant);
+  };
 
   // Load initial events from local storage (no fake seeding in production)
   useEffect(() => {
@@ -132,9 +143,9 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
             eventMap.set(targetId, {
               id: targetId,
               summary: task.title,
-               description: task.predictionStatus === 'not_recorded'
-                 ? `Category: ${task.category}. Plan imported; prediction not recorded yet.`
-                 : `Category: ${task.category}. Forecast: ${task.estimatedDurationMinutes}m (${task.confidence}% confidence).`,
+              description: task.predictionStatus === 'not_recorded'
+                ? `Category: ${task.category}. Plan imported; prediction not recorded yet.`
+                : `Category: ${task.category}. Forecast: ${task.estimatedDurationMinutes}m (${task.confidence}% confidence).`,
               start: { dateTime: startISO },
               end: { dateTime: endISO },
               status: 'confirmed'
@@ -161,14 +172,14 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
     });
   }, [tasks]);
 
+  // Reset details-modal preview toggle when a new event is selected
+  useEffect(() => {
+    setShowDetailsPreview(false);
+  }, [selectedEventForView?.id]);
+
   const saveEventsToStorage = (newEvents: GCalEvent[]) => {
     setEvents(newEvents);
     localStorage.setItem(STORAGE_GCAL_KEY, JSON.stringify(newEvents));
-  };
-
-  const showToast = (msg: string) => {
-    setNotification(msg);
-    setTimeout(() => setNotification(null), 4000);
   };
 
   // Sync Google Calendar action
@@ -178,7 +189,7 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
     try {
       const token = getStoredAccessToken();
       if (!token) {
-        showToast('Opening Google Sign-In popup...');
+        notify('Opening Google Sign-In popup...', 'info');
       }
 
       const res = await onConnectGCal();
@@ -189,17 +200,17 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
           const realEvents = await fetchAllGoogleCalendarEvents(activeToken);
           saveEventsToStorage(realEvents);
         }
-        showToast(`Synced! ${res.count} events retrieved from your Google Calendar account.`);
+        notify(`Synced! ${res.count} events retrieved from your Google Calendar.`, 'success');
       } else {
-        showToast('Google Calendar sign-in was closed or cancelled.');
+        notify('Google Calendar sign-in was closed or cancelled.', 'warning');
       }
     } catch (err: any) {
       const msg = err?.message || '';
       if (msg.includes('closed') || msg.includes('cancelled') || msg.includes('popup')) {
-        showToast('Google sign-in popup was closed.');
+        notify('Google sign-in popup was closed.', 'warning');
       } else {
         console.warn('Google Calendar view sync notice:', msg);
-        showToast(`Calendar sync notice: ${msg || 'Sync failed'}`);
+        notify(`Calendar sync notice: ${msg || 'Sync failed'}`, 'error');
       }
     } finally {
       setIsSyncing(false);
@@ -238,8 +249,10 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
     setEventDescription('');
     const dateStr = formatLocalDate(selectedDate);
     setEventStartDate(dateStr);
+    setEventEndDate(dateStr);
     setEventStartTime('09:00');
     setEventEndTime('10:00');
+    setFormError(null);
     setIsEventModalOpen(true);
   };
 
@@ -253,8 +266,10 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
     const endObj = new Date(evt.end.dateTime);
 
     setEventStartDate(formatLocalDate(startObj));
+    setEventEndDate(formatLocalDate(endObj));
     setEventStartTime(startObj.toTimeString().substring(0, 5));
     setEventEndTime(endObj.toTimeString().substring(0, 5));
+    setFormError(null);
 
     setIsEventModalOpen(true);
   };
@@ -264,10 +279,24 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
     e.preventDefault();
     if (!eventSummary.trim()) return;
 
-    const startISO = new Date(`${eventStartDate}T${eventStartTime}:00.000Z`).toISOString();
-    const endISO = new Date(`${eventStartDate}T${eventEndTime}:00.000Z`).toISOString();
+    // Build ISO from local date parts (no fake UTC suffix)
+    const startISO = new Date(`${eventStartDate}T${eventStartTime}:00`).toISOString();
+    const endISO = new Date(`${eventEndDate}T${eventEndTime}:00`).toISOString();
+
+    if (new Date(endISO).getTime() <= new Date(startISO).getTime()) {
+      setFormError('End must be after start.');
+      return;
+    }
+    setFormError(null);
 
     const token = getStoredAccessToken();
+    const savedLocally = (msg: string) => {
+      if (token) {
+        notify(`Saved locally. Couldn't reach Google Calendar (${msg}). It will re-sync.`, 'warning');
+      } else {
+        notify('Saved locally. Sign in & sync to push to Google Calendar.', 'info');
+      }
+    };
 
     if (editingEvent) {
       // Update existing
@@ -287,9 +316,13 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
             startIso: startISO,
             endIso: endISO
           }, token, calendarId);
+          notify(`Updated "${eventSummary}" on Google Calendar.`, 'success');
         } catch (err: any) {
           console.warn('Real GCal API update failed, updating local state:', err);
+          savedLocally(err?.message || 'update failed');
         }
+      } else {
+        savedLocally('');
       }
 
       const updatedEvents = events.map(evt => evt.id === editingEvent.id ? updatedEvt : evt);
@@ -298,8 +331,6 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
       if (selectedEventForView && selectedEventForView.id === editingEvent.id) {
         setSelectedEventForView(updatedEvt);
       }
-
-      showToast(`Updated "${eventSummary}" on Google Calendar`);
     } else {
       // Create new
       let newEvt: GCalEvent = {
@@ -319,57 +350,58 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
             startIso: startISO,
             endIso: endISO
           }, token, calendarId);
+          notify(`Created event: "${eventSummary}" on Google Calendar.`, 'success');
         } catch (err: any) {
           console.warn('Real GCal API creation failed, storing local event:', err);
+          savedLocally(err?.message || 'creation failed');
         }
+      } else {
+        savedLocally('');
       }
 
       saveEventsToStorage([newEvt, ...events]);
-      showToast(`Created event: "${eventSummary}" on Google Calendar`);
     }
 
     setIsEventModalOpen(false);
   };
 
-  // Delete Event
-  const handleDeleteEvent = async (eventId: string, title: string) => {
-    if (!window.confirm(`Delete "${title}" from the Calendar view?`)) return;
+  // Delete Event (opens confirmation)
+  const handleDeleteEvent = (eventId: string, title: string) => {
+    setDeleteTarget({ id: eventId, title });
+  };
+
+  const performDeleteEvent = async () => {
+    if (!deleteTarget) return;
     const token = getStoredAccessToken();
+
     if (token) {
       try {
-        await deleteRealGoogleCalendarEvent(eventId, token, calendarId);
+        await deleteRealGoogleCalendarEvent(deleteTarget.id, token, calendarId);
+        notify(`Deleted "${deleteTarget.title}" from Google Calendar.`, 'success');
       } catch (err: any) {
         console.warn('Real GCal API delete failed, removing locally:', err);
+        notify(`Removed locally. Couldn't reach Google Calendar (${err?.message || 'delete failed'}).`, 'warning');
       }
+    } else {
+      notify(`Deleted "${deleteTarget.title}" locally.`, 'info');
     }
 
-    const remaining = events.filter(e => e.id !== eventId);
+    const remaining = events.filter(e => e.id !== deleteTarget.id);
     saveEventsToStorage(remaining);
-    if (selectedEventForView?.id === eventId) {
+    if (selectedEventForView?.id === deleteTarget.id) {
       setSelectedEventForView(null);
     }
-    showToast(`Deleted "${title}" from Google Calendar`);
+    setDeleteTarget(null);
   };
 
   // Calibrate an event into prediction task
   const handleCalibrateEvent = (evt: GCalEvent) => {
     const existing = tasks.find(t => t.googleCalendarEventId === evt.id);
     if (existing?.predictionStatus === 'recorded') {
-      showToast(`"${evt.summary}" already has a recorded prediction`);
+      notify(`"${evt.summary}" already has a recorded prediction`, 'info');
       return;
     }
     onRecordGCalPrediction(evt);
-  };
-
-  // Construct official Google Calendar edit web link
-  const getGoogleCalendarEditUrl = (evt: GCalEvent) => {
-    const title = encodeURIComponent(evt.summary);
-    const details = encodeURIComponent(evt.description || 'Personal Calibration linked event');
-
-    const startISO = new Date(evt.start.dateTime).toISOString().replace(/-|:|\.\d\d\d/g, '');
-    const endISO = new Date(evt.end.dateTime).toISOString().replace(/-|:|\.\d\d\d/g, '');
-
-    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startISO}/${endISO}&details=${details}`;
   };
 
   // Filter events for current selected scope
@@ -401,16 +433,17 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
     ? selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })
     : `${monday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${sunday.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
 
+  const getEventLinkStatus = (evt: GCalEvent) => {
+    const linkedTask = tasks.find(t => t.googleCalendarEventId === evt.id);
+    const isRecorded = linkedTask?.predictionStatus === 'recorded';
+    const isPlanLinked = !!linkedTask && !isRecorded;
+    return { isRecorded, isPlanLinked };
+  };
+
+  const embedSrc = `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(calendarId)}`;
+
   return (
     <div className="mx-auto max-w-6xl space-y-6 pb-12 text-slate-900">
-      {/* Toast notification */}
-      {notification && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl border border-slate-700 flex items-center space-x-2.5 animate-in fade-in slide-in-from-bottom-3 duration-200">
-          <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span className="text-xs font-semibold">{notification}</span>
-        </div>
-      )}
-
        {/* Calendar is the source of the plan. */}
        <div className="flex flex-col justify-between gap-4 rounded-xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] md:flex-row md:items-center">
         <div className="flex items-start space-x-4">
@@ -425,7 +458,7 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                   : 'bg-amber-50 text-amber-700 border-amber-200'
               }`}>
-                {gcalConnected && getStoredAccessToken() ? 'Connected & Synced' : 'Not Connected'}
+                {gcalConnected && getStoredAccessToken() ? 'Connected' : 'Not connected'}
               </span>
             </div>
              <p className="mt-1 max-w-xl text-sm text-slate-600">
@@ -436,39 +469,30 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
 
         {/* View Mode & Primary Action Buttons (SYNC & NEW EVENT) */}
         <div className="flex flex-wrap items-center gap-2.5">
-          {/* Prominent SYNC BUTTON right at calendar tab */}
+          {/* Primary action: Sync when connected, Connect via panel when not */}
           <button
             onClick={handleSyncGoogleCalendar}
             disabled={isSyncing}
              aria-busy={isSyncing}
-             className="flex shrink-0 items-center space-x-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+             className={`flex shrink-0 items-center space-x-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50 ${
+               gcalConnected && getStoredAccessToken()
+                 ? 'bg-blue-600 text-white hover:bg-blue-700'
+                 : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+             }`}
           >
             <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
              <span>{isSyncing ? 'Syncing...' : 'Sync calendar'}</span>
           </button>
 
-          <div className="bg-slate-100 p-1 rounded-xl flex items-center border border-slate-200">
-            <button
-              onClick={() => setViewMode('app_interactive')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                viewMode === 'app_interactive'
-                  ? 'bg-white text-slate-900 shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Interactive App View
-            </button>
-            <button
-              onClick={() => setViewMode('official_embed')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                viewMode === 'official_embed'
-                  ? 'bg-white text-slate-900 shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Full Screen Frame
-            </button>
-          </div>
+          <SegmentedControl
+            ariaLabel="Calendar view mode"
+            value={viewMode}
+            onChange={setViewMode}
+            options={[
+              { value: 'list', label: 'List view' },
+              { value: 'embed', label: 'Embed view' }
+            ]}
+          />
 
           <button
             onClick={handleOpenCreateModal}
@@ -480,8 +504,30 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
         </div>
       </div>
 
+      {/* Connect prompt (only when not connected) */}
+      {!gcalConnected && (
+        <div className="flex flex-col justify-between gap-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-slate-900 sm:flex-row sm:items-center">
+          <div className="flex items-start space-x-3">
+            <Plug className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
+            <div>
+              <span className="font-semibold text-slate-900">Connect your Google Calendar</span>
+              <p className="mt-0.5 text-sm text-slate-600">
+                Import planned events automatically and keep your plan and predictions in sync.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleSyncGoogleCalendar}
+            disabled={isSyncing}
+            className="shrink-0 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+          >
+            {isSyncing ? 'Connecting...' : 'Connect Google Calendar'}
+          </button>
+        </div>
+      )}
+
       {/* Mode 1: Interactive App Calendar View */}
-      {viewMode === 'app_interactive' ? (
+      {viewMode === 'list' ? (
         <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden flex flex-col">
           {/* Calendar Toolbar */}
           <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -490,21 +536,23 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
                 <>
                   <button
                     onClick={handlePrevDate}
-                    className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 transition-colors"
+                    className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 transition-colors"
                     title="Previous Date/Week"
+                    aria-label="Previous date or week"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
                   <button
                     onClick={handleToday}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-xs font-bold text-slate-700 transition-colors"
+                    className="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-xs font-bold text-slate-700 transition-colors"
                   >
                     Today
                   </button>
                   <button
                     onClick={handleNextDate}
-                    className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 transition-colors"
+                    className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 transition-colors"
                     title="Next Date/Week"
+                    aria-label="Next date or week"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
@@ -517,39 +565,24 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
             </div>
 
             <div className="flex items-center space-x-2">
-              <div className="bg-white p-1 rounded-xl border border-slate-200 flex items-center">
-                <button
-                  onClick={() => setCalendarScope('day')}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold ${
-                    calendarScope === 'day' ? 'bg-slate-100 text-slate-900 font-bold' : 'text-slate-500'
-                  }`}
-                >
-                  Day
-                </button>
-                <button
-                  onClick={() => setCalendarScope('week')}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold ${
-                    calendarScope === 'week' ? 'bg-slate-100 text-slate-900 font-bold' : 'text-slate-500'
-                  }`}
-                >
-                  Week
-                </button>
-                <button
-                  onClick={() => setCalendarScope('all')}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold ${
-                    calendarScope === 'all' ? 'bg-slate-100 text-slate-900 font-bold' : 'text-slate-500'
-                  }`}
-                >
-                  All Events ({events.length})
-                </button>
-              </div>
+              <SegmentedControl
+                ariaLabel="Calendar scope"
+                value={calendarScope}
+                onChange={setCalendarScope}
+                options={[
+                  { value: 'day', label: 'Day' },
+                  { value: 'week', label: 'Week' },
+                  { value: 'all', label: `All Events (${events.length})` }
+                ]}
+              />
 
               <a
                 href="https://calendar.google.com"
                 target="_blank"
                 rel="noreferrer"
-                className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-800 transition-colors"
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-800 transition-colors"
                 title="Open Google Calendar in New Tab"
+                aria-label="Open Google Calendar in new tab"
               >
                 <ExternalLink className="w-4 h-4" />
               </a>
@@ -563,7 +596,7 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
                 <CalendarIcon className="w-10 h-10 text-slate-300 mx-auto mb-3" />
                 <h3 className="font-bold text-slate-700 text-sm">No events found for {calendarScope === 'day' ? 'this date' : 'this range'}</h3>
                 <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                  Click <strong>"Sync Google Calendar"</strong> to pull down events, or create a new event for this day.
+                  Click <strong>"Sync calendar"</strong> to pull down events, or create a new event for this day.
                 </p>
                 <div className="flex items-center justify-center space-x-3 mt-4">
                   <button
@@ -591,26 +624,39 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
                   const durationMins = Math.max(15, Math.round((endObj.getTime() - startObj.getTime()) / 60000));
                   const category = inferCategoryFromTitle(evt.summary);
 
-                   const linkedTask = tasks.find(t => t.googleCalendarEventId === evt.id);
-                   const isLinkedToCalibration = linkedTask?.predictionStatus === 'recorded';
+                   const { isRecorded, isPlanLinked } = getEventLinkStatus(evt);
 
                    return (
                      <div
                        key={evt.id}
-                       onClick={() => setSelectedEventForView(evt)}
-                       role="button"
-                       tabIndex={0}
-                       onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedEventForView(evt); } }}
-                      className="p-5 rounded-2xl bg-white border border-slate-200 hover:border-blue-300 hover:shadow-md transition-all flex flex-col justify-between space-y-4 cursor-pointer group"
-                    >
-                      <div className="space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <h3 className="font-bold text-base text-slate-900 leading-snug group-hover:text-blue-600 transition-colors">
-                            {evt.summary}
-                          </h3>
-                          <span className="shrink-0 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-[#4361ee] border border-indigo-100">
-                            {category}
-                          </span>
+                       className="p-5 rounded-2xl bg-white border border-slate-200 hover:border-blue-300 hover:shadow-md transition-all flex flex-col justify-between space-y-4 group"
+                     >
+                       <div className="space-y-2">
+                         <div className="flex items-start justify-between gap-2">
+                           <h3 className="font-bold text-base text-slate-900 leading-snug group-hover:text-blue-600 transition-colors">
+                             {evt.summary}
+                           </h3>
+                           <span className="shrink-0 text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
+                             {category}
+                           </span>
+                         </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          {isRecorded ? (
+                            <span className="inline-flex items-center text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              <Target className="w-3 h-3" />
+                              <span>Prediction recorded</span>
+                            </span>
+                          ) : isPlanLinked ? (
+                            <span className="inline-flex items-center text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                              <Target className="w-3 h-3" />
+                              <span>Plan linked</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-50 text-slate-500 border border-slate-200">
+                              <span>Not linked</span>
+                            </span>
+                          )}
                         </div>
 
                         {evt.description && (
@@ -630,18 +676,18 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
                       </div>
 
                       {/* Card Footer Actions */}
-                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between" onClick={e => e.stopPropagation()}>
+                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                         <button
                           onClick={() => handleCalibrateEvent(evt)}
-                          disabled={isLinkedToCalibration}
+                          disabled={isRecorded}
                           className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
-                            isLinkedToCalibration
+                            isRecorded
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default'
-                              : 'bg-indigo-50 hover:bg-indigo-100 text-[#4361ee] border border-indigo-200'
+                              : 'bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200'
                           }`}
                         >
                           <Target className="w-3.5 h-3.5" />
-                           <span>{isLinkedToCalibration ? 'Prediction recorded' : 'Record a prediction'}</span>
+                           <span>{isRecorded ? 'Prediction recorded' : 'Record a prediction'}</span>
                         </button>
 
                         <div className="flex items-center space-x-1">
@@ -654,7 +700,7 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
                           </button>
                           <button
                             onClick={() => handleOpenEditModal(evt)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                            className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
                              aria-label="Edit calendar event"
                              title="Edit calendar event"
                           >
@@ -662,7 +708,7 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
                           </button>
                           <button
                             onClick={() => handleDeleteEvent(evt.id, evt.summary)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                            className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
                              aria-label="Delete calendar event"
                              title="Delete calendar event"
                           >
@@ -678,13 +724,13 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
           </div>
         </div>
       ) : (
-        /* Mode 2: Official Web Embed & Synchronized Event Layer */
+        /* Mode 2: Official Web Embed & Linked Predictions */
         <div className="space-y-6">
           <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden flex flex-col h-[650px]">
             <div className="px-6 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between text-xs font-semibold text-slate-600">
               <div className="flex items-center space-x-2">
                 <Globe className="w-4 h-4 text-blue-600" />
-                <span>Google Calendar Official Embed Workspace</span>
+                <span>Calendar embed</span>
               </div>
               <div className="flex items-center space-x-3">
                 <button
@@ -693,27 +739,48 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
                   className="flex items-center space-x-1.5 text-blue-600 font-bold hover:underline"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                  <span>Sync Google Calendar</span>
+                  <span>Sync calendar</span>
                 </button>
                 <a
                   href="https://calendar.google.com"
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center space-x-1 text-[#4361ee] font-bold hover:underline"
+                  className="flex items-center space-x-1 text-blue-700 font-bold hover:underline"
                 >
                   <span>Open in full tab</span>
                   <ExternalLink className="w-3.5 h-3.5" />
                 </a>
               </div>
             </div>
-            <iframe
-              src={`https://calendar.google.com/calendar/embed?src=${encodeURIComponent(calendarId)}&ctz=UTC`}
-              title="Google Calendar Embed View"
-              className="w-full h-full border-none"
-            />
+            <div className="relative flex-1 bg-slate-50">
+              {embedLoading && (
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-slate-50 text-slate-400">
+                  <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                  <span className="text-sm font-medium">Loading calendar preview...</span>
+                </div>
+              )}
+              <iframe
+                src={embedSrc}
+                title="Google Calendar Embed View"
+                className="w-full h-full border-none"
+                onLoad={() => setEmbedLoading(false)}
+              />
+              {!embedLoading && (
+                <div className="pointer-events-none absolute bottom-3 right-3 z-10">
+                  <a
+                    href="https://calendar.google.com"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="pointer-events-auto rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 shadow-sm transition-colors hover:bg-slate-50"
+                  >
+                    Open in Google Calendar
+                  </a>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Synchronized Calendar Events & Task Mapping Bar */}
+          {/* Linked Predictions */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center space-x-2.5">
@@ -721,9 +788,9 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
                   <CalendarDays className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-base text-slate-900">Synchronized Event Mappings</h3>
+                  <h3 className="font-bold text-base text-slate-900">Linked predictions</h3>
                   <p className="text-xs text-slate-500">
-                    Events mapped via <code className="bg-slate-100 px-1.5 py-0.5 rounded text-blue-700 font-mono text-[11px]">googleCalendarEventId</code> between Google Calendar and your Calibration engine
+                    Events that have a prediction recorded in your calibration history.
                   </p>
                 </div>
               </div>
@@ -737,267 +804,243 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {events.map(evt => {
-                const isLinked = tasks.some(t => t.googleCalendarEventId === evt.id);
-                const startObj = new Date(evt.start.dateTime);
-                const dateStr = startObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                const timeStr = startObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            {events.length === 0 ? (
+              <p className="py-8 text-center text-sm text-slate-500">
+                No events synced yet. Sync your calendar to see linked predictions here.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {events.map(evt => {
+                  const { isRecorded, isPlanLinked } = getEventLinkStatus(evt);
+                  const startObj = new Date(evt.start.dateTime);
+                  const dateStr = startObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                  const timeStr = startObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-                return (
-                  <div
-                    key={evt.id}
-                    className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white hover:border-blue-300 transition-all flex flex-col justify-between space-y-3"
-                  >
-                    <div>
-                      <div className="flex items-start justify-between gap-1.5">
-                        <h4 className="font-bold text-xs text-slate-900 line-clamp-1">{evt.summary}</h4>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 shrink-0 font-mono">
-                          {evt.id.substring(0, 10)}
+                  return (
+                    <div
+                      key={evt.id}
+                      className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white hover:border-blue-300 transition-all flex flex-col justify-between space-y-3"
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-1.5">
+                          <h4 className="font-bold text-xs text-slate-900 line-clamp-1">{evt.summary}</h4>
+                        </div>
+                        <div className="text-xs text-slate-500 mt-1 flex items-center space-x-2">
+                          <Clock className="w-3 h-3 text-slate-400" />
+                          <span>{dateStr} at {timeStr}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 text-xs">
+                        <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md border ${
+                          isRecorded
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : isPlanLinked
+                            ? 'bg-blue-50 text-blue-700 border-blue-200'
+                            : 'bg-slate-50 text-slate-500 border-slate-200'
+                        }`}>
+                          {isRecorded ? 'Prediction recorded' : isPlanLinked ? 'Plan linked' : 'Not linked'}
                         </span>
-                      </div>
-                      <div className="text-[11px] text-slate-500 mt-1 flex items-center space-x-2">
-                        <Clock className="w-3 h-3 text-slate-400" />
-                        <span>{dateStr} at {timeStr}</span>
+
+                        <button
+                          onClick={() => setSelectedEventForView(evt)}
+                          className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline"
+                        >
+                          Inspect / Edit
+                        </button>
                       </div>
                     </div>
-
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 text-xs">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                        isLinked
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : 'bg-amber-50 text-amber-700 border border-amber-200'
-                      }`}>
-                        {isLinked ? 'Calibrated Task' : 'Unlinked GCal Event'}
-                      </span>
-
-                      <button
-                        onClick={() => setSelectedEventForView(evt)}
-                        className="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline"
-                      >
-                        Inspect / Edit
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* DEDICATED INTERACTION LAYER / EVENT DETAILS MODAL */}
+      {/* EVENT DETAILS MODAL */}
       {selectedEventForView && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-xl shadow-2xl text-slate-900 my-8 flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
-              <div className="flex items-center space-x-3">
-                <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-100 text-blue-600">
-                  <CalendarIcon className="w-6 h-6" />
-                </div>
-                <div>
-                  <span className="text-[11px] font-bold text-blue-600 uppercase tracking-wider">
-                    Google Calendar Event Layer
-                  </span>
-                  <h3 className="font-bold text-lg text-slate-900 leading-tight">
-                    {selectedEventForView.summary}
-                  </h3>
-                </div>
-              </div>
-              <button
-                onClick={() => setSelectedEventForView(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-6 overflow-y-auto max-h-[75vh]">
-              {/* Event Metadata Banner */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2 text-xs font-bold text-slate-700">
-                    <Clock className="w-4 h-4 text-blue-600" />
-                    <span>
-                      {new Date(selectedEventForView.start.dateTime).toLocaleString([], {
-                        weekday: 'short',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                      {' - '}
-                      {new Date(selectedEventForView.end.dateTime).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </span>
-                  </div>
-                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                    {inferCategoryFromTitle(selectedEventForView.summary)}
-                  </span>
-                </div>
-
-                {selectedEventForView.description && (
-                  <p className="text-xs text-slate-600 leading-relaxed border-t border-slate-200 pt-2">
-                    {selectedEventForView.description}
-                  </p>
-                )}
-              </div>
-
-              {/* Interaction Options */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-                  Event Actions & Modifications
-                </h4>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button
-                    onClick={() => {
-                      const evt = selectedEventForView;
-                      setSelectedEventForView(null);
-                      handleOpenEditModal(evt);
-                    }}
-                    className="p-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs flex items-center space-x-2.5 shadow-2xs transition-all"
-                  >
-                    <Edit2 className="w-4 h-4 text-blue-600 shrink-0" />
-                    <div className="text-left">
-                      <div>Modify Title & Schedule</div>
-                      <div className="text-[11px] font-normal text-slate-500">Edit directly in app</div>
-                    </div>
-                  </button>
-
-                  <a
-                    href={getGoogleCalendarEditUrl(selectedEventForView)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="p-3.5 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-900 font-bold text-xs flex items-center space-x-2.5 shadow-2xs transition-all"
-                  >
-                    <ExternalLink className="w-4 h-4 text-blue-600 shrink-0" />
-                    <div className="text-left">
-                      <div>Open in Google Calendar</div>
-                      <div className="text-[11px] font-normal text-blue-700">Official Web Editor</div>
-                    </div>
-                  </a>
-                </div>
-              </div>
-
-              {/* Calibration Link */}
-              <div className="p-4 rounded-xl bg-indigo-50/70 border border-indigo-100 flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <div className="text-xs font-bold text-indigo-950 flex items-center space-x-1.5">
-                    <Target className="w-4 h-4 text-[#4361ee]" />
-                    <span>Personal Calibration Engine</span>
-                  </div>
-                  <p className="text-[11px] text-indigo-700">
-                    Track your predicted vs actual execution for this event.
-                  </p>
-                </div>
-
-                <button
-                  onClick={() => {
-                    handleCalibrateEvent(selectedEventForView);
-                  }}
-                     disabled={tasks.some(t => t.googleCalendarEventId === selectedEventForView.id && t.predictionStatus === 'recorded')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors ${
-                     tasks.some(t => t.googleCalendarEventId === selectedEventForView.id && t.predictionStatus === 'recorded')
-                      ? 'bg-emerald-100 text-emerald-800 cursor-default'
-                      : 'bg-[#4361ee] text-white hover:bg-[#3852d0]'
-                  }`}
-                >
-                   {tasks.some(t => t.googleCalendarEventId === selectedEventForView.id && t.predictionStatus === 'recorded')
-                     ? 'Prediction recorded'
-                     : 'Record a prediction'}
-                </button>
-              </div>
-
-              {/* Embedded Google Calendar Quick Web View */}
-              <div className="space-y-2 pt-2 border-t border-slate-100">
-                <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                  <span>Official Google Calendar Interaction Window</span>
-                  <a
-                    href="https://calendar.google.com"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-blue-600 hover:underline flex items-center space-x-1 text-[11px]"
-                  >
-                    <span>Open full tab</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
-
-                <div className="h-56 rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
-                  <iframe
-                    src={`https://calendar.google.com/calendar/embed?src=${encodeURIComponent(calendarId)}&ctz=UTC`}
-                    title="Google Calendar Modal Web View"
-                    className="w-full h-full border-none"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="px-6 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between shrink-0">
+        <ModalShell
+          title={selectedEventForView.summary}
+          description="Calendar event"
+          icon={<CalendarIcon className="h-6 w-6" />}
+          onClose={() => setSelectedEventForView(null)}
+          maxWidth="max-w-xl"
+          footer={
+            <div className="flex items-center justify-between">
               <button
                 onClick={() => handleDeleteEvent(selectedEventForView.id, selectedEventForView.summary)}
-                className="text-xs font-bold text-rose-600 hover:text-rose-700 flex items-center space-x-1"
+                className="flex items-center space-x-1.5 rounded-lg px-3 py-2 text-xs font-bold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Delete Event</span>
+                <span>Delete event</span>
               </button>
 
               <button
                 onClick={() => setSelectedEventForView(null)}
-                className="px-4 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors"
+                className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors"
               >
                 Done
               </button>
             </div>
+          }
+        >
+          <div className="space-y-5 p-6">
+            {/* Event Metadata */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2 text-xs font-bold text-slate-700">
+                  <Clock className="w-4 h-4 text-blue-600" />
+                  <span>
+                    {new Date(selectedEventForView.start.dateTime).toLocaleString([], {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                    {' - '}
+                    {new Date(selectedEventForView.end.dateTime).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                </div>
+                <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                  {inferCategoryFromTitle(selectedEventForView.summary)}
+                </span>
+              </div>
+
+              {selectedEventForView.description && (
+                <p className="text-xs text-slate-600 leading-relaxed border-t border-slate-200 pt-2">
+                  {selectedEventForView.description}
+                </p>
+              )}
+            </div>
+
+            {/* Interaction Options */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+                Event actions
+              </h4>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  onClick={() => {
+                    const evt = selectedEventForView;
+                    setSelectedEventForView(null);
+                    handleOpenEditModal(evt);
+                  }}
+                  className="p-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs flex items-center space-x-2.5 shadow-xs transition-all"
+                >
+                  <Edit2 className="w-4 h-4 text-blue-600 shrink-0" />
+                  <div className="text-left">
+                    <div>Edit title & schedule</div>
+                    <div className="text-xs font-normal text-slate-500">Edit directly in app</div>
+                  </div>
+                </button>
+
+                {selectedEventForView.htmlLink ? (
+                  <a
+                    href={selectedEventForView.htmlLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-3.5 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-900 font-bold text-xs flex items-center space-x-2.5 shadow-xs transition-all"
+                  >
+                    <ExternalLink className="w-4 h-4 text-blue-600 shrink-0" />
+                    <div className="text-left">
+                      <div>Open in Google Calendar</div>
+                      <div className="text-xs font-normal text-blue-700">Edit in Google Calendar</div>
+                    </div>
+                  </a>
+                ) : null}
+              </div>
+            </div>
+
+            {/* Calibration Link */}
+            <div className="p-4 rounded-xl bg-blue-50/70 border border-blue-100 flex items-center justify-between">
+              <div className="space-y-0.5">
+                <div className="text-xs font-bold text-blue-950 flex items-center space-x-1.5">
+                  <Target className="w-4 h-4 text-blue-600" />
+                  <span>Calibration prediction</span>
+                </div>
+                <p className="text-xs text-blue-700">
+                  Record what you think it'll take before starting.
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  handleCalibrateEvent(selectedEventForView);
+                }}
+                 disabled={tasks.some(t => t.googleCalendarEventId === selectedEventForView.id && t.predictionStatus === 'recorded')}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors ${
+                   tasks.some(t => t.googleCalendarEventId === selectedEventForView.id && t.predictionStatus === 'recorded')
+                    ? 'bg-emerald-100 text-emerald-800 cursor-default'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+              >
+                 {tasks.some(t => t.googleCalendarEventId === selectedEventForView.id && t.predictionStatus === 'recorded')
+                   ? 'Prediction recorded'
+                   : 'Record a prediction'}
+              </button>
+            </div>
+
+            {/* Embedded Google Calendar Quick Web View (collapsed by default) */}
+            <div className="space-y-2 pt-2 border-t border-slate-100">
+              <button
+                onClick={() => setShowDetailsPreview(prev => !prev)}
+                aria-expanded={showDetailsPreview}
+                className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                <span>Calendar preview</span>
+                <span className="text-blue-600">{showDetailsPreview ? 'Hide' : 'Show'}</span>
+              </button>
+
+              {showDetailsPreview && (
+                <div className="h-56 rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
+                  <iframe
+                    src={embedSrc}
+                    title="Google Calendar Preview"
+                    className="w-full h-full border-none"
+                  />
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        </ModalShell>
       )}
 
       {/* Create / Edit Event Modal */}
       {isEventModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg shadow-xl text-slate-900 my-8 max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
-              <div className="flex items-center space-x-2.5">
-                <div className="p-2 rounded-lg bg-blue-50 border border-blue-100 text-blue-600">
-                  <CalendarIcon className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-lg text-slate-900">
-                    {editingEvent ? 'Edit Google Calendar Event' : 'New Google Calendar Event'}
-                  </h3>
-                  <p className="text-xs text-slate-500">Modify title, date, start time & end time directly</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsEventModalOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
+        <ModalShell
+          title={editingEvent ? 'Edit Google Calendar event' : 'New Google Calendar event'}
+          description="Set the title, date, and time window for this plan."
+          icon={<CalendarClock className="h-5 w-5" />}
+          onClose={() => setIsEventModalOpen(false)}
+          maxWidth="max-w-lg"
+          initialFocus="none"
+        >
+          <form onSubmit={handleSaveEvent} className="p-6 space-y-5">
+            <div>
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+                Event title / summary
+              </label>
+              <input
+                type="text"
+                placeholder="e.g., Deep Learning Chapter Reading..."
+                value={eventSummary}
+                onChange={e => setEventSummary(e.target.value)}
+                required
+                autoFocus
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white placeholder-slate-400"
+              />
             </div>
 
-            <form onSubmit={handleSaveEvent} className="p-6 space-y-5 overflow-y-auto flex-1">
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-                  Event Title / Summary
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g., Deep Learning Chapter Reading..."
-                  value={eventSummary}
-                  onChange={e => setEventSummary(e.target.value)}
-                  required
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white placeholder-slate-400"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-                  Date
+                  Start date
                 </label>
                 <input
                   type="date"
@@ -1007,65 +1050,96 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
                 />
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-                    Start Time
-                  </label>
-                  <input
-                    type="time"
-                    value={eventStartTime}
-                    onChange={e => setEventStartTime(e.target.value)}
-                    required
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-                    End Time
-                  </label>
-                  <input
-                    type="time"
-                    value={eventEndTime}
-                    onChange={e => setEventEndTime(e.target.value)}
-                    required
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
-                  />
-                </div>
-              </div>
-
               <div>
                 <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-                  Description / Context (Optional)
+                  End date
                 </label>
-                <textarea
-                  placeholder="Notes, materials, or target goals..."
-                  rows={3}
-                  value={eventDescription}
-                  onChange={e => setEventDescription(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white placeholder-slate-400"
+                <input
+                  type="date"
+                  value={eventEndDate}
+                  onChange={e => setEventEndDate(e.target.value)}
+                  required
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
                 />
               </div>
+            </div>
 
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end space-x-3 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setIsEventModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-colors"
-                >
-                  {editingEvent ? 'Save Changes' : 'Create Event'}
-                </button>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+                  Start time
+                </label>
+                <input
+                  type="time"
+                  value={eventStartTime}
+                  onChange={e => setEventStartTime(e.target.value)}
+                  required
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
+                />
               </div>
-            </form>
-          </div>
-        </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+                  End time
+                </label>
+                <input
+                  type="time"
+                  value={eventEndTime}
+                  onChange={e => setEventEndTime(e.target.value)}
+                  required
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
+                />
+              </div>
+            </div>
+
+            {formError && (
+              <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+                {formError}
+              </p>
+            )}
+
+            <div>
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+                Description / context (optional)
+              </label>
+              <textarea
+                placeholder="Notes, materials, or target goals..."
+                rows={3}
+                value={eventDescription}
+                onChange={e => setEventDescription(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white placeholder-slate-400"
+              />
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-end space-x-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsEventModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-colors"
+              >
+                {editingEvent ? 'Save Changes' : 'Create Event'}
+              </button>
+            </div>
+          </form>
+        </ModalShell>
+      )}
+
+      {/* Delete confirmation */}
+      {deleteTarget && (
+        <ConfirmDialog
+          title={`Delete "${deleteTarget.title}"?`}
+          message="This also removes the event from your Google Calendar when connected."
+          confirmLabel="Delete event"
+          cancelLabel="Cancel"
+          tone="danger"
+          onConfirm={performDeleteEvent}
+          onClose={() => setDeleteTarget(null)}
+        />
       )}
     </div>
   );

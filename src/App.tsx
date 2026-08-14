@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   TaskItem,
   SleepRecord,
@@ -41,6 +41,8 @@ import { SleepLogModal } from './components/SleepLogModal';
 import { TaskReflectionModal } from './components/TaskReflectionModal';
 import { CorrectionModal } from './components/CorrectionModal';
 import { ValidationReportModal } from './components/ValidationReportModal';
+import { Toast } from './components/ui/Toast';
+import type { ToastData, ToastVariant } from './components/ui/Toast';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'today' | 'calendar' | 'calibration' | 'history' | 'settings'>('today');
@@ -66,15 +68,40 @@ export default function App() {
   const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
   const [validationResults, setValidationResults] = useState<TestResult[]>([]);
 
-  // Toast notification banner state
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  // Toast notification state
+  const [toast, setToast] = useState<ToastData | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastId = useRef(0);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage(prev => (prev === msg ? null : prev));
-    }, 3500);
+  const clearToastTimer = () => {
+    if (toastTimer.current) {
+      clearTimeout(toastTimer.current);
+      toastTimer.current = null;
+    }
   };
+
+  const dismissToast = useCallback((id: number) => {
+    setToast(prev => (prev && prev.id === id ? null : prev));
+    clearToastTimer();
+  }, []);
+
+  const showToast = useCallback((
+    msg: string,
+    variant: ToastVariant = 'success',
+    options?: { actionLabel?: string; onAction?: () => void }
+  ) => {
+    const id = ++toastId.current;
+    clearToastTimer();
+    setToast({ id, message: msg, variant, actionLabel: options?.actionLabel, onAction: options?.onAction });
+    toastTimer.current = setTimeout(() => {
+      setToast(prev => (prev && prev.id === id ? null : prev));
+    }, 4000);
+  }, []);
+
+  const handleToastAction = useCallback((t: ToastData) => {
+    t.onAction?.();
+    dismissToast(t.id);
+  }, [dismissToast]);
 
   // Load initial data on mount
   useEffect(() => {
@@ -182,9 +209,25 @@ export default function App() {
     } : t));
   };
 
-  const handleDeleteTask = (taskId: string) => {
+  const handleDeleteTask = (taskId: string, options?: { permanent?: boolean }) => {
+    const removed = tasks.find(t => t.id === taskId);
     handleSetTasks(tasks.filter(t => t.id !== taskId));
-    showToast('Task removed from predictions.');
+
+    if (options?.permanent) {
+      showToast('Prediction record removed from history.', 'info');
+      return;
+    }
+
+    // Low-risk removal from predictions: offer undo (GS-4)
+    showToast('Task removed from predictions.', 'warning', {
+      actionLabel: 'Undo',
+      onAction: () => {
+        if (removed) {
+          handleSetTasks([removed, ...tasks.filter(t => t.id !== removed.id)]);
+          showToast('Task restored to predictions.', 'success');
+        }
+      }
+    });
   };
 
   // Reflection handler
@@ -335,6 +378,7 @@ export default function App() {
             }}
             onOpenSleepLog={() => setIsSleepLogModalOpen(true)}
             onTriggerReflection={handleTriggerReflection}
+            onOpenCalendarTab={() => setActiveTab('calendar')}
           />
         )}
 
@@ -345,6 +389,7 @@ export default function App() {
             gcalConnected={settings.googleCalendarConnected}
             onConnectGCal={handleConnectGoogleCalendar}
             calendarId={settings.gcalCalendarId}
+            onShowToast={showToast}
           />
         )}
 
@@ -440,10 +485,9 @@ export default function App() {
         />}
 
       {/* Floating Toast Notification */}
-      {toastMessage && (
-        <div role="status" aria-live="polite" className="fixed bottom-6 right-6 z-50 flex max-w-[calc(100vw-2rem)] items-center space-x-3 rounded-lg border border-slate-700 bg-slate-900 px-5 py-3 text-sm font-medium text-white shadow-xl">
-          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span>{toastMessage}</span>
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-[60] flex flex-col items-end space-y-2 px-4">
+          <Toast toast={toast} onClose={dismissToast} onAction={handleToastAction} />
         </div>
       )}
     </div>

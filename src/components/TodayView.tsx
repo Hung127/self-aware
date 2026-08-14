@@ -14,8 +14,13 @@ import {
   Trash2,
   Sparkles,
   Calendar,
-  Info
+  Info,
+  CalendarDays
 } from 'lucide-react';
+import { SkipReasonModal } from './SkipReasonModal';
+import { PostponeModal } from './PostponeModal';
+import { ConfirmDialog } from './ui/ConfirmDialog';
+import { InfoTip } from './ui/InfoTip';
 
 interface TodayViewProps {
   tasks: TaskItem[];
@@ -27,6 +32,7 @@ interface TodayViewProps {
   onOpenNewTask: (defaults?: TaskFormDefaults) => void;
   onOpenSleepLog: () => void;
   onTriggerReflection: (task: TaskItem) => void;
+  onOpenCalendarTab?: () => void;
 }
 
 export const TodayView: React.FC<TodayViewProps> = ({
@@ -38,7 +44,8 @@ export const TodayView: React.FC<TodayViewProps> = ({
   onDeleteTask,
   onOpenNewTask,
   onOpenSleepLog,
-  onTriggerReflection
+  onTriggerReflection,
+  onOpenCalendarTab
 }) => {
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -50,9 +57,17 @@ export const TodayView: React.FC<TodayViewProps> = ({
   // Active running timer state (taskId -> seconds)
   const [activeTimerSeconds, setActiveTimerSeconds] = useState<Record<string, number>>({});
 
+  // Modal targets
+  const [skipTask, setSkipTask] = useState<TaskItem | null>(null);
+  const [postponeTask, setPostponeTask] = useState<TaskItem | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+
   // Filter tasks for Today
   // Today follows the current plan; calibration keeps using original dates separately.
   const todayTasks = tasks.filter(t => t.plannedStart.split('T')[0] === todayStr && t.predictionStatus !== 'not_recorded');
+
+  // Plan-only items imported from Calendar, not yet predicted (T-7)
+  const planOnlyCount = tasks.filter(t => t.predictionStatus === 'not_recorded').length;
 
   // Find sleep record for today
   const todaySleep = sleepRecords.find(s => s.date === todayStr);
@@ -134,26 +149,27 @@ export const TodayView: React.FC<TodayViewProps> = ({
     }
   };
 
-  const handlePostponeTask = (task: TaskItem) => {
-    const nextDate = new Date(task.plannedStart);
-    nextDate.setDate(nextDate.getDate() + 1);
-    const toDateStr = nextDate.toISOString().split('T')[0];
-    onPostponeTask(task.id, toDateStr);
+  const handlePostponeRequest = (task: TaskItem) => {
+    setPostponeTask(task);
   };
 
-  const handleSkipTask = (task: TaskItem) => {
-    const reasonInput = window.prompt(
-      'Optional skip reason: too_tired, forgot, harder_than_expected, something_more_important, unexpected_event, did_not_feel_like_it, or other',
-      ''
-    )?.trim() as SkipReason | undefined;
-    const validReasons: SkipReason[] = [
-      'too_tired', 'forgot', 'harder_than_expected', 'something_more_important',
-      'unexpected_event', 'did_not_feel_like_it', 'other'
-    ];
-    onUpdateTaskExecution(task.id, {
+  const handleSkipRequest = (task: TaskItem) => {
+    setSkipTask(task);
+  };
+
+  const handleSkipConfirm = (taskId: string, reason?: SkipReason) => {
+    onUpdateTaskExecution(taskId, {
       status: 'skipped',
-      skipReason: reasonInput && validReasons.includes(reasonInput) ? reasonInput : undefined
+      skipReason: reason
     });
+  };
+
+  const handleDeleteRequest = (task: TaskItem) => {
+    setDeleteTarget({ id: task.id, title: task.title });
+  };
+
+  const performDelete = () => {
+    if (deleteTarget) onDeleteTask(deleteTarget.id);
   };
 
   const formatSecondsToHMS = (totalSecs: number) => {
@@ -173,6 +189,16 @@ export const TodayView: React.FC<TodayViewProps> = ({
           <p className="mb-2 text-sm font-medium text-blue-700">{new Date().toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}</p>
           <h1 className="text-3xl font-bold tracking-tight text-slate-950">Today</h1>
           <p className="mt-1 text-sm text-slate-600">Your planned tasks and active predictions for today.</p>
+          {planOnlyCount > 0 && (
+            <button
+              type="button"
+              onClick={onOpenCalendarTab}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-50"
+            >
+              <CalendarDays className="h-3.5 w-3.5" />
+              <span>{planOnlyCount} plan-only {planOnlyCount === 1 ? 'item' : 'items'} from Calendar not yet predicted</span>
+            </button>
+          )}
         </div>
       </div>
       {/* 1. Strongest calibration insight */}
@@ -330,7 +356,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
             </p>
             <button
               onClick={onOpenNewTask}
-              className="inline-flex items-center space-x-1.5 bg-[#4361ee] text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-[#3852d0] transition-colors"
+              className="inline-flex items-center space-x-1.5 bg-blue-600 text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-blue-700 transition-colors"
             >
               <Plus className="w-4 h-4" />
               <span>Create First Task</span>
@@ -344,6 +370,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
               const isDone = task.execution.status === 'completed';
               const isPostponed = task.execution.status === 'postponed';
               const isSkipped = task.execution.status === 'skipped';
+              const isOverdue = task.execution.status === 'not_started' && new Date(task.plannedStart).getTime() < Date.now();
 
               const elapsedSecs = activeTimerSeconds[task.id] || 0;
 
@@ -422,11 +449,20 @@ export const TodayView: React.FC<TodayViewProps> = ({
                       </div>
 
                       {/* Prediction metrics line */}
-                      <div className="flex items-center space-x-4 text-xs text-slate-500 pt-0.5">
-               <span>Forecast: <strong className="text-slate-800">{formatMinutesToHours(task.estimatedDurationMinutes)}</strong></span>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 pt-0.5">
+                        <span className="inline-flex items-center gap-1">
+                          <span>Forecast: <strong className="text-slate-800">{formatMinutesToHours(task.estimatedDurationMinutes)}</strong></span>
+                          <InfoTip text="Forecast = your recorded prediction at the time you saved it" label="What does Forecast mean?" />
+                        </span>
                         <span>Confidence: <strong className="text-slate-800">{task.confidence}%</strong></span>
                         {task.execution.actualStart && (
                           <span>Actual Start: <strong className="text-slate-800">{new Date(task.execution.actualStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong></span>
+                        )}
+                        {isOverdue && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                            <Clock className="h-3 w-3 text-amber-600" />
+                            Running late
+                          </span>
                         )}
                       </div>
 
@@ -476,9 +512,9 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
                       {!isDone && (
                         <button
-                          onClick={() => handlePostponeTask(task)}
+                          onClick={() => handlePostponeRequest(task)}
                           title="Postpone task"
-                          className="px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors"
+                          className="flex min-h-10 items-center px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors"
                         >
                           Postpone
                         </button>
@@ -486,18 +522,19 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
                       {!isDone && (
                         <button
-                          onClick={() => handleSkipTask(task)}
+                          onClick={() => handleSkipRequest(task)}
                           title="Skip task"
-                          className="px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-500 border border-slate-200 transition-colors"
+                          className="flex min-h-10 items-center px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-500 border border-slate-200 transition-colors"
                         >
                           Skip
                         </button>
                       )}
 
                       <button
-                           onClick={() => window.confirm(`Delete "${task.title}" from predictions?`) && onDeleteTask(task.id)}
-                           aria-label="Delete prediction"
-                           className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                        onClick={() => handleDeleteRequest(task)}
+                        aria-label="Delete prediction"
+                        title="Delete prediction"
+                        className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -509,6 +546,33 @@ export const TodayView: React.FC<TodayViewProps> = ({
           </div>
         )}
       </div>
+
+      {skipTask && (
+        <SkipReasonModal
+          task={skipTask}
+          onClose={() => setSkipTask(null)}
+          onConfirm={handleSkipConfirm}
+        />
+      )}
+
+      {postponeTask && (
+        <PostponeModal
+          task={postponeTask}
+          onClose={() => setPostponeTask(null)}
+          onConfirm={(taskId, toDate) => onPostponeTask(taskId, toDate)}
+        />
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          title="Remove prediction?"
+          message={`"${deleteTarget.title}" will be removed from predictions; completed history is retained.`}
+          confirmLabel="Remove"
+          cancelLabel="Cancel"
+          onConfirm={performDelete}
+          onClose={() => setDeleteTarget(null)}
+        />
+      )}
     </div>
   );
 };

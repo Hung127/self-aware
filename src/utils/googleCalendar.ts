@@ -7,6 +7,7 @@ export interface GCalEvent {
   start: { dateTime: string };
   end: { dateTime: string };
   status: string;
+  htmlLink?: string;
 }
 
 export function inferCategoryFromTitle(title: string): TaskCategory {

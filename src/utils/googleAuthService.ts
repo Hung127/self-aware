@@ -211,7 +211,8 @@ export const fetchRealGoogleCalendarEvents = async (
         description: item.description || '',
         start: { dateTime: startIso },
         end: { dateTime: endIso },
-        status: item.status || 'confirmed'
+        status: item.status || 'confirmed',
+        htmlLink: item.htmlLink || undefined
       };
     }),
     nextPageToken: data.nextPageToken
@@ -329,7 +330,8 @@ export const createRealGoogleCalendarEvent = async (
     description: item.description || '',
     start: { dateTime: item.start?.dateTime || eventData.startIso },
     end: { dateTime: item.end?.dateTime || eventData.endIso },
-    status: item.status || 'confirmed'
+    status: item.status || 'confirmed',
+    htmlLink: item.htmlLink || undefined
   };
 };
 
@@ -376,7 +378,8 @@ export const updateRealGoogleCalendarEvent = async (
     description: item.description || '',
     start: { dateTime: item.start?.dateTime || eventData.startIso },
     end: { dateTime: item.end?.dateTime || eventData.endIso },
-    status: item.status || 'confirmed'
+    status: item.status || 'confirmed',
+    htmlLink: item.htmlLink || undefined
   };
 };
 

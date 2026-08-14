@@ -14,7 +14,8 @@ import {
   LogOut,
   UserCheck,
   AlertCircle,
-  Sparkles
+  Sparkles,
+  ChevronDown
 } from 'lucide-react';
 import {
   getStoredAccessToken,
@@ -26,7 +27,18 @@ import {
   auth
 } from '../utils/googleAuthService';
 import { convertGCalEventToTask } from '../utils/googleCalendar';
-import { STORAGE_SCHEMA_VERSION, normalizeImportedTasks, normalizeSleepRecords, sanitizeSettings } from '../utils/storage';
+import { STORAGE_SCHEMA_VERSION, normalizeImportedTasks, normalizeSleepRecords, sanitizeSettings, DEFAULT_SETTINGS } from '../utils/storage';
+import { ConfirmDialog } from './ui/ConfirmDialog';
+
+type SeedPreset = 'standard' | 'rich' | 'edge' | 'empty' | 'generated';
+
+const SEED_LABELS: Record<SeedPreset, string> = {
+  generated: 'Generated',
+  standard: 'Standard',
+  rich: 'Rich Multi-Category',
+  edge: 'Edge & Boundary',
+  empty: 'Empty Canvas'
+};
 
 interface SettingsViewProps {
   settings: AppSettings;
@@ -63,6 +75,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [calendars, setCalendars] = useState<{ id: string; summary: string; primary: boolean }[]>([]);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [calendarId, setCalendarId] = useState(settings.gcalCalendarId || 'primary');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [seedTarget, setSeedTarget] = useState<{ preset: SeedPreset; label: string } | null>(null);
+  const [clearAllTarget, setClearAllTarget] = useState(false);
 
   const handleLoadCalendars = async () => {
     if (!getStoredAccessToken()) return;
@@ -243,7 +258,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-slate-900">Settings</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Manage Calendar connection, calibration behavior, backups, and developer tools.
+          Manage Calendar connection, calibration behavior, and your data backups.
         </p>
       </div>
 
@@ -366,7 +381,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {/* 2. Calibration behavior */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-5">
         <div className="flex items-center space-x-3 border-b border-slate-100 pb-4">
-          <div className="p-2.5 rounded-xl bg-indigo-50 border border-indigo-100 text-[#4361ee]">
+          <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-100 text-blue-600">
             <Sliders className="w-5 h-5" />
           </div>
           <div>
@@ -387,9 +402,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 max="20"
                 value={minObs}
                 onChange={e => setMinObs(parseInt(e.target.value) || 1)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-slate-900 text-sm focus:outline-none focus:border-[#4361ee] font-semibold"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-slate-900 text-sm focus:outline-none focus:border-blue-600 font-semibold"
               />
-              <span className="text-[11px] text-slate-400 mt-1 block">Completed tasks needed before warning</span>
+              <span className="text-xs text-slate-500 mt-1 block">Completed tasks needed before warning</span>
             </div>
 
             <div>
@@ -403,15 +418,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   max="50"
                   value={smallThresh}
                   onChange={e => setSmallThresh(parseInt(e.target.value) || 5)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-slate-900 text-sm focus:outline-none focus:border-[#4361ee] font-semibold"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-slate-900 text-sm focus:outline-none focus:border-blue-600 font-semibold"
                 />
                 <span className="text-xs text-slate-500">%</span>
               </div>
-              <span className="text-[11px] text-slate-400 mt-1 block">Historical error % for small tip</span>
+              <span className="text-xs text-slate-500 mt-1 block">Historical error % for small tip</span>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-[#b45309] mb-1.5">
+              <label className="block text-xs font-bold text-amber-700 mb-1.5">
                 Reality Check Threshold
               </label>
               <div className="flex items-center space-x-2">
@@ -421,136 +436,57 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   max="100"
                   value={realityThresh}
                   onChange={e => setRealityThresh(parseInt(e.target.value) || 15)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-[#b45309] text-sm focus:outline-none focus:border-[#4361ee] font-semibold"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-amber-700 text-sm focus:outline-none focus:border-blue-600 font-semibold"
                 />
                 <span className="text-xs text-slate-500">%</span>
               </div>
-              <span className="text-[11px] text-slate-400 mt-1 block">Historical error % for Reality Check card</span>
+              <span className="text-xs text-slate-500 mt-1 block">Historical error % for Reality Check card</span>
             </div>
           </div>
 
-          <div className="pt-2 flex justify-end">
-            <button
-              type="submit"
-              className="px-4 py-2 rounded-xl text-xs font-bold bg-[#4361ee] hover:bg-[#3852d0] text-white shadow-xs transition-colors"
-            >
-               Save parameters
-            </button>
+          <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <p className="text-xs text-slate-500">
+              Reality Check appears when a similar task deviates &gt;{realityThresh}% from history.
+            </p>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setMinObs(DEFAULT_SETTINGS.minObservationsForRealityCheck);
+                  setSmallThresh(DEFAULT_SETTINGS.smallSuggestionThresholdPercent);
+                  setRealityThresh(DEFAULT_SETTINGS.realityCheckThresholdPercent);
+                  setAutoSync(DEFAULT_SETTINGS.autoImportGCal);
+                }}
+                className="text-xs font-bold text-blue-700 transition-colors hover:underline"
+              >
+                Reset to defaults
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-colors"
+              >
+                 Save parameters
+              </button>
+            </div>
           </div>
         </form>
       </div>
 
-      {/* 3. Developer tools */}
+      {/* 3. Data & backups */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-          <div className="flex items-center space-x-3">
-            <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div>
-               <h2 className="font-bold text-base text-slate-900">Developer tools</h2>
-              <p className="text-xs text-slate-500">Run automated verification suite for zero durations, midnight boundaries, and edge cases</p>
-            </div>
+        <div className="flex items-center space-x-3 border-b border-slate-100 pb-4">
+          <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-100 text-blue-600">
+            <Database className="w-5 h-5" />
           </div>
-
-          <button
-            onClick={onRunValidationSuite}
-            className="flex items-center space-x-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors"
-          >
-            <CheckCircle2 className="w-4 h-4" />
-            <span>Run Test Suite</span>
-          </button>
-        </div>
-        <p className="text-xs text-slate-500">
-          Verifies division by zero protection, overnight task durations, sleep context correlation logic, and data schema consistency.
-        </p>
-      </div>
-
-      {/* 4. Data Seeding & Test Presets */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-          <div className="flex items-center space-x-3">
-            <div className="p-2.5 rounded-xl bg-indigo-50 border border-indigo-100 text-[#4361ee]">
-              <Database className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="font-bold text-base text-slate-900">Testing &amp; Data Seeding Presets</h2>
-              <p className="text-xs text-slate-500">Seed or generate calibrated test data to verify insights, reality checks, and history</p>
-            </div>
+          <div>
+            <h2 className="font-bold text-base text-slate-900">Data &amp; backups</h2>
+            <p className="text-xs text-slate-500">Export, import, or erase your calibration data</p>
           </div>
-
         </div>
 
         {dataStatusMsg && <p role="status" aria-live="polite" className={`rounded-lg border px-3 py-2 text-sm ${dataStatusMsg.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-800'}`}>{dataStatusMsg.text}</p>}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          <button
-            onClick={() => onSeedSampleData('generated')}
-            className="flex flex-col items-start p-3.5 rounded-xl bg-indigo-50/70 hover:bg-indigo-100/70 border border-indigo-200 text-left transition-all group"
-          >
-            <div className="flex items-center space-x-1.5 text-[#4361ee] font-bold text-xs mb-1">
-              <Sparkles className="w-4 h-4 text-indigo-600 group-hover:scale-110 transition-transform" />
-              <span>Generate Data</span>
-            </div>
-            <p className="text-[11px] text-slate-600 leading-relaxed">
-              Dynamically generates ~16 fresh calibrated tasks &amp; 8 sleep logs across past 7 days.
-            </p>
-          </button>
-
-          <button
-            onClick={() => onSeedSampleData('standard')}
-            className="flex flex-col items-start p-3.5 rounded-xl bg-slate-50 hover:bg-indigo-50/50 border border-slate-200 hover:border-indigo-200 text-left transition-all group"
-          >
-            <div className="flex items-center space-x-1.5 text-slate-800 font-bold text-xs mb-1">
-              <RotateCcw className="w-4 h-4 text-[#4361ee] group-hover:rotate-[-45deg] transition-transform" />
-              <span>Standard Seed</span>
-            </div>
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              10 tasks showing ~43% programming underestimate &amp; ~27m evening start delay.
-            </p>
-          </button>
-
-          <button
-            onClick={() => onSeedSampleData('rich')}
-            className="flex flex-col items-start p-3.5 rounded-xl bg-slate-50 hover:bg-emerald-50/50 border border-slate-200 hover:border-emerald-200 text-left transition-all group"
-          >
-            <div className="flex items-center space-x-1.5 text-emerald-700 font-bold text-xs mb-1">
-              <Database className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition-transform" />
-              <span>Rich Multi-Category</span>
-            </div>
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              16 items across all 6 categories (Programming, Writing, Reading, Personal, Studying).
-            </p>
-          </button>
-
-          <button
-            onClick={() => onSeedSampleData('edge')}
-            className="flex flex-col items-start p-3.5 rounded-xl bg-slate-50 hover:bg-amber-50/50 border border-slate-200 hover:border-amber-200 text-left transition-all group"
-          >
-            <div className="flex items-center space-x-1.5 text-amber-700 font-bold text-xs mb-1">
-              <ShieldCheck className="w-4 h-4 text-amber-600 group-hover:scale-110 transition-transform" />
-              <span>Edge &amp; Boundary</span>
-            </div>
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              Midnight boundary tasks, 0% exact duration error, and 3x postponed items.
-            </p>
-          </button>
-
-          <button
-            onClick={() => onSeedSampleData('empty')}
-            className="flex flex-col items-start p-3.5 rounded-xl bg-slate-50 hover:bg-rose-50/50 border border-slate-200 hover:border-rose-200 text-left transition-all group"
-          >
-            <div className="flex items-center space-x-1.5 text-slate-700 font-bold text-xs mb-1">
-              <Trash2 className="w-4 h-4 text-rose-500 group-hover:scale-110 transition-transform" />
-              <span>Empty Canvas</span>
-            </div>
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              Reset to 0 records to verify "Not enough data yet" initial state guidance.
-            </p>
-          </button>
-        </div>
-
-        <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
           <span className="text-slate-500 font-medium">
             Active Dataset Status: <strong className="text-slate-800">{tasks.length} tasks</strong>, <strong className="text-slate-800">{sleepRecords.length} sleep logs</strong> stored.
           </span>
@@ -576,7 +512,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </label>
 
             <button
-              onClick={() => window.confirm('Clear all tasks, sleep records, and settings? This cannot be undone.') && onClearAllData()}
+              onClick={() => setClearAllTarget(true)}
               aria-label="Clear all calibration data"
               className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-semibold transition-colors"
             >
@@ -586,6 +522,158 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* 4. Advanced & testing (collapsed by default) */}
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-xs">
+        <button
+          type="button"
+          onClick={() => setShowAdvanced(prev => !prev)}
+          aria-expanded={showAdvanced}
+          className="flex w-full items-center justify-between gap-3 p-6 text-left"
+        >
+          <div className="flex items-center space-x-3">
+            <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="font-bold text-base text-slate-900">Advanced &amp; testing</h2>
+              <p className="text-xs text-slate-500">Developer tools and data seeding presets</p>
+            </div>
+          </div>
+          <ChevronDown className={`h-5 w-5 shrink-0 text-slate-400 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
+        </button>
+
+        {showAdvanced && (
+          <div className="space-y-5 border-t border-slate-100 px-6 pb-6 pt-5">
+            {/* Developer tools */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center space-x-2.5">
+                <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-slate-900">Developer tools</h3>
+                  <p className="text-xs text-slate-500">Run automated verification suite for zero durations, midnight boundaries, and edge cases</p>
+                </div>
+              </div>
+
+              <button
+                onClick={onRunValidationSuite}
+                className="flex shrink-0 items-center space-x-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Run Test Suite</span>
+              </button>
+            </div>
+            <p className="text-xs text-slate-500">
+              Verifies division by zero protection, overnight task durations, sleep context correlation logic, and data schema consistency.
+            </p>
+
+            {/* Testing & Data Seeding Presets */}
+            <div className="border-t border-slate-100 pt-5">
+              <div className="flex items-center space-x-2.5 pb-4">
+                <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-100 text-blue-600">
+                  <Database className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-slate-900">Testing &amp; Data Seeding Presets</h3>
+                  <p className="text-xs text-slate-500">Seed or generate calibrated test data to verify insights, reality checks, and history</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                <button
+                  onClick={() => setSeedTarget({ preset: 'generated', label: SEED_LABELS.generated })}
+                  className="flex flex-col items-start p-3.5 rounded-xl bg-indigo-50/70 hover:bg-indigo-100/70 border border-indigo-200 text-left transition-all group"
+                >
+                  <div className="flex items-center space-x-1.5 text-blue-600 font-bold text-xs mb-1">
+                    <Sparkles className="w-4 h-4 text-indigo-600 group-hover:scale-110 transition-transform" />
+                    <span>Generate Data</span>
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Dynamically generates ~16 fresh calibrated tasks &amp; 8 sleep logs across past 7 days.
+                  </p>
+                </button>
+
+                <button
+                  onClick={() => setSeedTarget({ preset: 'standard', label: SEED_LABELS.standard })}
+                  className="flex flex-col items-start p-3.5 rounded-xl bg-slate-50 hover:bg-indigo-50/50 border border-slate-200 hover:border-indigo-200 text-left transition-all group"
+                >
+                  <div className="flex items-center space-x-1.5 text-slate-800 font-bold text-xs mb-1">
+                    <RotateCcw className="w-4 h-4 text-blue-600 group-hover:rotate-[-45deg] transition-transform" />
+                    <span>Standard Seed</span>
+                  </div>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    10 tasks showing ~43% programming underestimate &amp; ~27m evening start delay.
+                  </p>
+                </button>
+
+                <button
+                  onClick={() => setSeedTarget({ preset: 'rich', label: SEED_LABELS.rich })}
+                  className="flex flex-col items-start p-3.5 rounded-xl bg-slate-50 hover:bg-emerald-50/50 border border-slate-200 hover:border-emerald-200 text-left transition-all group"
+                >
+                  <div className="flex items-center space-x-1.5 text-emerald-700 font-bold text-xs mb-1">
+                    <Database className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition-transform" />
+                    <span>Rich Multi-Category</span>
+                  </div>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    16 items across all 6 categories (Programming, Writing, Reading, Personal, Studying).
+                  </p>
+                </button>
+
+                <button
+                  onClick={() => setSeedTarget({ preset: 'edge', label: SEED_LABELS.edge })}
+                  className="flex flex-col items-start p-3.5 rounded-xl bg-slate-50 hover:bg-amber-50/50 border border-slate-200 hover:border-amber-200 text-left transition-all group"
+                >
+                  <div className="flex items-center space-x-1.5 text-amber-700 font-bold text-xs mb-1">
+                    <ShieldCheck className="w-4 h-4 text-amber-600 group-hover:scale-110 transition-transform" />
+                    <span>Edge &amp; Boundary</span>
+                  </div>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Midnight boundary tasks, 0% exact duration error, and 3x postponed items.
+                  </p>
+                </button>
+
+                <button
+                  onClick={() => setSeedTarget({ preset: 'empty', label: SEED_LABELS.empty })}
+                  className="flex flex-col items-start p-3.5 rounded-xl bg-slate-50 hover:bg-rose-50/50 border border-slate-200 hover:border-rose-200 text-left transition-all group"
+                >
+                  <div className="flex items-center space-x-1.5 text-slate-700 font-bold text-xs mb-1">
+                    <Trash2 className="w-4 h-4 text-rose-500 group-hover:scale-110 transition-transform" />
+                    <span>Empty Canvas</span>
+                  </div>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Reset to 0 records to verify "Not enough data yet" initial state guidance.
+                  </p>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {seedTarget && (
+        <ConfirmDialog
+          title="Replace current data?"
+          message={`Replace current data with the "${seedTarget.label}" dataset? Your current data will be overwritten.`}
+          confirmLabel="Replace data"
+          cancelLabel="Cancel"
+          onConfirm={() => onSeedSampleData(seedTarget.preset)}
+          onClose={() => setSeedTarget(null)}
+        />
+      )}
+
+      {clearAllTarget && (
+        <ConfirmDialog
+          title="Erase all data?"
+          message="Permanently deletes all tasks, sleep records, and settings. Export a backup first."
+          confirmLabel="Erase everything"
+          cancelLabel="Cancel"
+          tone="danger"
+          onConfirm={onClearAllData}
+          onClose={() => setClearAllTarget(false)}
+        />
+      )}
     </div>
   );
 };

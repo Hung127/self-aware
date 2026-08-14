@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { TaskItem, ReflectionCategory } from '../types';
 import { formatMinutesToHours, getHistoricalCalibrationBaseline } from '../utils/calibrationEngine';
-import { HelpCircle, CheckCircle, X } from 'lucide-react';
+import { HelpCircle, CheckCircle } from 'lucide-react';
+import { ModalShell } from './ui/ModalShell';
 
 interface TaskReflectionModalProps {
   isOpen: boolean;
@@ -42,28 +43,33 @@ export const TaskReflectionModal: React.FC<TaskReflectionModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-      <div role="dialog" aria-modal="true" aria-labelledby="reflection-modal-title" className="my-8 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
-          <div className="flex items-center space-x-2.5">
-             <HelpCircle className="h-5 w-5 text-blue-600" />
-            <div>
-               <h3 id="reflection-modal-title" className="text-lg font-bold text-slate-900">What changed the outcome?</h3>
-               <p className="text-sm text-slate-500">Your reason explains the result but does not change the calculated error.</p>
-            </div>
-          </div>
+    <ModalShell
+      title="What changed the outcome?"
+      description="Your reason explains the result but does not change the calculated error."
+      icon={<HelpCircle className="h-5 w-5" />}
+      onClose={onClose}
+      maxWidth="max-w-lg"
+      footer={
+        <div className="flex items-center justify-end space-x-3">
           <button
+            type="button"
             onClick={onClose}
-             aria-label="Close reflection dialog"
-             className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+            className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
           >
-            <X className="w-5 h-5" />
+            Skip for now
+          </button>
+          <button
+            type="submit"
+            form="reflection-modal-form"
+            className="flex items-center space-x-1.5 rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+          >
+            <CheckCircle className="w-4 h-4" />
+            <span>Save reflection</span>
           </button>
         </div>
-
-        {/* Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
+      }
+    >
+        <form id="reflection-modal-form" onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
           {/* Comparison summary */}
           <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
             <div>
@@ -121,26 +127,7 @@ export const TaskReflectionModal: React.FC<TaskReflectionModalProps> = ({
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
             />
           </div>
-
-          {/* Actions */}
-          <div className="flex items-center justify-end space-x-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-               className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
-            >
-               Skip for now
-            </button>
-            <button
-              type="submit"
-               className="flex items-center space-x-1.5 rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
-            >
-              <CheckCircle className="w-4 h-4" />
-               <span>Save reflection</span>
-            </button>
-          </div>
         </form>
-      </div>
-    </div>
+    </ModalShell>
   );
 };

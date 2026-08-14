@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { TaskItem } from '../types';
 import { getHistoricalCalibrationBaseline, formatMinutesToHours } from '../utils/calibrationEngine';
-import { PenLine, X } from 'lucide-react';
+import { PenLine, ArrowRight } from 'lucide-react';
+import { ModalShell } from './ui/ModalShell';
 
 interface CorrectionModalProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ export const CorrectionModal: React.FC<CorrectionModalProps> = ({
   const [reason, setReason] = useState('');
 
   const est = getHistoricalCalibrationBaseline(task);
+  const diffPercent = est > 0 ? Math.round(((Math.max(0, durationMins) - est) / est) * 100) : 0;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,26 +46,34 @@ export const CorrectionModal: React.FC<CorrectionModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-      <div role="dialog" aria-modal="true" aria-labelledby="correction-modal-title" className="my-8 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
-          <div className="flex items-center space-x-2.5">
-            <PenLine className="h-5 w-5 text-amber-600" />
-            <div>
-              <h3 id="correction-modal-title" className="text-lg font-bold text-slate-900">Correct completed observation</h3>
-              <p className="text-sm text-slate-500">Recording the true outcome keeps your calibration honest.</p>
-            </div>
-          </div>
+    <ModalShell
+      title="Correct completed observation"
+      description="Recording the true outcome keeps your calibration honest."
+      icon={<PenLine className="h-5 w-5" />}
+      iconClassName="border-amber-100 bg-amber-50 text-amber-600"
+      onClose={onClose}
+      maxWidth="max-w-lg"
+      footer={
+        <div className="flex items-center justify-end space-x-3">
           <button
+            type="button"
             onClick={onClose}
-            aria-label="Close correction dialog"
-            className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+            className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
           >
-            <X className="w-5 h-5" />
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="correction-modal-form"
+            className="flex items-center space-x-1.5 rounded-lg bg-amber-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-amber-700"
+          >
+            <PenLine className="w-4 h-4" />
+            <span>Save correction</span>
           </button>
         </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
+      }
+    >
+        <form id="correction-modal-form" onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
           <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
             <div>
               <span className="text-xs text-slate-500 font-medium block">Task Title</span>
@@ -105,6 +115,33 @@ export const CorrectionModal: React.FC<CorrectionModalProps> = ({
             </div>
           </div>
 
+          <div className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 ${
+            diffPercent === 0
+              ? 'bg-slate-50 border-slate-200'
+              : diffPercent > 0
+              ? 'bg-amber-50 border-amber-200'
+              : 'bg-emerald-50 border-emerald-200'
+          }`}>
+            <div className="flex items-center gap-1.5 text-sm">
+              <span className="text-xs font-semibold text-slate-600">
+                <span className="text-blue-600 font-bold">{formatMinutesToHours(est)}</span>
+              </span>
+              <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+              <span className="text-xs font-semibold text-slate-600">
+                New actual <span className="text-slate-900 font-bold">{formatMinutesToHours(Math.max(0, durationMins))}</span>
+              </span>
+            </div>
+            <span className={`text-xs font-bold px-2 py-1 rounded-md bg-white border ${
+              diffPercent === 0
+                ? 'border-slate-200 text-slate-500'
+                : diffPercent > 0
+                ? 'border-amber-200 text-amber-700'
+                : 'border-emerald-200 text-emerald-700'
+            }`}>
+              {diffPercent === 0 ? 'No change' : diffPercent > 0 ? `+${diffPercent}% longer` : `${diffPercent}% shorter`}
+            </span>
+          </div>
+
           <div>
             <label className="mb-1.5 block text-sm font-semibold text-slate-700" htmlFor="correction-reason">
               Why is this being corrected? <span className="text-slate-400 font-normal">(optional)</span>
@@ -118,25 +155,7 @@ export const CorrectionModal: React.FC<CorrectionModalProps> = ({
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-slate-900 text-sm focus:outline-none focus:border-amber-600 focus:bg-white"
             />
           </div>
-
-          <div className="flex items-center justify-end space-x-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex items-center space-x-1.5 rounded-lg bg-amber-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-amber-700"
-            >
-              <PenLine className="w-4 h-4" />
-              <span>Save correction</span>
-            </button>
-          </div>
         </form>
-      </div>
-    </div>
+    </ModalShell>
   );
 };

@@ -19,6 +19,9 @@ import {
   FlaskConical,
   Send
 } from 'lucide-react';
+import { InfoTip } from './ui/InfoTip';
+import { StatTile } from './ui/StatTile';
+import { SegmentedControl } from './ui/SegmentedControl';
 
 interface CalibrationViewProps {
   tasks: TaskItem[];
@@ -35,6 +38,31 @@ const EXPERIMENT_QUESTIONS = [
   'Would you use this before planning a similar task again?'
 ];
 
+const SURVEY_OPTIONS = ['Yes', 'Partly', 'No'] as const;
+
+const SURVEY_NOTE_SEP = ' — ';
+
+function parseSurveyAnswer(saved: string): { value: string; note: string } {
+  for (const opt of SURVEY_OPTIONS) {
+    if (saved === opt) return { value: opt, note: '' };
+    if (saved.startsWith(`${opt}${SURVEY_NOTE_SEP}`)) {
+      return { value: opt, note: saved.slice(opt.length + SURVEY_NOTE_SEP.length) };
+    }
+  }
+  return { value: '', note: saved };
+}
+
+const NotEnoughData: React.FC<{ message: string; threshold?: string }> = ({ message, threshold }) => (
+  <div className="flex items-start gap-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-4">
+    <BarChart2 className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+    <div>
+      <p className="text-sm font-semibold text-slate-700">Not enough data yet</p>
+      <p className="mt-0.5 text-xs text-slate-500">{message}</p>
+      {threshold && <p className="mt-1 text-xs font-semibold text-slate-600">Threshold: {threshold}</p>}
+    </div>
+  </div>
+);
+
 export const CalibrationView: React.FC<CalibrationViewProps> = ({
   tasks,
   sleepRecords,
@@ -50,18 +78,23 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
   const realityCheckData = insights.realityCheckEffectiveness;
   const experiment = getExperimentComparison(tasks, settings.minObservationsForRealityCheck || 5);
 
-  const [surveyAnswers, setSurveyAnswers] = useState<string[]>(() => {
+  const [surveyAnswers, setSurveyAnswers] = useState<{ value: string; note: string; touched: boolean }[]>(() => {
     const saved = settings.experimentAnswers || [];
-    return EXPERIMENT_QUESTIONS.map(q => saved.find(a => a.question === q)?.answer || '');
+    return EXPERIMENT_QUESTIONS.map(q => {
+      const parsed = parseSurveyAnswer(saved.find(a => a.question === q)?.answer || '');
+      return { value: parsed.value, note: parsed.note, touched: parsed.value !== '' };
+    });
   });
   const [surveySaved, setSurveySaved] = useState(false);
 
   const handleSaveSurvey = () => {
     const answers: ExperimentAnswer[] = EXPERIMENT_QUESTIONS.map((question, i) => ({
       question,
-      answer: surveyAnswers[i]?.trim() || '',
+      answer: surveyAnswers[i].note
+        ? `${surveyAnswers[i].value}${SURVEY_NOTE_SEP}${surveyAnswers[i].note}`
+        : surveyAnswers[i].value,
       createdAt: new Date().toISOString()
-    })).filter(a => a.answer.length > 0);
+    })).filter((_, i) => surveyAnswers[i].touched);
     onUpdateSettings({ ...settings, experimentAnswers: answers });
     setSurveySaved(true);
     setTimeout(() => setSurveySaved(false), 2500);
@@ -99,11 +132,14 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
              <p className="max-w-xl text-sm leading-relaxed text-slate-600">
                 How your predictions compare with your execution history.
             </p>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500 pt-1">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 pt-1">
               <span><strong className="text-slate-700">Plan</strong> — what is scheduled</span>
               <span><strong className="text-slate-700">Forecast</strong> — what you believe will happen</span>
               <span><strong className="text-slate-700">Actual</strong> — what was measured</span>
-              <span><strong className="text-slate-700">Calibration</strong> — how different the forecast was from actual</span>
+              <span className="inline-flex items-center gap-1">
+                <strong className="text-slate-700">Calibration</strong> — how different the forecast was from actual
+                <InfoTip text="Calibration is the gap between your forecast and the measured result. The goal is to shrink that gap over time with personal evidence." label="What does Calibration mean?" />
+              </span>
             </div>
           </div>
 
@@ -114,7 +150,7 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                <span className="text-3xl font-bold text-blue-600">
               {insights.sameDayCompletionRatePercent}%
             </span>
-            <span className="text-[11px] text-slate-400 block">
+            <span className="text-xs text-slate-500 block">
               completed on originally planned day
             </span>
           </div>
@@ -131,43 +167,43 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                  <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600">
                    <TrendingUp className="w-5 h-5" />
                  </div>
-                 <div>
-                   <h2 className="font-bold text-lg text-slate-900">Reality Check Effectiveness</h2>
-                   <p className="text-xs text-slate-500">Did the final planning estimate get closer to actual execution?</p>
-                 </div>
-               </div>
-                <span className="text-xs text-slate-500 font-semibold bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
-                  {realityCheckData.eligibleTaskCount} evaluated · {getEvidenceLevel(realityCheckData.eligibleTaskCount).replace(/_/g, ' ')}
-                </span>
-             </div>
-             {realityCheckData.hasEnoughData ? (
-               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                   <span className="text-[11px] text-slate-500 block">Original error</span>
-                   <strong className="text-xl text-slate-900">{realityCheckData.meanOriginalAbsoluteErrorPercent}%</strong>
-                 </div>
-                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                   <span className="text-[11px] text-slate-500 block">Final-plan error</span>
-                   <strong className="text-xl text-slate-900">{realityCheckData.meanFinalPlanAbsoluteErrorPercent}%</strong>
-                 </div>
-                 <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-100">
-                   <span className="text-[11px] text-emerald-700 block">Mean improvement</span>
-                   <strong className={`text-xl ${realityCheckData.meanImprovementPercent >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                     {realityCheckData.meanImprovementPercent > 0 ? '+' : ''}{realityCheckData.meanImprovementPercent}%
-                   </strong>
-                 </div>
-                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                   <span className="text-[11px] text-slate-500 block">Outcomes</span>
-                   <strong className="text-sm text-slate-900">{realityCheckData.improvedTaskCount} improved / {realityCheckData.worsenedTaskCount} worsened</strong>
-                 </div>
-               </div>
-             ) : (
-               <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-600">
-                 Record at least 5 completed tasks where Reality Check was shown to measure whether the intervention improves forecast accuracy.
-               </div>
-             )}
-           </div>
-            <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-3">
+                  <div>
+                    <h2 className="inline-flex items-center gap-1.5 font-bold text-lg text-slate-900">
+                      Reality Check Effectiveness
+                      <InfoTip text="The Reality Check compares your new forecast against your personal history and suggests a more realistic duration when a similar task has deviated before." label="What is the Reality Check?" />
+                    </h2>
+                    <p className="text-xs text-slate-500">Did the final planning estimate get closer to actual execution?</p>
+                  </div>
+                </div>
+                 <span className="inline-flex items-center gap-1 text-xs text-slate-500 font-semibold bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
+                   {realityCheckData.eligibleTaskCount} evaluated · {getEvidenceLevel(realityCheckData.eligibleTaskCount).replace(/_/g, ' ')}
+                   <InfoTip text="Evidence level reflects how many completed observations support a claim — the more observations, the stronger the evidence." label="What does evidence level mean?" />
+                 </span>
+              </div>
+              {realityCheckData.hasEnoughData ? (
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <StatTile label="Original error" value={`${realityCheckData.meanOriginalAbsoluteErrorPercent}%`} />
+                  <StatTile label="Final-plan error" value={`${realityCheckData.meanFinalPlanAbsoluteErrorPercent}%`} />
+                  <StatTile
+                    label="Mean improvement"
+                    value={`${realityCheckData.meanImprovementPercent > 0 ? '+' : ''}${realityCheckData.meanImprovementPercent}%`}
+                    valueClassName={realityCheckData.meanImprovementPercent >= 0 ? 'text-emerald-700' : 'text-rose-700'}
+                    className="border-emerald-100 bg-emerald-50"
+                  />
+                  <StatTile
+                    label="Outcomes"
+                    value={`${realityCheckData.improvedTaskCount} improved / ${realityCheckData.worsenedTaskCount} worsened`}
+                    valueClassName="text-base text-slate-900"
+                  />
+                </div>
+              ) : (
+                <NotEnoughData
+                  message="Record completed tasks where the Reality Check was shown to measure whether it improves forecast accuracy."
+                  threshold={`At least ${settings.minObservationsForRealityCheck || 5} completed tasks with Reality Check shown`}
+                />
+              )}
+            </div>
+            <div className="text-xs text-slate-500 border-t border-slate-100 pt-3">
               Positive improvement means the final planning estimate was closer to actual duration. This is separate from general calibration accuracy.
             </div>
           </div>
@@ -187,24 +223,30 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                <span className="text-[11px] text-slate-500 block">Phase A · baseline (no Reality Check)</span>
-                <div className="mt-1 flex items-baseline gap-3">
-                  <strong className="text-xl text-slate-900">{experiment.baseline.meanAbsoluteErrorPercent}%</strong>
-                  <span className="text-xs text-slate-500">median {experiment.baseline.medianAbsoluteErrorPercent}% · {experiment.baseline.count} predictions</span>
-                </div>
+              <div className="space-y-2">
+                <StatTile
+                  label="Phase A · baseline (no Reality Check)"
+                  value={`${experiment.baseline.meanAbsoluteErrorPercent}%`}
+                  subLabel={`median ${experiment.baseline.medianAbsoluteErrorPercent}% · ${experiment.baseline.count} predictions`}
+                />
                 {!experiment.baselineSufficient && (
-                  <span className="text-[11px] text-amber-700 block mt-1">Needs at least {settings.minObservationsForRealityCheck || 5} baseline predictions.</span>
+                  <p className="text-xs font-medium text-amber-700">
+                    Needs at least {settings.minObservationsForRealityCheck || 5} baseline predictions.
+                  </p>
                 )}
               </div>
-              <div className="p-3 rounded-xl bg-violet-50 border border-violet-100">
-                <span className="text-[11px] text-violet-700 block">Phase B · intervention (Reality Check shown)</span>
-                <div className="mt-1 flex items-baseline gap-3">
-                  <strong className="text-xl text-violet-900">{experiment.intervention.meanAbsoluteErrorPercent}%</strong>
-                  <span className="text-xs text-violet-600">median {experiment.intervention.medianAbsoluteErrorPercent}% · {experiment.intervention.count} predictions</span>
-                </div>
+              <div className="space-y-2">
+                <StatTile
+                  label="Phase B · intervention (Reality Check shown)"
+                  value={`${experiment.intervention.meanAbsoluteErrorPercent}%`}
+                  subLabel={`median ${experiment.intervention.medianAbsoluteErrorPercent}% · ${experiment.intervention.count} predictions`}
+                  valueClassName="text-violet-900"
+                  className="border-violet-100 bg-violet-50"
+                />
                 {!experiment.interventionSufficient && (
-                  <span className="text-[11px] text-amber-700 block mt-1">Needs at least {settings.minObservationsForRealityCheck || 5} intervention predictions.</span>
+                  <p className="text-xs font-medium text-amber-700">
+                    Needs at least {settings.minObservationsForRealityCheck || 5} intervention predictions.
+                  </p>
                 )}
               </div>
             </div>
@@ -230,17 +272,28 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
               <p className="text-xs text-slate-500 mb-3">Optional answers help evaluate trust and understanding, separate from accuracy.</p>
               <div className="space-y-3">
                 {EXPERIMENT_QUESTIONS.map((q, i) => (
-                  <div key={q}>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">{i + 1}. {q}</label>
-                    <textarea
-                      value={surveyAnswers[i]}
-                      onChange={e => {
+                  <div key={q} className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+                    <label className="block text-sm font-semibold text-slate-800">{i + 1}. {q}</label>
+                    <SegmentedControl
+                      ariaLabel={`Question ${i + 1}: ${q}`}
+                      value={(surveyAnswers[i].value as 'Yes' | 'Partly' | 'No') || 'Yes'}
+                      onChange={val => {
                         const next = [...surveyAnswers];
-                        next[i] = e.target.value;
+                        next[i] = { ...next[i], value: val, touched: true };
                         setSurveyAnswers(next);
                       }}
-                      rows={2}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-violet-600 focus:bg-white"
+                      options={SURVEY_OPTIONS.map(opt => ({ value: opt, label: opt }))}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Optional short note..."
+                      value={surveyAnswers[i].note}
+                      onChange={e => {
+                        const next = [...surveyAnswers];
+                        next[i] = { ...next[i], note: e.target.value };
+                        setSurveyAnswers(next);
+                      }}
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-violet-600 focus:outline-none placeholder-slate-400"
                     />
                   </div>
                 ))}
@@ -275,33 +328,39 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                 Primary Pattern
               </span>
-              <p className="text-base font-bold text-blue-600">
-                {maxPatternTasks >= 5 && maxPatternType === 'underestimate' ? (
-                  <>
-                    You underestimate <span className="underline">{maxPatternCat.toLowerCase()}</span> tasks by {Math.abs(maxPatternError)}% on average.
-                  </>
-                ) : maxPatternTasks >= 5 && maxPatternType === 'overestimate' ? (
-                  <>
-                    You overestimate <span className="underline">{maxPatternCat.toLowerCase()}</span> tasks by {Math.abs(maxPatternError)}% on average.
-                  </>
-                ) : durationData.totalTasksCount >= 5 ? (
-                   <>No recurring duration pattern is supported yet.</>
-                ) : (
-                  <>Not enough data yet.</>
-                )}
-              </p>
-              <span className="text-[11px] text-slate-400 block">
-                {maxPatternTasks >= 5
-                  ? `↑ Based on ${maxPatternTasks} completed sessions in ${maxPatternCat}`
-                  : durationData.totalTasksCount >= 5
-                  ? `↑ Based on ${durationData.totalTasksCount} completed sessions overall`
-                  : 'Need at least 5 completed sessions in a category to identify recurring patterns'}
-              </span>
-              {maxPatternTasks >= 5 && (
-                <span className="inline-flex items-center gap-1.5 mt-1 rounded-full bg-white border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
-                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                  {getEvidenceLevel(maxPatternTasks).replace(/_/g, ' ')}
-                </span>
+              {durationData.totalTasksCount < 5 ? (
+                <NotEnoughData
+                  message="Complete at least 5 prediction sessions to identify recurring duration patterns."
+                  threshold="At least 5 completed sessions in a category"
+                />
+              ) : (
+                <>
+                  <p className="text-base font-bold text-blue-600">
+                    {maxPatternTasks >= 5 && maxPatternType === 'underestimate' ? (
+                      <>
+                        You underestimate <span className="underline">{maxPatternCat.toLowerCase()}</span> tasks by {Math.abs(maxPatternError)}% on average.
+                      </>
+                    ) : maxPatternTasks >= 5 && maxPatternType === 'overestimate' ? (
+                      <>
+                        You overestimate <span className="underline">{maxPatternCat.toLowerCase()}</span> tasks by {Math.abs(maxPatternError)}% on average.
+                      </>
+                    ) : (
+                      <>No recurring duration pattern is supported yet.</>
+                    )}
+                  </p>
+                  <span className="text-xs text-slate-500 block">
+                    {maxPatternTasks >= 5
+                      ? `↑ Based on ${maxPatternTasks} completed sessions in ${maxPatternCat}`
+                      : `↑ Based on ${durationData.totalTasksCount} completed sessions overall`}
+                  </span>
+                  {maxPatternTasks >= 5 && (
+                    <span className="inline-flex items-center gap-1.5 mt-1 rounded-full bg-white border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                      <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                      {getEvidenceLevel(maxPatternTasks).replace(/_/g, ' ')}
+                      <InfoTip text="Evidence level reflects how many completed observations support a claim — the more observations, the stronger the evidence." label="What does evidence level mean?" />
+                    </span>
+                  )}
+                </>
               )}
             </div>
 
@@ -319,7 +378,7 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                   <div key={cat} className="flex items-center justify-between text-xs p-2.5 rounded-xl bg-slate-50 border border-slate-200">
                     <span className="flex items-center gap-2 font-semibold text-slate-800">
                       {cat} ({item.taskCount})
-                      <span className="rounded-full bg-white border border-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                      <span className="rounded-full bg-white border border-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-500">
                         {getEvidenceLevel(item.taskCount).replace(/_/g, ' ')}
                       </span>
                     </span>
@@ -332,7 +391,7 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
             </div>
           </div>
 
-          <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-3">
+          <div className="text-xs text-slate-500 border-t border-slate-100 pt-3">
             Note: Calibration compares original prediction records with actual execution.
           </div>
         </div>
@@ -357,14 +416,30 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                 Starting Delay Pattern
               </span>
-              <p className="text-base font-bold text-blue-600">
-                  {startTimeData.hasEnoughData
-                    ? `Usually start ${Math.abs(startTimeData.medianDelayMinutes)} minutes ${startTimeData.medianDelayMinutes >= 0 ? 'later' : 'earlier'} than planned.`
-                    : startTimeData.totalSessionsCount > 0 ? 'Early start-time signal, not a recurring pattern yet.' : 'Not enough data for a start-time pattern yet.'}
-              </p>
-              <span className="text-[11px] text-slate-400 block">
-                  {startTimeData.totalSessionsCount > 0 ? `Based on ${startTimeData.totalSessionsCount} start recordings${startTimeData.hasEnoughData ? '' : '; need 5 for a recurring pattern'}` : 'Record task starts to build this comparison.'}
-              </span>
+              {startTimeData.hasEnoughData ? (
+                <>
+                  <p className="text-base font-bold text-blue-600">
+                    Usually start {Math.abs(startTimeData.medianDelayMinutes)} minutes {startTimeData.medianDelayMinutes >= 0 ? 'later' : 'earlier'} than planned.
+                  </p>
+                  <span className="text-xs text-slate-500 block">
+                    Based on {startTimeData.totalSessionsCount} start recordings
+                  </span>
+                </>
+              ) : startTimeData.totalSessionsCount > 0 ? (
+                <>
+                  <p className="text-base font-bold text-blue-600">
+                    Early start-time signal, not a recurring pattern yet.
+                  </p>
+                  <span className="text-xs text-slate-500 block">
+                    Based on {startTimeData.totalSessionsCount} start recordings; need 5 for a recurring pattern
+                  </span>
+                </>
+              ) : (
+                <NotEnoughData
+                  message="Record task starts to build this comparison."
+                  threshold="At least 5 start recordings"
+                />
+              )}
             </div>
 
             <div className="space-y-3 pt-1">
@@ -390,7 +465,7 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
             </div>
           </div>
 
-          <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-3">
+          <div className="text-xs text-slate-500 border-t border-slate-100 pt-3">
             Insight: "You start evening tasks later than planned on average."
           </div>
         </div>
@@ -415,40 +490,43 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                 Sleep Context Impact
               </span>
-              <p className="text-base font-bold text-blue-600">
-                {sleepData.hasEnoughData ? (
-                   <>&lt;6h sleep sessions had {sleepData.completionDropPercent}% fewer planned tasks completed.</>
-                ) : (
-                  <>Not enough data yet.</>
-                )}
-              </p>
-              <span className="text-[11px] text-slate-400 block">
-                {sleepData.hasEnoughData
-                  ? `↑ Based on ${sleepData.shortSleepDaysCount + sleepData.normalSleepDaysCount} observed sleep cycles`
-                  : 'Log at least 7 tasks under each sleep condition to reveal correlations'}
-              </span>
+              {sleepData.hasEnoughData ? (
+                <>
+                  <p className="text-base font-bold text-blue-600">
+                    &lt;6h sleep sessions had {sleepData.completionDropPercent}% fewer planned tasks completed.
+                  </p>
+                  <span className="text-xs text-slate-500 block">
+                    ↑ Based on {sleepData.shortSleepDaysCount + sleepData.normalSleepDaysCount} observed sleep cycles
+                  </span>
+                </>
+              ) : (
+                <NotEnoughData
+                  message="Log tasks while tracking your sleep to see whether short sleep correlates with missed plans."
+                  threshold="At least 7 tasks under each sleep condition"
+                />
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-3 pt-1">
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-center space-y-1">
-                <span className="text-[11px] text-slate-500 font-semibold block">Sufficient Sleep (&ge;6h)</span>
+                <span className="text-xs text-slate-500 font-semibold block">Sufficient Sleep (&ge;6h)</span>
                 <span className="text-xl font-extrabold text-emerald-600">
                    {sleepData.hasEnoughData ? `${sleepData.normalSleepCompletionRate}%` : '—'}
                 </span>
-                <span className="text-[10px] text-slate-400 block">Completion Rate</span>
+                <span className="text-xs text-slate-500 block">Completion Rate</span>
               </div>
 
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-center space-y-1">
-                <span className="text-[11px] text-slate-500 font-semibold block">Short Sleep (&lt;6h)</span>
+                <span className="text-xs text-slate-500 font-semibold block">Short Sleep (&lt;6h)</span>
                 <span className="text-xl font-extrabold text-amber-600">
                    {sleepData.hasEnoughData ? `${sleepData.shortSleepCompletionRate}%` : '—'}
                 </span>
-                <span className="text-[10px] text-slate-400 block">Completion Rate</span>
+                <span className="text-xs text-slate-500 block">Completion Rate</span>
               </div>
             </div>
           </div>
 
-          <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-3">
+          <div className="text-xs text-slate-500 border-t border-slate-100 pt-3">
             Observational only: Shows your personal history relationship without medical claims.
           </div>
         </div>
@@ -478,18 +556,22 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                     High Confidence Outcome
                   </span>
-                  <p className="text-base font-bold text-blue-600">
-                    {hasData ? (
-                      `Your 90%+ confidence predictions succeed ${rate}% of the time.`
-                    ) : (
-                      'Not enough data yet.'
-                    )}
-                  </p>
-                  <span className="text-[11px] text-slate-400 block">
+                  {hasData ? (
+                    <p className="text-base font-bold text-blue-600">
+                      Your 90%+ confidence predictions succeed {rate}% of the time.
+                    </p>
+                  ) : null}
+                  <span className="text-xs text-slate-500 block">
                     {hasData
                       ? `↑ Based on ${ninety.predictedCount} high-certainty predictions`
                       : 'Need at least 5 predictions in the 90%+ confidence bracket to evaluate certainty'}
                   </span>
+                  {!hasData && (
+                    <NotEnoughData
+                      message="Complete more predictions and state high confidence to see whether your certainty matches reality."
+                      threshold="At least 5 predictions in the 90%+ confidence bracket"
+                    />
+                  )}
                 </div>
               );
             })()}
@@ -515,7 +597,7 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
             </div>
           </div>
 
-          <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-3">
+          <div className="text-xs text-slate-500 border-t border-slate-100 pt-3">
             Perfect calibration occurs when your X% confidence predictions succeed exactly X% of the time.
           </div>
         </div>
@@ -553,22 +635,13 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
               {insights.accuracyOverTime.weeklyTrends.map((trend, idx) => (
-                <div key={idx} className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-                      {trend.periodLabel}
-                    </span>
-                    <span className="text-[11px] text-slate-400">
-                      {trend.completedTaskCount} tasks
-                    </span>
-                  </div>
-                  <div className="text-2xl font-extrabold text-blue-600">
-                    {trend.averageEstimationErrorPercent}%
-                  </div>
-                  <span className="text-[11px] text-slate-500 block">
-                    Avg error ({trend.averageAbsoluteErrorMinutes}m diff)
-                  </span>
-                </div>
+                <StatTile
+                  key={idx}
+                  label={`${trend.periodLabel} · ${trend.completedTaskCount} tasks`}
+                  value={`${trend.averageEstimationErrorPercent}%`}
+                  subLabel={`Avg error (${trend.averageAbsoluteErrorMinutes}m diff)`}
+                  valueClassName="text-blue-600"
+                />
               ))}
             </div>
 
@@ -576,18 +649,16 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
               <span className="font-medium">
                 Initial error: <strong>{insights.accuracyOverTime.earliestErrorPercent}%</strong> → Recent error: <strong>{insights.accuracyOverTime.recentErrorPercent}%</strong>
               </span>
-              <span className="text-slate-500 text-[11px]">
+              <span className="text-xs text-slate-500">
                  Closer to 0% means more accurate
               </span>
             </div>
           </div>
         ) : (
-          <div className="p-6 rounded-xl bg-slate-50 border border-slate-200 text-center space-y-1">
-            <p className="text-sm font-semibold text-slate-700">Not enough data yet</p>
-            <p className="text-xs text-slate-400">
-              Complete at least 5 tasks across multiple sessions to reveal chronological accuracy trends.
-            </p>
-          </div>
+          <NotEnoughData
+            message="Complete more tasks across multiple sessions to reveal chronological accuracy trends."
+            threshold="At least 5 completed tasks across multiple sessions"
+          />
         )}
       </div>
     </div>

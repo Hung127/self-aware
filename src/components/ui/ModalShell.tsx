@@ -4,21 +4,39 @@ import { X } from 'lucide-react';
 interface ModalShellProps {
   title: string;
   description?: string;
+  icon?: React.ReactNode;
+  iconClassName?: string;
+  headerBg?: string;
   onClose: () => void;
   children: React.ReactNode;
   maxWidth?: string;
   footer?: React.ReactNode;
+  initialFocus?: 'first' | 'none';
 }
 
-export const ModalShell: React.FC<ModalShellProps> = ({ title, description, onClose, children, maxWidth = 'max-w-xl', footer }) => {
+export const ModalShell: React.FC<ModalShellProps> = ({
+  title,
+  description,
+  icon,
+  iconClassName,
+  headerBg = 'bg-slate-50',
+  onClose,
+  children,
+  maxWidth = 'max-w-xl',
+  footer,
+  initialFocus = 'first'
+}) => {
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     previousFocus.current = document.activeElement as HTMLElement | null;
     const dialog = dialogRef.current;
-    const focusable = dialog?.querySelector<HTMLElement>('button, input, select, textarea, [tabindex]:not([tabindex="-1"])');
-    focusable?.focus();
+
+    if (initialFocus !== 'none') {
+      const focusable = dialog?.querySelector<HTMLElement>('button, input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      focusable?.focus();
+    }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -47,15 +65,22 @@ export const ModalShell: React.FC<ModalShellProps> = ({ title, description, onCl
       document.body.style.overflow = '';
       previousFocus.current?.focus();
     };
-  }, [onClose]);
+  }, [onClose, initialFocus]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/40 p-4" role="presentation" onMouseDown={event => event.target === event.currentTarget && onClose()}>
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby={description ? 'modal-description' : undefined} className={`my-8 flex max-h-[calc(100vh-2rem)] w-full ${maxWidth} flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-[0_12px_32px_rgba(15,23,42,0.12)]`}>
-        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6">
-          <div>
-            <h2 id="modal-title" className="text-lg font-bold text-slate-900">{title}</h2>
-            {description && <p id="modal-description" className="mt-1 text-sm text-slate-600">{description}</p>}
+        <header className={`flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6 ${headerBg}`}>
+          <div className="flex items-start gap-3">
+            {icon && (
+              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600 ${iconClassName || ''}`}>
+                {icon}
+              </div>
+            )}
+            <div>
+              <h2 id="modal-title" className="text-lg font-bold text-slate-900">{title}</h2>
+              {description && <p id="modal-description" className="mt-1 text-sm text-slate-600">{description}</p>}
+            </div>
           </div>
           <button type="button" onClick={onClose} aria-label="Close dialog" className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900">
             <X className="h-5 w-5" />
