@@ -36,16 +36,26 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       : '14:00'
   );
   
-  // Estimated Duration in Minutes (default 120 / 2h)
+  // Scheduled Plan Duration in Minutes (e.g. Calendar block or planned time window)
+  const [plannedMinutes, setPlannedMinutes] = useState<number>(
+    existingTask?.plannedDurationMinutes || existingTask?.estimatedDurationMinutes || 120
+  );
+  
+  // User Calibrated Estimated Duration in Minutes
   const [estimatedMinutes, setEstimatedMinutes] = useState<number>(
     existingTask?.estimatedDurationMinutes || 120
   );
-  const [confidence, setConfidence] = useState<number>(existingTask?.confidence || 80);
-  const [acceptedSuggestion, setAcceptedSuggestion] = useState<boolean | null>(
-    existingTask?.realityCheck?.acceptedSuggestion ?? null
+  // Track the user-entered estimate before Reality Check adjustment
+  const [initialUserPrediction, setInitialUserPrediction] = useState<number>(
+    existingTask?.originalEstimatedDurationMinutes || existingTask?.estimatedDurationMinutes || 120
   );
 
-  // Reality Check evaluation
+  const [confidence, setConfidence] = useState<number>(existingTask?.confidence || 80);
+  const [userDecision, setUserDecision] = useState<'accepted_suggestion' | 'kept_original' | 'custom_adjusted' | null>(
+    existingTask?.realityCheck?.userDecision ?? null
+  );
+
+  // Reality Check evaluation based on current category, estimated duration, tag
   const realityCheck = getRealityCheck(category, estimatedMinutes, allTasks, settings, tag, existingTask?.id);
 
   useEffect(() => {
@@ -55,21 +65,32 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       setTag(existingTask.tag || '');
       setScheduledDate(existingTask.plannedStart.split('T')[0]);
       setStartTime(new Date(existingTask.plannedStart).toTimeString().substring(0, 5));
+      setPlannedMinutes(existingTask.plannedDurationMinutes || existingTask.estimatedDurationMinutes);
       setEstimatedMinutes(existingTask.estimatedDurationMinutes);
+      setInitialUserPrediction(existingTask.originalEstimatedDurationMinutes || existingTask.estimatedDurationMinutes);
       setConfidence(existingTask.confidence);
-      setAcceptedSuggestion(existingTask.realityCheck?.acceptedSuggestion ?? null);
+      setUserDecision(existingTask.realityCheck?.userDecision ?? null);
     }
   }, [existingTask]);
 
   const handleApplySuggested = () => {
     if (realityCheck.suggestedDurationMinutes) {
       setEstimatedMinutes(realityCheck.suggestedDurationMinutes);
-      setAcceptedSuggestion(true);
+      setUserDecision('accepted_suggestion');
     }
   };
 
   const handleKeepEstimate = () => {
-    setAcceptedSuggestion(false);
+    setUserDecision('kept_original');
+  };
+
+  const handleEstimateChange = (val: number) => {
+    const valid = Math.max(5, val);
+    setEstimatedMinutes(valid);
+    if (!existingTask) {
+      setInitialUserPrediction(valid);
+    }
+    setUserDecision(null);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -77,23 +98,40 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     if (!title.trim()) return;
 
     const startDateTime = new Date(`${scheduledDate}T${startTime}:00.000Z`).toISOString();
+    // Schedule end derived from plannedDurationMinutes (calendar plan)
     const endDateTime = new Date(
-      new Date(`${scheduledDate}T${startTime}:00.000Z`).getTime() + estimatedMinutes * 60000
+      new Date(`${scheduledDate}T${startTime}:00.000Z`).getTime() + plannedMinutes * 60000
     ).toISOString();
 
-    const userDecision = acceptedSuggestion === true
-      ? 'accepted_suggestion'
-      : acceptedSuggestion === false
-      ? 'kept_original'
-      : 'custom_adjusted';
+    // Determine final explicit decision state
+    let finalDecision: 'accepted_suggestion' | 'kept_original' | 'custom_adjusted' | undefined = undefined;
+    if (realityCheck.shouldWarn) {
+      if (userDecision === 'accepted_suggestion') {
+        finalDecision = 'accepted_suggestion';
+      } else if (userDecision === 'kept_original') {
+        finalDecision = 'kept_original';
+      } else if (
+        estimatedMinutes !== initialUserPrediction &&
+        estimatedMinutes !== realityCheck.suggestedDurationMinutes
+      ) {
+        finalDecision = 'custom_adjusted';
+      } else if (userDecision) {
+        finalDecision = userDecision;
+      }
+    }
+
+    const immutableOriginalEstimate = existingTask
+      ? (existingTask.originalEstimatedDurationMinutes || existingTask.estimatedDurationMinutes)
+      : initialUserPrediction;
 
     const realityCheckDecision: TaskPredictionDecision | undefined = realityCheck.shouldWarn
       ? {
           shown: true,
           suggestedDurationMinutes: realityCheck.suggestedDurationMinutes,
-          acceptedSuggestion: acceptedSuggestion === true,
-          userDecision,
-          originalPredictionMinutes: existingTask?.originalEstimatedDurationMinutes || existingTask?.estimatedDurationMinutes || estimatedMinutes,
+          acceptedSuggestion: finalDecision === 'accepted_suggestion',
+          userDecision: finalDecision,
+          originalPredictionMinutes: immutableOriginalEstimate,
+          chosenDurationMinutes: estimatedMinutes,
           finalPredictionMinutes: estimatedMinutes,
           createdAt: new Date().toISOString()
         }
@@ -106,11 +144,12 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       tag: tag.trim() || undefined,
       plannedStart: startDateTime,
       plannedEnd: endDateTime,
-      plannedDurationMinutes: estimatedMinutes,
+      plannedDurationMinutes: plannedMinutes,
       estimatedDurationMinutes: estimatedMinutes,
       confidence,
+      googleCalendarEventId: existingTask?.googleCalendarEventId,
       originalPlannedStart: existingTask?.originalPlannedStart || startDateTime,
-      originalEstimatedDurationMinutes: existingTask?.originalEstimatedDurationMinutes || estimatedMinutes,
+      originalEstimatedDurationMinutes: immutableOriginalEstimate,
       realityCheck: realityCheckDecision,
       createdAt: existingTask?.createdAt || new Date().toISOString(),
       execution: existingTask?.execution || {
@@ -211,8 +250,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             </div>
           </div>
 
-          {/* Start Time & Estimated Duration */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Start Time, Planned Schedule Duration & Estimated Prediction Duration */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
                 Planned Start
@@ -227,24 +266,42 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-blue-600 uppercase tracking-wider mb-1.5">
-                Estimated Duration
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+                Schedule Plan <span className="text-[10px] text-slate-400 font-normal">(Block)</span>
               </label>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1.5">
+                <input
+                  type="number"
+                  min="5"
+                  max="1440"
+                  step="5"
+                  value={plannedMinutes}
+                  onChange={e => setPlannedMinutes(Math.max(5, parseInt(e.target.value) || 0))}
+                  required
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
+                />
+                <span className="text-[11px] text-slate-400 font-medium whitespace-nowrap">
+                  ({formatMinutesToHours(plannedMinutes)})
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-blue-600 uppercase tracking-wider mb-1.5">
+                Prediction Forecast
+              </label>
+              <div className="flex items-center space-x-1.5">
                 <input
                   type="number"
                   min="5"
                   max="1440"
                   step="5"
                   value={estimatedMinutes}
-                  onChange={e => {
-                    setEstimatedMinutes(Math.max(5, parseInt(e.target.value) || 0));
-                    setAcceptedSuggestion(null);
-                  }}
+                  onChange={e => handleEstimateChange(parseInt(e.target.value) || 0)}
                   required
-                  className="w-full bg-slate-50 border border-blue-200 rounded-xl px-3.5 py-2.5 text-blue-600 font-bold text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
+                  className="w-full bg-slate-50 border border-blue-200 rounded-xl px-3 py-2.5 text-blue-600 font-bold text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
                 />
-                <span className="text-xs text-slate-500 font-medium whitespace-nowrap">
+                <span className="text-[11px] text-slate-500 font-medium whitespace-nowrap">
                   ({formatMinutesToHours(estimatedMinutes)})
                 </span>
               </div>
@@ -315,24 +372,24 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                     type="button"
                     onClick={handleKeepEstimate}
                     className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors ${
-                      acceptedSuggestion === false
+                      userDecision === 'kept_original'
                         ? 'bg-slate-800 text-white border-slate-800'
                         : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                     }`}
                   >
-                    Keep my {formatMinutesToHours(estimatedMinutes)}
+                    Keep my {formatMinutesToHours(initialUserPrediction)}
                   </button>
 
                   <button
                     type="button"
                     onClick={handleApplySuggested}
                     className={`flex items-center space-x-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors shadow-2xs ${
-                      acceptedSuggestion === true
+                      userDecision === 'accepted_suggestion'
                         ? 'bg-emerald-600 text-white'
                         : 'bg-blue-600 text-white hover:bg-blue-700'
                     }`}
                   >
-                    {acceptedSuggestion === true && <Check className="w-3.5 h-3.5" />}
+                    {userDecision === 'accepted_suggestion' && <Check className="w-3.5 h-3.5" />}
                     <span>Adjust to {formatMinutesToHours(realityCheck.suggestedDurationMinutes)}</span>
                   </button>
                 </div>

@@ -113,7 +113,7 @@ export default function App() {
     const startISO = new Date(`${today}T${startTimeStr}:00.000Z`).toISOString();
     const endISO = new Date(new Date(`${today}T${startTimeStr}:00.000Z`).getTime() + estMins * 60000).toISOString();
 
-    const newTask: TaskItem = {
+    const prefilledTask: TaskItem = {
       id: `task-quick-${Date.now()}`,
       title,
       category,
@@ -132,7 +132,8 @@ export default function App() {
       }
     };
 
-    handleSetTasks([newTask, ...tasks]);
+    setEditingTask(prefilledTask);
+    setIsTaskModalOpen(true);
   };
 
   const handleUpdateTaskExecution = (taskId: string, updates: Partial<TaskItem['execution']>) => {

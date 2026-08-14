@@ -1879,6 +1879,161 @@ export function runSystemValidationSuite(
     });
   }
 
+  // Test 38: Expanded Duration Calibration Metrics (Mean/Median Signed/Absolute Errors)
+  try {
+    const mockTasks: TaskItem[] = [
+      {
+        id: 'dur-1',
+        title: 'Task 1',
+        category: 'Programming',
+        plannedStart: '2026-08-10T10:00:00.000Z',
+        plannedEnd: '2026-08-10T11:00:00.000Z',
+        plannedDurationMinutes: 60,
+        estimatedDurationMinutes: 60,
+        confidence: 80,
+        originalPlannedStart: '2026-08-10T10:00:00.000Z',
+        originalEstimatedDurationMinutes: 60,
+        createdAt: '2026-08-10T08:00:00.000Z',
+        execution: {
+          status: 'completed',
+          actualDurationMinutes: 90, // +50% signed error, 30m abs error
+          postponedCount: 0,
+          originalScheduledDate: '2026-08-10'
+        }
+      },
+      {
+        id: 'dur-2',
+        title: 'Task 2',
+        category: 'Programming',
+        plannedStart: '2026-08-10T12:00:00.000Z',
+        plannedEnd: '2026-08-10T13:00:00.000Z',
+        plannedDurationMinutes: 60,
+        estimatedDurationMinutes: 60,
+        confidence: 80,
+        originalPlannedStart: '2026-08-10T12:00:00.000Z',
+        originalEstimatedDurationMinutes: 60,
+        createdAt: '2026-08-10T08:00:00.000Z',
+        execution: {
+          status: 'completed',
+          actualDurationMinutes: 45, // -25% signed error, 15m abs error
+          postponedCount: 0,
+          originalScheduledDate: '2026-08-10'
+        }
+      }
+    ];
+
+    const durCal = calculateDurationCalibration(mockTasks);
+    // Signed errors: 0.5, -0.25 -> mean = 0.125 (12.5%), median = 0.125
+    // Abs errors: 30, 15 -> mean = 22.5 (23m rounded), median = 22.5 (23m rounded)
+    const pass =
+      durCal.totalTasksCount === 2 &&
+      Math.abs(durCal.meanSignedErrorPercent - 0.125) < 0.001 &&
+      durCal.meanAbsoluteErrorMinutes === 23 &&
+      durCal.medianAbsoluteErrorMinutes === 23;
+
+    results.push({
+      name: 'Expanded Duration Calibration Metrics Engine',
+      passed: pass,
+      details: pass
+        ? 'Duration calibration engine accurately computes mean/median signed relative errors and absolute minute errors.'
+        : `Duration calibration failed: meanSigned=${durCal.meanSignedErrorPercent}, meanAbs=${durCal.meanAbsoluteErrorMinutes}`
+    });
+  } catch (e: any) {
+    results.push({
+      name: 'Expanded Duration Calibration Metrics Engine',
+      passed: false,
+      details: `Failed with exception: ${e.message}`
+    });
+  }
+
+  // Test 39: Rich Sleep Context Group Metrics
+  try {
+    const sleepRecs: SleepRecord[] = [
+      {
+        id: 'slp-1',
+        date: '2026-08-10',
+        plannedBedtime: '23:00',
+        actualBedtime: '23:00',
+        plannedWakeTime: '07:00',
+        actualWakeTime: '07:00',
+        actualSleepDurationMinutes: 480,
+        isShortSleep: false
+      },
+      {
+        id: 'slp-2',
+        date: '2026-08-11',
+        plannedBedtime: '23:00',
+        actualBedtime: '02:00',
+        plannedWakeTime: '07:00',
+        actualWakeTime: '06:00',
+        actualSleepDurationMinutes: 240,
+        isShortSleep: true
+      }
+    ];
+
+    const tasksForSleep: TaskItem[] = [
+      {
+        id: 't-slp-1',
+        title: 'Task Normal',
+        category: 'Writing',
+        plannedStart: '2026-08-10T10:00:00.000Z',
+        plannedEnd: '2026-08-10T11:00:00.000Z',
+        plannedDurationMinutes: 60,
+        estimatedDurationMinutes: 60,
+        confidence: 80,
+        originalPlannedStart: '2026-08-10T10:00:00.000Z',
+        originalEstimatedDurationMinutes: 60,
+        createdAt: '2026-08-10T08:00:00.000Z',
+        execution: {
+          status: 'completed',
+          actualDurationMinutes: 60,
+          postponedCount: 0,
+          originalScheduledDate: '2026-08-10'
+        }
+      },
+      {
+        id: 't-slp-2',
+        title: 'Task Short',
+        category: 'Writing',
+        plannedStart: '2026-08-11T10:00:00.000Z',
+        plannedEnd: '2026-08-11T11:00:00.000Z',
+        plannedDurationMinutes: 60,
+        estimatedDurationMinutes: 60,
+        confidence: 80,
+        originalPlannedStart: '2026-08-11T10:00:00.000Z',
+        originalEstimatedDurationMinutes: 60,
+        createdAt: '2026-08-11T08:00:00.000Z',
+        execution: {
+          status: 'completed',
+          actualDurationMinutes: 120, // +100% error
+          postponedCount: 0,
+          originalScheduledDate: '2026-08-11'
+        }
+      }
+    ];
+
+    const sleepImpact = calculateSleepImpact(tasksForSleep, sleepRecs);
+    const pass =
+      sleepImpact.normalSleepMetrics?.completionRatePercent === 100 &&
+      sleepImpact.normalSleepMetrics?.meanSignedErrorPercent === 0 &&
+      sleepImpact.shortSleepMetrics?.completionRatePercent === 100 &&
+      sleepImpact.shortSleepMetrics?.meanSignedErrorPercent === 1;
+
+    results.push({
+      name: 'Sleep Group Metrics and Estimation Error Isolation',
+      passed: pass,
+      details: pass
+        ? 'Sleep group metrics correctly isolate completion rates and estimation errors for both sufficient and short sleep categories.'
+        : `Sleep group metrics failed.`
+    });
+  } catch (e: any) {
+    results.push({
+      name: 'Sleep Group Metrics and Estimation Error Isolation',
+      passed: false,
+      details: `Failed with exception: ${e.message}`
+    });
+  }
+
   return results;
 }
 

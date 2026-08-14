@@ -123,11 +123,44 @@ export interface RealityCheckSuggestion {
   matchedBy?: 'category_and_tag' | 'category' | 'none';
 }
 
+export interface SleepGroupMetrics {
+  eligibleTaskCount: number;
+  completedTaskCount: number;
+  completionRatePercent: number;
+  meanSignedErrorPercent: number;
+  medianSignedErrorPercent: number;
+  meanAbsoluteErrorMinutes: number;
+  medianAbsoluteErrorMinutes: number;
+}
+
+export interface SleepImpactCalibration {
+  normalSleepCompletionRate: number; // % completed when sleep >= 6h
+  shortSleepCompletionRate: number;  // % completed when sleep < 6h
+  completionDropPercent: number;     // e.g. 35% fewer completed
+  normalSleepDaysCount: number;
+  shortSleepDaysCount: number;
+  normalSleepMetrics?: SleepGroupMetrics;
+  shortSleepMetrics?: SleepGroupMetrics;
+  hasEnoughData: boolean;
+}
+
 export interface DurationCalibration {
-  overallErrorPercent: number; // e.g. +35%
+  overallErrorPercent: number; // Mean ratio error percentage e.g. +35%
+  meanSignedErrorPercent: number;
+  medianSignedErrorPercent: number;
+  meanAbsoluteErrorMinutes: number;
+  medianAbsoluteErrorMinutes: number;
+  meanActualDurationMinutes: number;
+  medianActualDurationMinutes: number;
   totalTasksCount: number;
   categoryBreakdown: Record<TaskCategory, {
     averageErrorPercent: number;
+    meanSignedErrorPercent: number;
+    medianSignedErrorPercent: number;
+    meanAbsoluteErrorMinutes: number;
+    medianAbsoluteErrorMinutes: number;
+    meanActualDurationMinutes: number;
+    medianActualDurationMinutes: number;
     multiplier: number; // e.g. 1.43
     taskCount: number;
     sampleSufficient: boolean;
@@ -139,15 +172,6 @@ export interface StartTimeCalibration {
   onTimeStartRatePercent: number; // e.g. 40% (8 of 20)
   totalSessionsCount: number;
   eveningDelayMinutes: number; // Start after 18:00
-}
-
-export interface SleepImpactCalibration {
-  normalSleepCompletionRate: number; // % completed when sleep >= 6h
-  shortSleepCompletionRate: number;  // % completed when sleep < 6h
-  completionDropPercent: number;     // e.g. 35% fewer completed
-  normalSleepDaysCount: number;
-  shortSleepDaysCount: number;
-  hasEnoughData: boolean;
 }
 
 export interface ConfidenceCalibration {

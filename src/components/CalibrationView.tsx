@@ -32,19 +32,21 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
   const sleepData = insights.sleepImpact;
   const confidenceBrackets = insights.confidenceBrackets;
 
-  // Find most underestimated category
-  let maxUnderestimateCat = 'Programming';
-  let maxUnderestimateError = 0;
-  let maxUnderestimateTasks = 0;
+  // Find strongest recurring category pattern (requires >= 5 completed observations)
+  let maxPatternCat = '';
+  let maxPatternError = 0;
+  let maxPatternTasks = 0;
+  let maxPatternType: string = 'none';
 
-  CATEGORIES.forEach(cat => {
+  for (const cat of CATEGORIES) {
     const item = durationData.categoryBreakdown[cat];
-    if (item && item.averageErrorPercent > maxUnderestimateError && item.taskCount >= 2) {
-      maxUnderestimateError = item.averageErrorPercent;
-      maxUnderestimateCat = cat;
-      maxUnderestimateTasks = item.taskCount;
+    if (item && item.sampleSufficient && Math.abs(item.averageErrorPercent) > Math.abs(maxPatternError)) {
+      maxPatternError = item.averageErrorPercent;
+      maxPatternCat = cat;
+      maxPatternTasks = item.taskCount;
+      maxPatternType = item.averageErrorPercent > 0 ? 'underestimate' : item.averageErrorPercent < 0 ? 'overestimate' : 'none';
     }
-  });
+  }
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto pb-16 text-slate-900">
@@ -101,9 +103,13 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                 Primary Pattern
               </span>
               <p className="text-base font-bold text-blue-600">
-                {maxUnderestimateTasks >= 5 && maxUnderestimateError > 0 ? (
+                {maxPatternTasks >= 5 && maxPatternType === 'underestimate' ? (
                   <>
-                    You underestimate <span className="underline">{maxUnderestimateCat.toLowerCase()}</span> tasks by {maxUnderestimateError}% on average.
+                    You underestimate <span className="underline">{maxPatternCat.toLowerCase()}</span> tasks by {Math.abs(maxPatternError)}% on average.
+                  </>
+                ) : maxPatternTasks >= 5 && maxPatternType === 'overestimate' ? (
+                  <>
+                    You overestimate <span className="underline">{maxPatternCat.toLowerCase()}</span> tasks by {Math.abs(maxPatternError)}% on average.
                   </>
                 ) : durationData.totalTasksCount >= 5 ? (
                   <>You predict overall task durations with high accuracy.</>
@@ -112,8 +118,10 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                 )}
               </p>
               <span className="text-[11px] text-slate-400 block">
-                {durationData.totalTasksCount >= 5
-                  ? `↑ Based on ${maxUnderestimateTasks || durationData.totalTasksCount} completed sessions`
+                {maxPatternTasks >= 5
+                  ? `↑ Based on ${maxPatternTasks} completed sessions in ${maxPatternCat}`
+                  : durationData.totalTasksCount >= 5
+                  ? `↑ Based on ${durationData.totalTasksCount} completed sessions overall`
                   : 'Need at least 5 completed sessions in a category to identify recurring patterns'}
               </span>
             </div>
@@ -310,9 +318,9 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                   <div key={b.rangeLabel} className="flex items-center justify-between text-xs p-2.5 rounded-xl bg-slate-50 border border-slate-200">
                     <span className="font-semibold text-slate-800">{b.rangeLabel} Stated Confidence</span>
                     <div className="flex items-center space-x-2">
-                      <span className="text-slate-400">({b.predictedCount} tasks)</span>
-                      <span className={`font-bold ${b.predictedCount === 0 ? 'text-slate-400' : b.actualSuccessRatePercent >= 70 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                        {b.predictedCount > 0 ? `${b.actualSuccessRatePercent}% actual` : 'No data'}
+                      <span className="text-slate-400">({b.predictedCount} {b.predictedCount === 1 ? 'task' : 'tasks'})</span>
+                      <span className={`font-bold ${!b.sampleSufficient ? 'text-slate-400 font-normal' : b.actualSuccessRatePercent >= 70 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        {b.sampleSufficient ? `${b.actualSuccessRatePercent}% actual` : 'Not enough data yet'}
                       </span>
                     </div>
                   </div>

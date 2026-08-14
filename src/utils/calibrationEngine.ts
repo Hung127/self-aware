@@ -335,14 +335,28 @@ export function calculateDurationCalibration(tasks: TaskItem[]): DurationCalibra
   );
 
   let overallRatioSum = 0;
+  const allSignedErrors: number[] = [];
+  const allAbsErrors: number[] = [];
+  const allActualDurations: number[] = [];
+
   completedTasks.forEach(t => {
     const est = t.originalEstimatedDurationMinutes || t.estimatedDurationMinutes || 1;
     const act = t.execution.actualDurationMinutes || est;
     overallRatioSum += (act / est);
+    allSignedErrors.push(calculateEstimationError(est, act));
+    allAbsErrors.push(calculateAbsoluteDifferenceMinutes(est, act));
+    allActualDurations.push(act);
   });
 
   const overallAvgRatio = completedTasks.length > 0 ? (overallRatioSum / completedTasks.length) : 1;
   const overallErrorPercent = Math.round((overallAvgRatio - 1) * 100);
+
+  const meanSignedErrorPercent = completedTasks.length > 0 ? calculateMean(allSignedErrors) : 0;
+  const medianSignedErrorPercent = completedTasks.length > 0 ? calculateMedian(allSignedErrors) : 0;
+  const meanAbsoluteErrorMinutes = completedTasks.length > 0 ? Math.round(calculateMean(allAbsErrors)) : 0;
+  const medianAbsoluteErrorMinutes = completedTasks.length > 0 ? Math.round(calculateMedian(allAbsErrors)) : 0;
+  const meanActualDurationMinutes = completedTasks.length > 0 ? Math.round(calculateMean(allActualDurations)) : 0;
+  const medianActualDurationMinutes = completedTasks.length > 0 ? Math.round(calculateMedian(allActualDurations)) : 0;
 
   const categoryBreakdown: DurationCalibration['categoryBreakdown'] = {} as any;
 
@@ -351,20 +365,39 @@ export function calculateDurationCalibration(tasks: TaskItem[]): DurationCalibra
     if (catTasks.length === 0) {
       categoryBreakdown[cat] = {
         averageErrorPercent: 0,
+        meanSignedErrorPercent: 0,
+        medianSignedErrorPercent: 0,
+        meanAbsoluteErrorMinutes: 0,
+        medianAbsoluteErrorMinutes: 0,
+        meanActualDurationMinutes: 0,
+        medianActualDurationMinutes: 0,
         multiplier: 1,
         taskCount: 0,
         sampleSufficient: false
       };
     } else {
       let catRatioSum = 0;
+      const catSigned: number[] = [];
+      const catAbs: number[] = [];
+      const catActs: number[] = [];
+
       catTasks.forEach(t => {
         const est = t.originalEstimatedDurationMinutes || t.estimatedDurationMinutes || 1;
         const act = t.execution.actualDurationMinutes || est;
         catRatioSum += (act / est);
+        catSigned.push(calculateEstimationError(est, act));
+        catAbs.push(calculateAbsoluteDifferenceMinutes(est, act));
+        catActs.push(act);
       });
       const mult = catRatioSum / catTasks.length;
       categoryBreakdown[cat] = {
         averageErrorPercent: Math.round((mult - 1) * 100),
+        meanSignedErrorPercent: calculateMean(catSigned),
+        medianSignedErrorPercent: calculateMedian(catSigned),
+        meanAbsoluteErrorMinutes: Math.round(calculateMean(catAbs)),
+        medianAbsoluteErrorMinutes: Math.round(calculateMedian(catAbs)),
+        meanActualDurationMinutes: Math.round(calculateMean(catActs)),
+        medianActualDurationMinutes: Math.round(calculateMedian(catActs)),
         multiplier: Math.round(mult * 100) / 100,
         taskCount: catTasks.length,
         sampleSufficient: catTasks.length >= 5
@@ -374,6 +407,12 @@ export function calculateDurationCalibration(tasks: TaskItem[]): DurationCalibra
 
   return {
     overallErrorPercent,
+    meanSignedErrorPercent,
+    medianSignedErrorPercent,
+    meanAbsoluteErrorMinutes,
+    medianAbsoluteErrorMinutes,
+    meanActualDurationMinutes,
+    medianActualDurationMinutes,
     totalTasksCount: completedTasks.length,
     categoryBreakdown
   };
@@ -454,7 +493,7 @@ export function calculateStartTimeCalibration(tasks: TaskItem[]): StartTimeCalib
 }
 
 /**
- * Calculates the impact of sleep duration on task completion rates.
+ * Calculates the impact of sleep duration on task completion rates and estimation accuracy.
  * Strictly non-judgmental and evidence-focused.
  * Requires at least 7 comparable observations per group for strong insights.
  */
@@ -476,8 +515,13 @@ export function calculateSleepImpact(tasks: TaskItem[], sleepRecords: SleepRecor
 
   let normalSleepTotalTasks = 0;
   let normalSleepCompletedTasks = 0;
+  const normalSignedErrors: number[] = [];
+  const normalAbsErrors: number[] = [];
+
   let shortSleepTotalTasks = 0;
   let shortSleepCompletedTasks = 0;
+  const shortSignedErrors: number[] = [];
+  const shortAbsErrors: number[] = [];
 
   const normalSleepDays = new Set<string>();
   const shortSleepDays = new Set<string>();
@@ -487,16 +531,29 @@ export function calculateSleepImpact(tasks: TaskItem[], sleepRecords: SleepRecor
     const sleep = sleepMap.get(dateKey);
 
     if (sleep) {
-      if (sleep.isShortSleep) {
+      const isShort = sleep.isShortSleep;
+      if (isShort) {
         shortSleepDays.add(dateKey);
         shortSleepTotalTasks++;
-        if (t.execution.status === 'completed') {
+        if (t.execution.status === 'completed' && t.execution.actualDurationMinutes !== undefined && t.execution.actualDurationMinutes > 0) {
+          shortSleepCompletedTasks++;
+          const pred = t.originalEstimatedDurationMinutes || t.estimatedDurationMinutes || 1;
+          const act = t.execution.actualDurationMinutes;
+          shortSignedErrors.push(calculateEstimationError(pred, act));
+          shortAbsErrors.push(calculateAbsoluteDifferenceMinutes(pred, act));
+        } else if (t.execution.status === 'completed') {
           shortSleepCompletedTasks++;
         }
       } else {
         normalSleepDays.add(dateKey);
         normalSleepTotalTasks++;
-        if (t.execution.status === 'completed') {
+        if (t.execution.status === 'completed' && t.execution.actualDurationMinutes !== undefined && t.execution.actualDurationMinutes > 0) {
+          normalSleepCompletedTasks++;
+          const pred = t.originalEstimatedDurationMinutes || t.estimatedDurationMinutes || 1;
+          const act = t.execution.actualDurationMinutes;
+          normalSignedErrors.push(calculateEstimationError(pred, act));
+          normalAbsErrors.push(calculateAbsoluteDifferenceMinutes(pred, act));
+        } else if (t.execution.status === 'completed') {
           normalSleepCompletedTasks++;
         }
       }
@@ -510,12 +567,34 @@ export function calculateSleepImpact(tasks: TaskItem[], sleepRecords: SleepRecor
 
   const dropPercent = normalRate > 0 ? Math.max(0, Math.round(((normalRate - shortRate) / normalRate) * 100)) : 0;
 
+  const normalSleepMetrics = {
+    eligibleTaskCount: normalSleepTotalTasks,
+    completedTaskCount: normalSleepCompletedTasks,
+    completionRatePercent: normalRate,
+    meanSignedErrorPercent: normalSignedErrors.length > 0 ? calculateMean(normalSignedErrors) : 0,
+    medianSignedErrorPercent: normalSignedErrors.length > 0 ? calculateMedian(normalSignedErrors) : 0,
+    meanAbsoluteErrorMinutes: normalAbsErrors.length > 0 ? Math.round(calculateMean(normalAbsErrors)) : 0,
+    medianAbsoluteErrorMinutes: normalAbsErrors.length > 0 ? Math.round(calculateMedian(normalAbsErrors)) : 0,
+  };
+
+  const shortSleepMetrics = {
+    eligibleTaskCount: shortSleepTotalTasks,
+    completedTaskCount: shortSleepCompletedTasks,
+    completionRatePercent: shortRate,
+    meanSignedErrorPercent: shortSignedErrors.length > 0 ? calculateMean(shortSignedErrors) : 0,
+    medianSignedErrorPercent: shortSignedErrors.length > 0 ? calculateMedian(shortSignedErrors) : 0,
+    meanAbsoluteErrorMinutes: shortAbsErrors.length > 0 ? Math.round(calculateMean(shortAbsErrors)) : 0,
+    medianAbsoluteErrorMinutes: shortAbsErrors.length > 0 ? Math.round(calculateMedian(shortAbsErrors)) : 0,
+  };
+
   return {
     normalSleepCompletionRate: normalRate,
     shortSleepCompletionRate: shortRate,
     completionDropPercent: dropPercent,
     normalSleepDaysCount: normalSleepDays.size,
     shortSleepDaysCount: shortSleepDays.size,
+    normalSleepMetrics,
+    shortSleepMetrics,
     hasEnoughData
   };
 }
