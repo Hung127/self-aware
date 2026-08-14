@@ -92,8 +92,8 @@ export function getMockGCalEvents(): GCalEvent[] {
 }
 
 /**
- * Converts a Google Calendar event into a TaskItem prediction record.
- * Preserves original prediction details.
+ * Converts a Google Calendar event into a plan-only record. Calendar time is
+ * scheduling context, not a user forecast.
  */
 export function convertGCalEventToTask(event: GCalEvent): TaskItem {
   const start = new Date(event.start.dateTime);
@@ -109,11 +109,13 @@ export function convertGCalEventToTask(event: GCalEvent): TaskItem {
     plannedStart: event.start.dateTime,
     plannedEnd: event.end.dateTime,
     plannedDurationMinutes: durationMins,
-    estimatedDurationMinutes: durationMins, // Initial estimate matches planned
-    confidence: 80, // Default confidence
+    estimatedDurationMinutes: 0,
+    confidence: 0,
+    planSource: 'google_calendar',
+    predictionStatus: 'not_recorded',
     googleCalendarEventId: event.id,
     originalPlannedStart: event.start.dateTime,
-    originalEstimatedDurationMinutes: durationMins,
+    originalEstimatedDurationMinutes: 0,
     createdAt: new Date().toISOString(),
     execution: {
       status: 'not_started',

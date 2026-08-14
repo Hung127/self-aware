@@ -138,8 +138,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleExportJson = () => {
-    const exportObject = {
-      version: '1.0',
+      const exportObject = {
+        version: '2.0',
+        schemaVersion: 2,
       exportedAt: new Date().toISOString(),
       settings,
       tasks,

@@ -25,6 +25,32 @@ export const CATEGORIES: TaskCategory[] = [
   'Other'
 ];
 
+/** Canonical accessors keep plan, forecast, and outcome semantics consistent. */
+export function getOriginalPredictionMinutes(task: TaskItem): number {
+  return task.originalEstimatedDurationMinutes || 0;
+}
+
+export function getFinalPredictionMinutes(task: TaskItem): number {
+  return task.estimatedDurationMinutes || 0;
+}
+
+export function getHistoricalCalibrationBaseline(task: TaskItem): number {
+  return getOriginalPredictionMinutes(task) || getFinalPredictionMinutes(task);
+}
+
+export function isDurationCalibrationEligible(task: TaskItem): boolean {
+  return task.predictionStatus !== 'not_recorded' &&
+    task.execution.status === 'completed' &&
+    task.execution.durationMeasurementStatus !== 'unknown' &&
+    !!task.execution.actualDurationMinutes &&
+    task.execution.actualDurationMinutes > 0 &&
+    getHistoricalCalibrationBaseline(task) > 0;
+}
+
+export function isCompletionCalibrationEligible(task: TaskItem): boolean {
+  return task.predictionStatus !== 'not_recorded' && task.execution.status !== 'not_started';
+}
+
 /**
  * Calculates arithmetic mean of a number array.
  */
@@ -143,12 +169,7 @@ export function getReferenceClass(
   // - exclude current task if editing
   const eligibleTasks = allTasks.filter(t => {
     if (taskPrediction.id && t.id === taskPrediction.id) return false;
-    if (t.execution.status !== 'completed') return false;
-    const actualDur = t.execution.actualDurationMinutes;
-    if (!actualDur || actualDur <= 0) return false;
-    const origPred = t.originalEstimatedDurationMinutes || t.estimatedDurationMinutes;
-    if (!origPred || origPred <= 0) return false;
-    return true;
+    return isDurationCalibrationEligible(t);
   });
 
   let matchedTasks: TaskItem[] = [];
@@ -194,11 +215,11 @@ export function getReferenceClass(
 
   const actualDurations = matchedTasks.map(t => t.execution.actualDurationMinutes!);
   const signedErrors = matchedTasks.map(t => {
-    const pred = t.originalEstimatedDurationMinutes || t.estimatedDurationMinutes;
+    const pred = getHistoricalCalibrationBaseline(t);
     return calculateEstimationError(pred, t.execution.actualDurationMinutes!);
   });
   const absErrors = matchedTasks.map(t => {
-    const pred = t.originalEstimatedDurationMinutes || t.estimatedDurationMinutes;
+    const pred = getHistoricalCalibrationBaseline(t);
     return calculateAbsoluteError(pred, t.execution.actualDurationMinutes!);
   });
 
@@ -352,11 +373,7 @@ export function getRealityCheck(
  * Uses immutable original predictions.
  */
 export function calculateDurationCalibration(tasks: TaskItem[]): DurationCalibration {
-  const completedTasks = tasks.filter(
-    t => t.execution.status === 'completed' &&
-         t.execution.actualDurationMinutes !== undefined &&
-         t.execution.actualDurationMinutes > 0
-  );
+  const completedTasks = tasks.filter(isDurationCalibrationEligible);
 
   let overallRatioSum = 0;
   const allSignedErrors: number[] = [];
@@ -364,7 +381,7 @@ export function calculateDurationCalibration(tasks: TaskItem[]): DurationCalibra
   const allActualDurations: number[] = [];
 
   completedTasks.forEach(t => {
-    const est = t.originalEstimatedDurationMinutes || t.estimatedDurationMinutes || 1;
+    const est = getHistoricalCalibrationBaseline(t) || 1;
     const act = t.execution.actualDurationMinutes || est;
     overallRatioSum += (act / est);
     allSignedErrors.push(calculateEstimationError(est, act));
@@ -406,7 +423,7 @@ export function calculateDurationCalibration(tasks: TaskItem[]): DurationCalibra
       const catActs: number[] = [];
 
       catTasks.forEach(t => {
-        const est = t.originalEstimatedDurationMinutes || t.estimatedDurationMinutes || 1;
+        const est = getHistoricalCalibrationBaseline(t) || 1;
         const act = t.execution.actualDurationMinutes || est;
         catRatioSum += (act / est);
         catSigned.push(calculateEstimationError(est, act));
@@ -469,7 +486,7 @@ export function getNominalHour(dateStr: string): number {
  */
 export function calculateStartTimeCalibration(tasks: TaskItem[]): StartTimeCalibration {
   const startedTasks = tasks.filter(
-    t => t.execution.actualStart && (t.execution.status === 'completed' || t.execution.status === 'in_progress')
+    t => t.predictionStatus !== 'not_recorded' && t.execution.actualStart && (t.execution.status === 'completed' || t.execution.status === 'in_progress')
   );
 
   if (startedTasks.length === 0) {
@@ -551,6 +568,7 @@ export function calculateSleepImpact(tasks: TaskItem[], sleepRecords: SleepRecor
   const shortSleepDays = new Set<string>();
 
   tasks.forEach(t => {
+    if (!isCompletionCalibrationEligible(t)) return;
     const dateKey = t.execution.originalScheduledDate;
     const sleep = sleepMap.get(dateKey);
 
@@ -561,7 +579,7 @@ export function calculateSleepImpact(tasks: TaskItem[], sleepRecords: SleepRecor
         shortSleepTotalTasks++;
         if (t.execution.status === 'completed' && t.execution.actualDurationMinutes !== undefined && t.execution.actualDurationMinutes > 0) {
           shortSleepCompletedTasks++;
-          const pred = t.originalEstimatedDurationMinutes || t.estimatedDurationMinutes || 1;
+          const pred = getHistoricalCalibrationBaseline(t) || 1;
           const act = t.execution.actualDurationMinutes;
           shortSignedErrors.push(calculateEstimationError(pred, act));
           shortAbsErrors.push(calculateAbsoluteDifferenceMinutes(pred, act));
@@ -573,7 +591,7 @@ export function calculateSleepImpact(tasks: TaskItem[], sleepRecords: SleepRecor
         normalSleepTotalTasks++;
         if (t.execution.status === 'completed' && t.execution.actualDurationMinutes !== undefined && t.execution.actualDurationMinutes > 0) {
           normalSleepCompletedTasks++;
-          const pred = t.originalEstimatedDurationMinutes || t.estimatedDurationMinutes || 1;
+          const pred = getHistoricalCalibrationBaseline(t) || 1;
           const act = t.execution.actualDurationMinutes;
           normalSignedErrors.push(calculateEstimationError(pred, act));
           normalAbsErrors.push(calculateAbsoluteDifferenceMinutes(pred, act));
@@ -632,9 +650,7 @@ export function calculateSleepImpact(tasks: TaskItem[], sleepRecords: SleepRecor
  * - 90–100%
  */
 export function calculateConfidenceCalibration(tasks: TaskItem[]): ConfidenceCalibration[] {
-  const eligibleTasks = tasks.filter(
-    t => t.execution.status === 'completed' || t.execution.status === 'postponed' || t.execution.status === 'skipped'
-  );
+  const eligibleTasks = tasks.filter(isCompletionCalibrationEligible);
 
   const bracketsConfig = [
     { bracket: 30, rangeLabel: '0–49%', min: 0, max: 49 },
@@ -686,9 +702,7 @@ export function calculateConfidenceCalibration(tasks: TaskItem[]): ConfidenceCal
  * Calculates complete task completion calibration metrics.
  */
 export function calculateCompletionCalibration(tasks: TaskItem[]): CompletionCalibration {
-  const eligibleTasks = tasks.filter(
-    t => t.execution.status === 'completed' || t.execution.status === 'postponed' || t.execution.status === 'skipped'
-  );
+  const eligibleTasks = tasks.filter(isCompletionCalibrationEligible);
 
   const completed = eligibleTasks.filter(t => t.execution.status === 'completed');
   const postponed = eligibleTasks.filter(t => t.execution.status === 'postponed');
@@ -741,7 +755,7 @@ export function calculateCompletionCalibration(tasks: TaskItem[]): CompletionCal
  * Calculates same-day completion rate.
  */
 export function calculateSameDayCompletionRate(tasks: TaskItem[]): number {
-  const eligible = tasks.filter(t => t.execution.status === 'completed' || t.execution.status === 'postponed' || t.execution.status === 'skipped');
+  const eligible = tasks.filter(isCompletionCalibrationEligible);
   if (eligible.length === 0) return 100;
 
   const sameDayCompleted = eligible.filter(
@@ -757,11 +771,7 @@ export function calculateSameDayCompletionRate(tasks: TaskItem[]): number {
  */
 export function calculateAccuracyOverTime(tasks: TaskItem[]): AccuracyOverTimeCalibration {
   const completedTasks = tasks
-    .filter(
-      t => t.execution.status === 'completed' &&
-           t.execution.actualDurationMinutes !== undefined &&
-           t.execution.actualDurationMinutes > 0
-    )
+    .filter(isDurationCalibrationEligible)
     .sort((a, b) => new Date(a.plannedStart).getTime() - new Date(b.plannedStart).getTime());
 
   if (completedTasks.length < 3) {
@@ -796,7 +806,7 @@ export function calculateAccuracyOverTime(tasks: TaskItem[]): AccuracyOverTimeCa
       let totalAbsErrorMinutes = 0;
 
       weekTasks.forEach(t => {
-        const est = t.originalEstimatedDurationMinutes || t.estimatedDurationMinutes || 1;
+        const est = getHistoricalCalibrationBaseline(t) || 1;
         const act = t.execution.actualDurationMinutes || est;
         totalPercentError += Math.abs((act - est) / est);
         totalAbsErrorMinutes += Math.abs(act - est);
@@ -822,7 +832,7 @@ export function calculateAccuracyOverTime(tasks: TaskItem[]): AccuracyOverTimeCa
       let totalPercentError = 0;
       let totalAbsErrorMinutes = 0;
       batch.forEach(t => {
-        const est = t.originalEstimatedDurationMinutes || t.estimatedDurationMinutes || 1;
+        const est = getHistoricalCalibrationBaseline(t) || 1;
         const act = t.execution.actualDurationMinutes || est;
         totalPercentError += Math.abs((act - est) / est);
         totalAbsErrorMinutes += Math.abs(act - est);

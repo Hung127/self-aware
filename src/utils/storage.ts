@@ -417,8 +417,11 @@ export function loadTasks(): TaskItem[] {
       execution: {
         ...t.execution,
         postponedCount: t.execution?.postponedCount || 0,
+        durationMeasurementStatus: t.execution?.durationMeasurementStatus || (t.execution?.status === 'completed' && !t.execution?.actualDurationMinutes ? 'unknown' : undefined),
         originalScheduledDate: t.execution?.originalScheduledDate || (t.plannedStart ? t.plannedStart.split('T')[0] : getTodayStr())
-      }
+      },
+      planSource: t.planSource || (t.googleCalendarEventId ? 'google_calendar' : 'manual'),
+      predictionStatus: t.predictionStatus || 'recorded'
     }));
   } catch (err) {
     console.error('Error loading tasks from localStorage:', err);
@@ -917,4 +920,3 @@ export function clearAllData(): { tasks: TaskItem[]; sleep: SleepRecord[]; setti
   }
   return seedPresetData('empty');
 }
-

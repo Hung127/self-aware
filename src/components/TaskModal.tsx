@@ -19,6 +19,10 @@ export interface TaskFormDefaults {
   tag?: string;
   plannedMinutes?: number;
   estimatedMinutes?: number;
+  plannedStart?: string;
+  plannedEnd?: string;
+  googleCalendarEventId?: string;
+  planSource?: 'manual' | 'google_calendar';
 }
 
 export const TaskModal: React.FC<TaskModalProps> = ({
@@ -38,12 +42,12 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   const [category, setCategory] = useState<TaskCategory>(existingTask?.category || initialValues?.category || 'Programming');
   const [tag, setTag] = useState(existingTask?.tag || initialValues?.tag || '');
   const [scheduledDate, setScheduledDate] = useState(
-    existingTask?.plannedStart ? existingTask.plannedStart.split('T')[0] : todayStr
+    existingTask?.plannedStart ? existingTask.plannedStart.split('T')[0] : initialValues?.plannedStart?.split('T')[0] || todayStr
   );
   const [startTime, setStartTime] = useState(
     existingTask?.plannedStart
       ? new Date(existingTask.plannedStart).toTimeString().substring(0, 5)
-      : '14:00'
+      : initialValues?.plannedStart ? new Date(initialValues.plannedStart).toISOString().substring(11, 16) : '14:00'
   );
   
   // Scheduled Plan Duration in Minutes (e.g. Calendar block or planned time window)
@@ -123,11 +127,15 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     e.preventDefault();
     if (!title.trim()) return;
 
-    const startDateTime = new Date(`${scheduledDate}T${startTime}:00.000Z`).toISOString();
+     const startDateTime = initialValues?.plannedStart && !existingTask
+       ? initialValues.plannedStart
+       : new Date(`${scheduledDate}T${startTime}:00.000Z`).toISOString();
     // Schedule end derived from plannedDurationMinutes (calendar plan)
-    const endDateTime = new Date(
-      new Date(`${scheduledDate}T${startTime}:00.000Z`).getTime() + plannedMinutes * 60000
-    ).toISOString();
+     const endDateTime = initialValues?.plannedEnd && !existingTask
+       ? initialValues.plannedEnd
+       : new Date(
+         new Date(`${scheduledDate}T${startTime}:00.000Z`).getTime() + plannedMinutes * 60000
+       ).toISOString();
 
     // Determine final explicit decision state
     let finalDecision: 'accepted_suggestion' | 'kept_original' | 'custom_adjusted' | undefined = undefined;
@@ -173,7 +181,9 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       plannedDurationMinutes: plannedMinutes,
       estimatedDurationMinutes: estimatedMinutes,
       confidence,
-      googleCalendarEventId: existingTask?.googleCalendarEventId,
+      googleCalendarEventId: existingTask?.googleCalendarEventId || initialValues?.googleCalendarEventId,
+      planSource: existingTask?.planSource || initialValues?.planSource || 'manual',
+      predictionStatus: 'recorded',
       originalPlannedStart: existingTask?.originalPlannedStart || startDateTime,
       originalEstimatedDurationMinutes: immutableOriginalEstimate,
       realityCheck: realityCheckDecision,

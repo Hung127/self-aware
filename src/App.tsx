@@ -17,7 +17,7 @@ import {
   seedPresetData,
   clearAllData
 } from './utils/storage';
-import { convertGCalEventToTask, getMockGCalEvents } from './utils/googleCalendar';
+import { convertGCalEventToTask, getMockGCalEvents, GCalEvent } from './utils/googleCalendar';
 import { calculateRescheduledPlan } from './utils/calibrationEngine';
 import {
   getStoredAccessToken,
@@ -101,7 +101,9 @@ export default function App() {
   const handleSaveTask = (savedTask: TaskItem) => {
     const exists = tasks.some(t => t.id === savedTask.id);
     if (exists) {
-      handleSetTasks(tasks.map(t => t.id === savedTask.id ? savedTask : t));
+      handleSetTasks(tasks.map(t => t.id === savedTask.id
+        ? { ...savedTask, execution: t.execution.status === 'completed' ? t.execution : savedTask.execution }
+        : t));
     } else {
       handleSetTasks([savedTask, ...tasks]);
     }
@@ -111,6 +113,7 @@ export default function App() {
     handleSetTasks(
       tasks.map(t => {
         if (t.id === taskId) {
+          if (t.execution.status === 'completed') return t;
           return {
             ...t,
             execution: {
@@ -122,6 +125,15 @@ export default function App() {
         return t;
       })
     );
+  };
+
+  const handleRecordGCalPrediction = (event: GCalEvent) => {
+    const existing = tasks.find(t => t.googleCalendarEventId === event.id);
+    const plan = existing || convertGCalEventToTask(event);
+    if (!existing) handleSetTasks([plan, ...tasks]);
+    setEditingTask(plan);
+    setTaskFormDefaults(undefined);
+    setIsTaskModalOpen(true);
   };
 
   const handlePostponeTask = (taskId: string, toDate: string) => {
@@ -303,12 +315,7 @@ export default function App() {
         {activeTab === 'calendar' && (
           <GoogleCalendarView
             tasks={tasks}
-            onAddGCalTask={(task) => {
-              const exists = tasks.some(t => t.id === task.id || (task.googleCalendarEventId && t.googleCalendarEventId === task.googleCalendarEventId));
-              if (!exists) {
-                handleSetTasks([task, ...tasks]);
-              }
-            }}
+            onRecordGCalPrediction={handleRecordGCalPrediction}
             gcalConnected={settings.googleCalendarConnected}
             onConnectGCal={handleConnectGoogleCalendar}
           />

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { TaskItem, TaskCategory } from '../types';
-import { CATEGORIES, formatMinutesToHours, calculateEstimationError } from '../utils/calibrationEngine';
+import { CATEGORIES, formatMinutesToHours, calculateEstimationError, getHistoricalCalibrationBaseline, isDurationCalibrationEligible } from '../utils/calibrationEngine';
 import {
   History,
   Search,
@@ -29,6 +29,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
 
   // Filter tasks
   const filteredTasks = tasks.filter(t => {
+    if (t.predictionStatus === 'not_recorded') return false;
     const matchesSearch = t.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           t.category.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || t.category === selectedCategory;
@@ -104,9 +105,9 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
       ) : (
         <div className="space-y-4">
           {sortedTasks.map(task => {
-            const est = task.estimatedDurationMinutes;
-            const act = task.execution.actualDurationMinutes || 0;
-            const hasActual = task.execution.status === 'completed' && act > 0;
+             const est = getHistoricalCalibrationBaseline(task);
+             const act = task.execution.actualDurationMinutes || 0;
+             const hasActual = isDurationCalibrationEligible(task);
 
             const errorFraction = hasActual ? calculateEstimationError(est, act) : 0;
             const errorPercent = Math.round(errorFraction * 100);

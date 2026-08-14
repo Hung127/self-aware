@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { TaskItem, SleepRecord, AppSettings, TaskCategory } from '../types';
 import type { TaskFormDefaults } from './TaskModal';
-import { CATEGORIES, getRealityCheck, formatMinutesToHours } from '../utils/calibrationEngine';
+import { CATEGORIES, getRealityCheck, formatMinutesToHours, getHistoricalCalibrationBaseline } from '../utils/calibrationEngine';
 import {
   Play,
   CheckCircle2,
@@ -51,7 +51,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
   // Filter tasks for Today
   // Today follows the current plan; calibration keeps using original dates separately.
-  const todayTasks = tasks.filter(t => t.plannedStart.split('T')[0] === todayStr);
+  const todayTasks = tasks.filter(t => t.plannedStart.split('T')[0] === todayStr && t.predictionStatus !== 'not_recorded');
 
   // Find sleep record for today
   const todaySleep = sleepRecords.find(s => s.date === todayStr);
@@ -105,20 +105,19 @@ export const TodayView: React.FC<TodayViewProps> = ({
     if (task.execution.actualStart) {
       const startMs = new Date(task.execution.actualStart).getTime();
       actualMins = Math.max(1, Math.round((Date.now() - startMs) / (1000 * 60)));
-    } else {
-      actualMins = task.estimatedDurationMinutes;
     }
 
     onUpdateTaskExecution(task.id, {
       status: 'completed',
       actualEnd: nowISO,
-      actualDurationMinutes: actualMins,
+      actualDurationMinutes: task.execution.actualStart ? actualMins : undefined,
+      durationMeasurementStatus: task.execution.actualStart ? 'measured' : 'unknown',
       actualCompletionDate: todayStr
     });
 
     // If actual deviation is > 20%, trigger reflection prompt
-    const est = task.estimatedDurationMinutes;
-    const dev = Math.abs((actualMins - est) / est);
+    const est = getHistoricalCalibrationBaseline(task);
+    const dev = task.execution.actualStart ? Math.abs((actualMins - est) / est) : 0;
     if (dev >= 0.20) {
       onTriggerReflection({
         ...task,
@@ -126,7 +125,8 @@ export const TodayView: React.FC<TodayViewProps> = ({
           ...task.execution,
           status: 'completed',
           actualEnd: nowISO,
-          actualDurationMinutes: actualMins,
+          actualDurationMinutes: task.execution.actualStart ? actualMins : undefined,
+          durationMeasurementStatus: task.execution.actualStart ? 'measured' : 'unknown',
           actualCompletionDate: todayStr
         }
       });
@@ -298,7 +298,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
         ) : (
           <div className="space-y-3">
             {todayTasks.map(task => {
-              const taskReality = getRealityCheck(task.category, task.estimatedDurationMinutes, tasks, settings);
+               const taskReality = getRealityCheck(task.category, task.estimatedDurationMinutes, tasks, settings, task.tag, task.id);
               const isRunning = task.execution.status === 'in_progress';
               const isDone = task.execution.status === 'completed';
               const isPostponed = task.execution.status === 'postponed';
@@ -347,7 +347,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                         {isDone && (
                           <span className="inline-flex items-center space-x-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                             <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Completed ({formatMinutesToHours(task.execution.actualDurationMinutes || 0)})</span>
+                            <span>{task.execution.durationMeasurementStatus === 'unknown' ? 'Completed; duration not measured' : `Completed (${formatMinutesToHours(task.execution.actualDurationMinutes || 0)})`}</span>
                           </span>
                         )}
 

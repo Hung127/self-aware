@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { TaskItem, ReflectionCategory } from '../types';
-import { formatMinutesToHours } from '../utils/calibrationEngine';
+import { formatMinutesToHours, getHistoricalCalibrationBaseline } from '../utils/calibrationEngine';
 import { HelpCircle, CheckCircle, X } from 'lucide-react';
 
 interface TaskReflectionModalProps {
@@ -31,9 +31,9 @@ export const TaskReflectionModal: React.FC<TaskReflectionModalProps> = ({
   const [selectedReason, setSelectedReason] = useState<ReflectionCategory>('underestimated_work');
   const [notes, setNotes] = useState('');
 
-  const est = task.estimatedDurationMinutes;
-  const act = task.execution.actualDurationMinutes || est;
-  const diffPercent = Math.round(((act - est) / est) * 100);
+  const est = getHistoricalCalibrationBaseline(task);
+  const act = task.execution.actualDurationMinutes;
+  const diffPercent = act === undefined ? null : Math.round(((act - est) / est) * 100);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,7 +73,7 @@ export const TaskReflectionModal: React.FC<TaskReflectionModalProps> = ({
             <div className="text-right">
               <span className="text-xs text-slate-500 font-medium block">Predicted vs Actual</span>
               <span className="text-sm font-bold text-blue-600">
-                {formatMinutesToHours(est)} → {formatMinutesToHours(act)} ({diffPercent > 0 ? `+${diffPercent}%` : `${diffPercent}%`})
+                 {act === undefined ? `${formatMinutesToHours(est)} → Duration not measured` : `${formatMinutesToHours(est)} → ${formatMinutesToHours(act)} (${diffPercent! > 0 ? `+${diffPercent}%` : `${diffPercent}%`})`}
               </span>
             </div>
           </div>

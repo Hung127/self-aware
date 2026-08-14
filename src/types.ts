@@ -14,6 +14,18 @@ export type TaskStatus =
   | 'postponed'
   | 'skipped';
 
+export type PlanSource = 'manual' | 'google_calendar';
+export type PredictionStatus = 'recorded' | 'not_recorded';
+export type DurationMeasurementStatus = 'measured' | 'unknown';
+export type SkipReason =
+  | 'too_tired'
+  | 'forgot'
+  | 'harder_than_expected'
+  | 'something_more_important'
+  | 'unexpected_event'
+  | 'did_not_feel_like_it'
+  | 'other';
+
 export type ReflectionCategory =
   | 'harder_than_expected'
   | 'started_late'
@@ -56,6 +68,8 @@ export interface TaskPrediction {
   plannedStart: string; // ISO string
   plannedEnd: string;   // ISO string
   plannedDurationMinutes: number;
+  planSource?: PlanSource;
+  predictionStatus?: PredictionStatus;
   
   // Calibration prediction
   estimatedDurationMinutes: number;
@@ -74,6 +88,8 @@ export interface TaskExecution {
   actualStart?: string; // ISO string
   actualEnd?: string;   // ISO string
   actualDurationMinutes?: number;
+  durationMeasurementStatus?: DurationMeasurementStatus;
+  skipReason?: SkipReason;
   postponedCount: number;
   postponedEvents?: PostponementEvent[];
   originalScheduledDate: string; // YYYY-MM-DD
@@ -235,4 +251,3 @@ export interface TestResult {
   passed: boolean;
   details: string;
 }
-

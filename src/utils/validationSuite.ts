@@ -443,14 +443,15 @@ export function runSystemValidationSuite(
       inferredCat === 'Programming' &&
       task.category === 'Programming' &&
       task.plannedDurationMinutes === 120 &&
-      task.originalEstimatedDurationMinutes === 120 &&
+       task.originalEstimatedDurationMinutes === 0 &&
+       task.predictionStatus === 'not_recorded' &&
       task.googleCalendarEventId === 'test-gcal-101';
 
     results.push({
       name: 'Google Calendar Conversion & Inference',
       passed: pass,
       details: pass
-        ? `Inferred category "${inferredCat}" and converted GCal event (120m duration, immutable history preserved).`
+         ? `Inferred category "${inferredCat}" and converted a 120m plan without creating a forecast.`
         : `GCal conversion mismatch: cat=${inferredCat}, duration=${task.plannedDurationMinutes}`
     });
   } catch (e: any) {

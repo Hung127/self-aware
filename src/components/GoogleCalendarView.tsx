@@ -20,7 +20,7 @@ import {
   Sparkles,
   Link2
 } from 'lucide-react';
-import { GCalEvent, convertGCalEventToTask, inferCategoryFromTitle, getMockGCalEvents } from '../utils/googleCalendar';
+import { GCalEvent, inferCategoryFromTitle, getMockGCalEvents } from '../utils/googleCalendar';
 import { TaskItem, TaskCategory } from '../types';
 import {
   getStoredAccessToken,
@@ -33,7 +33,7 @@ import {
 
 interface GoogleCalendarViewProps {
   tasks: TaskItem[];
-  onAddGCalTask: (task: TaskItem) => void;
+  onRecordGCalPrediction: (event: GCalEvent) => void;
   gcalConnected: boolean;
   onConnectGCal: () => void;
 }
@@ -62,7 +62,7 @@ function formatLocalDate(date: Date): string {
 
 export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
   tasks,
-  onAddGCalTask,
+  onRecordGCalPrediction,
   gcalConnected,
   onConnectGCal
 }) => {
@@ -132,7 +132,9 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
             eventMap.set(targetId, {
               id: targetId,
               summary: task.title,
-              description: `Category: ${task.category}. Calibrated prediction: ${task.estimatedDurationMinutes}m (${task.confidence}% confidence).`,
+               description: task.predictionStatus === 'not_recorded'
+                 ? `Category: ${task.category}. Plan imported; prediction not recorded yet.`
+                 : `Category: ${task.category}. Forecast: ${task.estimatedDurationMinutes}m (${task.confidence}% confidence).`,
               start: { dateTime: startISO },
               end: { dateTime: endISO },
               status: 'confirmed'
@@ -386,15 +388,12 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
 
   // Calibrate an event into prediction task
   const handleCalibrateEvent = (evt: GCalEvent) => {
-    const exists = tasks.some(t => t.googleCalendarEventId === evt.id);
-    if (exists) {
-      showToast(`"${evt.summary}" is already linked to a Calibration Prediction task`);
+    const existing = tasks.find(t => t.googleCalendarEventId === evt.id);
+    if (existing?.predictionStatus === 'recorded') {
+      showToast(`"${evt.summary}" already has a recorded prediction`);
       return;
     }
-
-    const newTask = convertGCalEventToTask(evt);
-    onAddGCalTask(newTask);
-    showToast(`Prediction recorded for "${evt.summary}".`);
+    onRecordGCalPrediction(evt);
   };
 
   // Construct official Google Calendar edit web link
@@ -627,7 +626,8 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
                   const durationMins = Math.max(15, Math.round((endObj.getTime() - startObj.getTime()) / 60000));
                   const category = inferCategoryFromTitle(evt.summary);
 
-                  const isLinkedToCalibration = tasks.some(t => t.googleCalendarEventId === evt.id);
+                   const linkedTask = tasks.find(t => t.googleCalendarEventId === evt.id);
+                   const isLinkedToCalibration = linkedTask?.predictionStatus === 'recorded';
 
                    return (
                      <div
@@ -933,16 +933,16 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
                   onClick={() => {
                     handleCalibrateEvent(selectedEventForView);
                   }}
-                  disabled={tasks.some(t => t.googleCalendarEventId === selectedEventForView.id)}
+                     disabled={tasks.some(t => t.googleCalendarEventId === selectedEventForView.id && t.predictionStatus === 'recorded')}
                   className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors ${
-                    tasks.some(t => t.googleCalendarEventId === selectedEventForView.id)
+                     tasks.some(t => t.googleCalendarEventId === selectedEventForView.id && t.predictionStatus === 'recorded')
                       ? 'bg-emerald-100 text-emerald-800 cursor-default'
                       : 'bg-[#4361ee] text-white hover:bg-[#3852d0]'
                   }`}
                 >
-                  {tasks.some(t => t.googleCalendarEventId === selectedEventForView.id)
-                    ? 'Already Linked'
-                    : 'Calibrate Event'}
+                   {tasks.some(t => t.googleCalendarEventId === selectedEventForView.id && t.predictionStatus === 'recorded')
+                     ? 'Prediction recorded'
+                     : 'Record a prediction'}
                 </button>
               </div>
 
