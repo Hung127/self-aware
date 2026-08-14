@@ -3,6 +3,7 @@ import { TaskItem, ReflectionCategory } from '../types';
 import { formatMinutesToHours, getHistoricalCalibrationBaseline } from '../utils/calibrationEngine';
 import { HelpCircle, CheckCircle } from 'lucide-react';
 import { ModalShell } from './ui/ModalShell';
+import { Button } from './ui/Button';
 
 interface TaskReflectionModalProps {
   isOpen: boolean;
@@ -51,21 +52,13 @@ export const TaskReflectionModal: React.FC<TaskReflectionModalProps> = ({
       maxWidth="max-w-lg"
       footer={
         <div className="flex items-center justify-end space-x-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
-          >
+          <Button type="button" variant="tertiary" onClick={onClose}>
             Skip for now
-          </button>
-          <button
-            type="submit"
-            form="reflection-modal-form"
-            className="flex items-center space-x-1.5 rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
-          >
+          </Button>
+          <Button type="submit" form="reflection-modal-form">
             <CheckCircle className="w-4 h-4" />
-            <span>Save reflection</span>
-          </button>
+            Save reflection
+          </Button>
         </div>
       }
     >

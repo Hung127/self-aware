@@ -21,6 +21,8 @@ import { SkipReasonModal } from './SkipReasonModal';
 import { PostponeModal } from './PostponeModal';
 import { ConfirmDialog } from './ui/ConfirmDialog';
 import { InfoTip } from './ui/InfoTip';
+import { Button } from './ui/Button';
+import { Badge } from './ui/Badge';
 
 interface TodayViewProps {
   tasks: TaskItem[];
@@ -183,7 +185,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 pb-12 text-slate-900">
+    <div className="mx-auto max-w-content space-y-8 pb-12 text-slate-900">
       <div>
         <div>
           <p className="mb-2 text-sm font-medium text-blue-700">{new Date().toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}</p>
@@ -211,7 +213,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
               <span className="text-xs font-bold uppercase tracking-wider text-blue-700">Calibration insight</span>
               <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600">
                 <strong className="text-slate-900">{insight.sampleCount}</strong> sessions
-                <span className="rounded-full bg-white border border-blue-200 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
+                <span className="rounded-full bg-white border border-blue-200 px-2 py-0.5 text-xs font-semibold text-blue-700">
                   {insight.evidenceLevel.replace(/_/g, ' ')}
                 </span>
               </span>
@@ -240,16 +242,13 @@ export const TodayView: React.FC<TodayViewProps> = ({
           </div>
         </div>
 
-        <button
-          onClick={onOpenSleepLog}
-          className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100"
-        >
+        <Button variant="secondary" onClick={onOpenSleepLog}>
           {todaySleep ? 'Update sleep' : 'Log sleep'}
-        </button>
+        </Button>
       </div>
 
       {/* 2. Quick Task Prediction Creator Bar */}
-      <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-6">
+      <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 text-slate-900 shadow-card sm:p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Sparkles className="h-4 w-4 text-blue-600" />
@@ -302,13 +301,10 @@ export const TodayView: React.FC<TodayViewProps> = ({
           </div>
 
           <div className="md:col-span-2">
-            <button
-              type="submit"
-               className="flex w-full items-center justify-center gap-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
-            >
+            <Button type="submit" className="w-full">
               <Plus className="w-4 h-4" />
-               <span>Review prediction</span>
-            </button>
+              Review prediction
+            </Button>
           </div>
         </form>
 
@@ -354,13 +350,10 @@ export const TodayView: React.FC<TodayViewProps> = ({
             <p className="text-xs text-slate-500 max-w-md mx-auto">
               Add a new task prediction above or connect Google Calendar to automatically import planned events.
             </p>
-            <button
-              onClick={onOpenNewTask}
-              className="inline-flex items-center space-x-1.5 bg-blue-600 text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-blue-700 transition-colors"
-            >
+            <Button size="sm" onClick={onOpenNewTask}>
               <Plus className="w-4 h-4" />
-              <span>Create First Task</span>
-            </button>
+              Create First Task
+            </Button>
           </div>
         ) : (
           <div className="space-y-3">
@@ -405,7 +398,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                         </span>
 
                         {task.googleCalendarEventId && (
-                          <span className="inline-flex items-center space-x-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200" title="Synced from Google Calendar">
+                          <span className="inline-flex items-center space-x-1 text-xs font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200" title="Synced from Google Calendar">
                             <Calendar className="w-3 h-3 text-blue-600" />
                             <span>GCal Synced</span>
                           </span>
@@ -413,10 +406,10 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
                         {/* Status Badges */}
                         {isDone && (
-                          <span className="inline-flex items-center space-x-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <Badge tone="success" className="rounded-full px-2.5 py-0.5">
                             <CheckCircle2 className="w-3.5 h-3.5" />
                             <span>{task.execution.durationMeasurementStatus === 'unknown' ? 'Completed; duration not measured' : `Completed (${formatMinutesToHours(task.execution.actualDurationMinutes || 0)})`}</span>
-                          </span>
+                          </Badge>
                         )}
 
                         {isRunning && (
@@ -427,24 +420,24 @@ export const TodayView: React.FC<TodayViewProps> = ({
                         )}
 
                         {isPostponed && (
-                          <span className="inline-flex items-center space-x-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                          <Badge tone="warning" className="rounded-full px-2.5 py-0.5">
                             <RotateCcw className="w-3.5 h-3.5" />
                             <span>Postponed ({task.execution.postponedCount}x)</span>
-                          </span>
+                          </Badge>
                         )}
 
                         {isSkipped && (
-                          <span className="inline-flex items-center space-x-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                          <Badge tone="neutral" className="rounded-full px-2.5 py-0.5">
                             <SkipForward className="w-3.5 h-3.5" />
                             <span>Skipped</span>
-                          </span>
+                          </Badge>
                         )}
 
                         {taskReality.shouldWarn && !isDone && (
-                          <span className="inline-flex items-center space-x-1 text-xs font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                          <Badge tone="warning" className="rounded-full px-2.5 py-0.5">
                             <AlertTriangle className="w-3 h-3 text-amber-600" />
                             <span>Reality Check</span>
-                          </span>
+                          </Badge>
                         )}
                       </div>
 
@@ -459,10 +452,10 @@ export const TodayView: React.FC<TodayViewProps> = ({
                           <span>Actual Start: <strong className="text-slate-800">{new Date(task.execution.actualStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong></span>
                         )}
                         {isOverdue && (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                          <Badge tone="warning" className="rounded-full px-2.5 py-0.5">
                             <Clock className="h-3 w-3 text-amber-600" />
                             Running late
-                          </span>
+                          </Badge>
                         )}
                       </div>
 
@@ -491,43 +484,42 @@ export const TodayView: React.FC<TodayViewProps> = ({
                     {/* Right execution controls */}
                      <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
                       {!isDone && !isRunning && (
-                        <button
-                          onClick={() => handleStartTask(task)}
-                           className="flex min-h-10 items-center space-x-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
-                        >
+                        <Button onClick={() => handleStartTask(task)}>
                           <Play className="w-3.5 h-3.5 fill-current" />
-                          <span>Start</span>
-                        </button>
+                          Start
+                        </Button>
                       )}
 
                       {isRunning && (
-                        <button
+                        <Button
                           onClick={() => handleFinishTask(task)}
-                           className="flex min-h-10 items-center space-x-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+                          className="bg-emerald-600 hover:bg-emerald-700"
                         >
                           <CheckCircle2 className="w-4 h-4" />
-                           <span>Finish</span>
-                        </button>
+                          Finish
+                        </Button>
                       )}
 
                       {!isDone && (
-                        <button
+                        <Button
+                          size="sm"
+                          variant="secondary"
                           onClick={() => handlePostponeRequest(task)}
                           title="Postpone task"
-                          className="flex min-h-10 items-center px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors"
                         >
                           Postpone
-                        </button>
+                        </Button>
                       )}
 
                       {!isDone && (
-                        <button
+                        <Button
+                          size="sm"
+                          variant="secondary"
                           onClick={() => handleSkipRequest(task)}
                           title="Skip task"
-                          className="flex min-h-10 items-center px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-500 border border-slate-200 transition-colors"
                         >
                           Skip
-                        </button>
+                        </Button>
                       )}
 
                       <button

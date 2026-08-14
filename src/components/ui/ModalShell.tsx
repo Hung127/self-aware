@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
 import { X } from 'lucide-react';
 
 interface ModalShellProps {
@@ -28,6 +29,8 @@ export const ModalShell: React.FC<ModalShellProps> = ({
 }) => {
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
+
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     previousFocus.current = document.activeElement as HTMLElement | null;
@@ -68,8 +71,23 @@ export const ModalShell: React.FC<ModalShellProps> = ({
   }, [onClose, initialFocus]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/40 p-4" role="presentation" onMouseDown={event => event.target === event.currentTarget && onClose()}>
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby={description ? 'modal-description' : undefined} className={`my-8 flex max-h-[calc(100vh-2rem)] w-full ${maxWidth} flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-[0_12px_32px_rgba(15,23,42,0.12)]`}>
+    <motion.div
+      initial={reduceMotion ? false : { opacity: 0 }}
+      animate={{ opacity: 1, transition: { duration: reduceMotion ? 0 : 0.18 } }}
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/40 p-4"
+      role="presentation"
+      onMouseDown={event => event.target === event.currentTarget && onClose()}
+    >
+      <motion.div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
+        aria-describedby={description ? 'modal-description' : undefined}
+        initial={reduceMotion ? false : { opacity: 0, scale: 0.98, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0, transition: { duration: reduceMotion ? 0 : 0.18 } }}
+        className={`my-8 flex max-h-[calc(100vh-2rem)] w-full ${maxWidth} flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-modal`}
+      >
         <header className={`flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6 ${headerBg}`}>
           <div className="flex items-start gap-3">
             {icon && (
@@ -88,7 +106,7 @@ export const ModalShell: React.FC<ModalShellProps> = ({
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
         {footer && <footer className="shrink-0 border-t border-slate-200 bg-white px-5 py-4 sm:px-6">{footer}</footer>}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };

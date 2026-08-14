@@ -2,6 +2,7 @@ import React from 'react';
 import { TestResult } from '../types';
 import { ShieldCheck, CheckCircle2, XCircle } from 'lucide-react';
 import { ModalShell } from './ui/ModalShell';
+import { Button } from './ui/Button';
 
 interface ValidationReportModalProps {
   isOpen: boolean;
@@ -31,14 +32,9 @@ export const ValidationReportModal: React.FC<ValidationReportModalProps> = ({
       initialFocus="none"
       footer={
         <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            autoFocus
-            className="px-5 py-2 rounded-xl text-sm font-bold bg-slate-200 hover:bg-slate-300 text-slate-800 transition-colors"
-          >
+          <Button type="button" variant="secondary" autoFocus onClick={onClose}>
             Close Report
-          </button>
+          </Button>
         </div>
       }
     >

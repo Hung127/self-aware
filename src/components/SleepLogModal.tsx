@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { SleepRecord } from '../types';
 import { Moon, Clock, AlertTriangle, CheckCircle } from 'lucide-react';
 import { ModalShell } from './ui/ModalShell';
+import { Button } from './ui/Button';
 
 interface SleepLogModalProps {
   isOpen: boolean;
@@ -76,20 +77,12 @@ export const SleepLogModal: React.FC<SleepLogModalProps> = ({
       maxWidth="max-w-lg"
       footer={
         <div className="flex items-center justify-end space-x-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
-          >
+          <Button type="button" variant="tertiary" onClick={onClose}>
             Cancel
-          </button>
-          <button
-            type="submit"
-            form="sleep-modal-form"
-            className="px-5 py-2 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-2xs transition-colors"
-          >
+          </Button>
+          <Button type="submit" form="sleep-modal-form">
             Save Sleep Record
-          </button>
+          </Button>
         </div>
       }
     >

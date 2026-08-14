@@ -13,20 +13,25 @@ import {
   Trash2,
   Calendar,
   PenLine,
-  X
+  X,
+  Plus
 } from 'lucide-react';
 import { ConfirmDialog } from './ui/ConfirmDialog';
+import { Button } from './ui/Button';
+import { Badge } from './ui/Badge';
 
 interface HistoryViewProps {
   tasks: TaskItem[];
   onDeleteTask: (taskId: string, options?: { permanent?: boolean }) => void;
   onCorrectTask: (task: TaskItem) => void;
+  onOpenNewTask?: () => void;
 }
 
 export const HistoryView: React.FC<HistoryViewProps> = ({
   tasks,
   onDeleteTask,
-  onCorrectTask
+  onCorrectTask,
+  onOpenNewTask
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -57,7 +62,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
   });
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 pb-16 text-slate-900">
+    <div className="mx-auto max-w-content space-y-6 pb-16 text-slate-900">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -144,13 +149,9 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                </button>
              </span>
            )}
-           <button
-             type="button"
-             onClick={clearFilters}
-             className="rounded-full px-2 py-1 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-50"
-           >
-             Clear filters
-           </button>
+            <Button type="button" variant="tertiary" size="sm" className="text-blue-700 hover:bg-blue-50" onClick={clearFilters}>
+              Clear filters
+            </Button>
            <span className="ml-auto text-xs font-medium text-slate-500">
              {sortedTasks.length} {sortedTasks.length === 1 ? 'prediction' : 'predictions'}
            </span>
@@ -173,23 +174,21 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
               ? 'Try a different search or clear your filters.'
               : 'Complete, postpone, or skip a prediction to compare your forecast with reality.'}
           </p>
+          {!searchTerm && selectedCategory === 'All' && statusFilter === 'All' && onOpenNewTask && (
+            <Button type="button" variant="primary" size="sm" onClick={onOpenNewTask}>
+              <Plus className="w-3.5 h-3.5" />
+              Record your first prediction
+            </Button>
+          )}
           {searchTerm && (
-            <button
-              type="button"
-              onClick={() => setSearchTerm('')}
-              className="rounded-lg px-3 py-2 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-50"
-            >
+            <Button type="button" variant="tertiary" size="sm" className="text-blue-700 hover:bg-blue-50" onClick={() => setSearchTerm('')}>
               Clear search
-            </button>
+            </Button>
           )}
           {(selectedCategory !== 'All' || statusFilter !== 'All') && (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="rounded-lg px-3 py-2 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-50"
-            >
+            <Button type="button" variant="tertiary" size="sm" className="text-blue-700 hover:bg-blue-50" onClick={clearFilters}>
               Clear filters
-            </button>
+            </Button>
           )}
         </div>
       ) : (
@@ -229,32 +228,32 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                       {scheduledDateFormatted} @ {scheduledTimeFormatted}
                     </span>
                     <h3 className="font-bold text-base text-slate-900">{task.title}</h3>
-                    <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                    <Badge tone="neutral" className="rounded-full px-2.5 py-0.5">
                       {task.category}
-                    </span>
+                    </Badge>
                   </div>
 
                   <div className="flex items-center space-x-2">
                     {/* Status Badge */}
                     {isDone && (
-                      <span className="inline-flex items-center space-x-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <Badge tone="success" className="rounded-full px-2.5 py-0.5">
                         <CheckCircle2 className="w-3.5 h-3.5" />
                         <span>Completed</span>
-                      </span>
+                      </Badge>
                     )}
 
                     {isPostponed && (
-                      <span className="inline-flex items-center space-x-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                      <Badge tone="warning" className="rounded-full px-2.5 py-0.5">
                         <RotateCcw className="w-3.5 h-3.5" />
                         <span>Postponed</span>
-                      </span>
+                      </Badge>
                     )}
 
                      {isSkipped && (
-                       <span className="inline-flex items-center space-x-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                       <Badge tone="neutral" className="rounded-full px-2.5 py-0.5">
                          <SkipForward className="w-3.5 h-3.5" />
                          <span>Skipped{task.execution.skipReason ? `: ${task.execution.skipReason.replace(/_/g, ' ')}` : ''}</span>
-                       </span>
+                       </Badge>
                      )}
 
                     <button
@@ -267,14 +266,16 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                     </button>
 
                     {isDone && (
-                      <button
+                      <Button
+                        size="sm"
+                        variant="tertiary"
                         onClick={() => onCorrectTask(task)}
                         title="Correct this completed observation"
-                        className="flex h-10 items-center space-x-1.5 rounded-lg px-3 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-50"
+                        className="h-10 px-3 text-amber-700 hover:bg-amber-50"
                       >
                         <PenLine className="w-3.5 h-3.5" />
-                        <span>Correct</span>
-                      </button>
+                        Correct
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -384,14 +385,14 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
 
                 {/* Reflection Notes if present */}
                 {task.execution.reflection && (
-                  <div className="p-3 rounded-xl bg-[#fff8e1] border border-[#ffe082] flex items-start space-x-2.5 text-xs text-[#92400e]">
-                    <AlertCircle className="w-4 h-4 text-[#b45309] shrink-0 mt-0.5" />
+                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-start space-x-2.5 text-xs text-amber-800">
+                    <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-bold block text-[#78350f] uppercase tracking-wider text-xs">
+                      <span className="font-bold block text-amber-900 uppercase tracking-wider text-xs">
                         Why? {task.execution.reflection.reason.replace(/_/g, ' ')}
                       </span>
                       {task.execution.reflection.notes && (
-                        <span className="text-[#92400e] mt-0.5 block italic">
+                        <span className="text-amber-800 mt-0.5 block italic">
                           "{task.execution.reflection.notes}"
                         </span>
                       )}

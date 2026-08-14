@@ -43,6 +43,7 @@ import { CorrectionModal } from './components/CorrectionModal';
 import { ValidationReportModal } from './components/ValidationReportModal';
 import { Toast } from './components/ui/Toast';
 import type { ToastData, ToastVariant } from './components/ui/Toast';
+import { AnimatePresence } from 'motion/react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'today' | 'calendar' | 'calibration' | 'history' | 'settings'>('today');
@@ -362,7 +363,7 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+      <main className="mx-auto w-full max-w-content flex-1 px-4 py-8 sm:px-6 lg:px-8">
         {activeTab === 'today' && (
           <TodayView
             tasks={tasks}
@@ -399,6 +400,11 @@ export default function App() {
             sleepRecords={sleepRecords}
             settings={settings}
             onUpdateSettings={handleSetSettings}
+            onOpenNewTask={() => {
+              setEditingTask(null);
+              setTaskFormDefaults(undefined);
+              setIsTaskModalOpen(true);
+            }}
           />
         )}
 
@@ -407,6 +413,11 @@ export default function App() {
             tasks={tasks}
             onDeleteTask={handleDeleteTask}
             onCorrectTask={handleCorrectTask}
+            onOpenNewTask={() => {
+              setEditingTask(null);
+              setTaskFormDefaults(undefined);
+              setIsTaskModalOpen(true);
+            }}
           />
         )}
 
@@ -427,12 +438,9 @@ export default function App() {
 
       {/* Footer */}
       <footer className="mt-12 border-t border-slate-200 bg-white py-6 text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 text-center space-y-1">
-          <p className="font-medium text-slate-600">
-            Personal Calibration — Don't optimize your schedule. Understand the accuracy of your own predictions.
-          </p>
-          <p className="text-slate-400">
-            Evidence-based self-knowledge mirror • Google Calendar integration
+        <div className="max-w-content mx-auto px-4 text-center">
+          <p>
+            Personal Calibration — Don't optimize your schedule. Understand the accuracy of your own predictions. • Evidence-based self-knowledge mirror • Google Calendar integration
           </p>
         </div>
       </footer>
@@ -485,11 +493,13 @@ export default function App() {
         />}
 
       {/* Floating Toast Notification */}
-      {toast && (
-        <div className="fixed bottom-6 right-6 z-[60] flex flex-col items-end space-y-2 px-4">
-          <Toast toast={toast} onClose={dismissToast} onAction={handleToastAction} />
-        </div>
-      )}
+      <AnimatePresence>
+        {toast && (
+          <div className="fixed bottom-6 right-6 z-[60] flex flex-col items-end space-y-2 px-4">
+            <Toast toast={toast} onClose={dismissToast} onAction={handleToastAction} />
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

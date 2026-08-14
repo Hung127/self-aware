@@ -22,12 +22,15 @@ import {
 import { InfoTip } from './ui/InfoTip';
 import { StatTile } from './ui/StatTile';
 import { SegmentedControl } from './ui/SegmentedControl';
+import { Button } from './ui/Button';
+import { Badge } from './ui/Badge';
 
 interface CalibrationViewProps {
   tasks: TaskItem[];
   sleepRecords: SleepRecord[];
   settings: AppSettings;
   onUpdateSettings: (newSettings: AppSettings) => void;
+  onOpenNewTask?: () => void;
 }
 
 const EXPERIMENT_QUESTIONS = [
@@ -52,14 +55,21 @@ function parseSurveyAnswer(saved: string): { value: string; note: string } {
   return { value: '', note: saved };
 }
 
-const NotEnoughData: React.FC<{ message: string; threshold?: string }> = ({ message, threshold }) => (
-  <div className="flex items-start gap-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-4">
-    <BarChart2 className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-    <div>
-      <p className="text-sm font-semibold text-slate-700">Not enough data yet</p>
-      <p className="mt-0.5 text-xs text-slate-500">{message}</p>
-      {threshold && <p className="mt-1 text-xs font-semibold text-slate-600">Threshold: {threshold}</p>}
+const NotEnoughData: React.FC<{ message: string; threshold?: string; actionLabel?: string; onAction?: () => void }> = ({ message, threshold, actionLabel, onAction }) => (
+  <div className="flex items-start justify-between gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-4">
+    <div className="flex items-start gap-2.5">
+      <BarChart2 className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+      <div>
+        <p className="text-sm font-semibold text-slate-700">Not enough data yet</p>
+        <p className="mt-0.5 text-xs text-slate-500">{message}</p>
+        {threshold && <p className="mt-1 text-xs font-semibold text-slate-600">Threshold: {threshold}</p>}
+      </div>
     </div>
+    {actionLabel && onAction && (
+      <Button size="sm" variant="secondary" onClick={onAction} className="shrink-0">
+        {actionLabel}
+      </Button>
+    )}
   </div>
 );
 
@@ -67,7 +77,8 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
   tasks,
   sleepRecords,
   settings,
-  onUpdateSettings
+  onUpdateSettings,
+  onOpenNewTask
 }) => {
   const insights = calculateOverallInsights(tasks, sleepRecords);
 
@@ -117,9 +128,9 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8 pb-16 text-slate-900">
+    <div className="mx-auto max-w-content space-y-8 pb-16 text-slate-900">
       {/* Top Banner */}
-      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-8">
+      <div>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
              <div className="inline-flex items-center gap-2 text-sm font-semibold text-blue-700">
@@ -141,18 +152,6 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                 <InfoTip text="Calibration is the gap between your forecast and the measured result. The goal is to shrink that gap over time with personal evidence." label="What does Calibration mean?" />
               </span>
             </div>
-          </div>
-
-           <div className="shrink-0 rounded-lg border border-slate-200 bg-slate-50 p-4 text-center min-w-[200px]">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
-              Same-Day Completion
-            </span>
-               <span className="text-3xl font-bold text-blue-600">
-              {insights.sameDayCompletionRatePercent}%
-            </span>
-            <span className="text-xs text-slate-500 block">
-              completed on originally planned day
-            </span>
           </div>
         </div>
       </div>
@@ -181,7 +180,12 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                  </span>
               </div>
               {realityCheckData.hasEnoughData ? (
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+                  <StatTile
+                    label="Same-day completion"
+                    value={`${insights.sameDayCompletionRatePercent}%`}
+                    subLabel="finished on planned day"
+                  />
                   <StatTile label="Original error" value={`${realityCheckData.meanOriginalAbsoluteErrorPercent}%`} />
                   <StatTile label="Final-plan error" value={`${realityCheckData.meanFinalPlanAbsoluteErrorPercent}%`} />
                   <StatTile
@@ -200,6 +204,8 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                 <NotEnoughData
                   message="Record completed tasks where the Reality Check was shown to measure whether it improves forecast accuracy."
                   threshold={`At least ${settings.minObservationsForRealityCheck || 5} completed tasks with Reality Check shown`}
+                  actionLabel="Record a prediction"
+                  onAction={onOpenNewTask}
                 />
               )}
             </div>
@@ -298,13 +304,13 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                   </div>
                 ))}
               </div>
-              <button
+              <Button
                 onClick={handleSaveSurvey}
-                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-violet-700"
+                className="mt-4 bg-violet-600 hover:bg-violet-700"
               >
                 <Send className="w-3.5 h-3.5" />
                 {surveySaved ? 'Saved' : 'Save answers'}
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -619,15 +625,11 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
           </div>
 
           {insights.accuracyOverTime.hasEnoughData && (
-            <span className={`text-xs font-bold px-3 py-1 rounded-full border self-start sm:self-auto ${
-              insights.accuracyOverTime.overallTrendDirection === 'improving'
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                : 'bg-blue-50 text-blue-700 border-blue-200'
-            }`}>
+            <Badge tone={insights.accuracyOverTime.overallTrendDirection === 'improving' ? 'success' : 'info'} className="self-start px-3 py-1 sm:self-auto">
               {insights.accuracyOverTime.overallTrendDirection === 'improving'
                 ? 'Calibration Improving'
                 : 'Calibration Stable'}
-            </span>
+            </Badge>
           )}
         </div>
 

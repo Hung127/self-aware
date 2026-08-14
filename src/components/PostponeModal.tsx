@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { TaskItem } from '../types';
 import { ModalShell } from './ui/ModalShell';
+import { Button } from './ui/Button';
+import { Field, inputCls } from './ui/Field';
 import { CalendarClock } from 'lucide-react';
 
 interface PostponeModalProps {
@@ -27,38 +29,31 @@ export const PostponeModal: React.FC<PostponeModalProps> = ({ task, onClose, onC
       maxWidth="max-w-md"
       footer={
         <div className="flex items-center justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
-          >
+          <Button type="button" variant="tertiary" onClick={onClose}>
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             onClick={() => {
               onConfirm(task.id, date);
               onClose();
             }}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
           >
             Postpone to {date}
-          </button>
+          </Button>
         </div>
       }
     >
-      <div>
-        <label className="mb-1.5 block text-sm font-semibold text-slate-700">
-          New date
-        </label>
-        <input
-          type="date"
-          value={date}
-          onChange={e => setDate(e.target.value)}
-          required
-          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900 focus:border-blue-600 focus:bg-white focus:outline-none"
-        />
-        <p className="mt-1.5 text-xs text-slate-500">Currently scheduled for {new Date(task.plannedStart).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}.</p>
+      <div className="space-y-1.5">
+        <Field label="New date" helper={`Currently scheduled for ${new Date(task.plannedStart).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}.`}>
+          <input
+            type="date"
+            value={date}
+            onChange={e => setDate(e.target.value)}
+            required
+            className={inputCls}
+          />
+        </Field>
       </div>
     </ModalShell>
   );

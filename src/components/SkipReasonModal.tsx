@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { TaskItem, SkipReason } from '../types';
 import { ModalShell } from './ui/ModalShell';
+import { Button } from './ui/Button';
 import { SkipForward } from 'lucide-react';
 
 interface SkipReasonModalProps {
@@ -31,34 +32,32 @@ export const SkipReasonModal: React.FC<SkipReasonModalProps> = ({ task, onClose,
       maxWidth="max-w-md"
       footer={
         <div className="flex items-center justify-between gap-3">
-          <button
+          <Button
             type="button"
+            variant="tertiary"
+            size="sm"
             onClick={() => {
               onConfirm(task.id, undefined);
               onClose();
             }}
-            className="text-sm font-medium text-slate-500 transition-colors hover:text-slate-800"
+            className="text-xs text-slate-500 hover:text-slate-800"
           >
             Skip without a reason
-          </button>
+          </Button>
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
-            >
+            <Button type="button" variant="tertiary" onClick={onClose}>
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               onClick={() => {
                 onConfirm(task.id, selected);
                 onClose();
               }}
-              className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-slate-700"
+              className="bg-slate-800 hover:bg-slate-700"
             >
               Skip task
-            </button>
+            </Button>
           </div>
         </div>
       }

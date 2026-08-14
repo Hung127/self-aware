@@ -3,6 +3,7 @@ import { TaskItem } from '../types';
 import { getHistoricalCalibrationBaseline, formatMinutesToHours } from '../utils/calibrationEngine';
 import { PenLine, ArrowRight } from 'lucide-react';
 import { ModalShell } from './ui/ModalShell';
+import { Button } from './ui/Button';
 
 interface CorrectionModalProps {
   isOpen: boolean;
@@ -55,21 +56,13 @@ export const CorrectionModal: React.FC<CorrectionModalProps> = ({
       maxWidth="max-w-lg"
       footer={
         <div className="flex items-center justify-end space-x-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
-          >
+          <Button type="button" variant="tertiary" onClick={onClose}>
             Cancel
-          </button>
-          <button
-            type="submit"
-            form="correction-modal-form"
-            className="flex items-center space-x-1.5 rounded-lg bg-amber-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-amber-700"
-          >
+          </Button>
+          <Button type="submit" form="correction-modal-form" className="bg-amber-600 hover:bg-amber-700">
             <PenLine className="w-4 h-4" />
-            <span>Save correction</span>
-          </button>
+            Save correction
+          </Button>
         </div>
       }
     >

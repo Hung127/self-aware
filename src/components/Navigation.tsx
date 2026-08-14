@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { LayoutDashboard, Target, History, Settings, Moon, Plus, Calendar, Menu, X } from 'lucide-react';
+import { Button } from './ui/Button';
 
 interface NavigationProps {
   activeTab: 'today' | 'calendar' | 'calibration' | 'history' | 'settings';
@@ -32,7 +33,7 @@ export const Navigation: React.FC<NavigationProps> = ({
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white text-slate-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-content mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Brand Logo & Name */}
           <div className="flex items-center space-x-3">
@@ -71,18 +72,18 @@ export const Navigation: React.FC<NavigationProps> = ({
             <button
               onClick={onOpenSleepLog}
               aria-label="Log sleep"
-              className="rounded-lg border border-slate-300 p-2 text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+              className="flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-slate-300 text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
             >
               <Moon className="w-4 h-4" />
             </button>
 
-            <button
+            <Button
               onClick={onOpenNewTask}
-              className="hidden items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 sm:flex"
+              className="rounded-lg px-3 sm:px-4"
             >
               <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">New Prediction</span>
-            </button>
+              <span className="sr-only sm:not-sr-only">New Prediction</span>
+            </Button>
           </div>
         </div>
         <button aria-label={menuOpen ? 'Close navigation menu' : 'Open navigation menu'} onClick={() => setMenuOpen(!menuOpen)} className="absolute right-4 top-4 rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden">

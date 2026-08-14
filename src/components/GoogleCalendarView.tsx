@@ -28,6 +28,8 @@ import {
 import { SegmentedControl } from './ui/SegmentedControl';
 import { ConfirmDialog } from './ui/ConfirmDialog';
 import { ModalShell } from './ui/ModalShell';
+import { Button } from './ui/Button';
+import { Badge } from './ui/Badge';
 import type { ToastVariant } from './ui/Toast';
 
 interface GoogleCalendarViewProps {
@@ -443,9 +445,9 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
   const embedSrc = `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(calendarId)}`;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 pb-12 text-slate-900">
+    <div className="mx-auto max-w-content space-y-6 pb-12 text-slate-900">
        {/* Calendar is the source of the plan. */}
-       <div className="flex flex-col justify-between gap-4 rounded-xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] md:flex-row md:items-center">
+       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
         <div className="flex items-start space-x-4">
            <CalendarIcon className="h-6 w-6 shrink-0 text-blue-600" />
           <div>
@@ -453,13 +455,9 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
                <h1 className="text-3xl font-bold tracking-tight text-slate-900">
                  Calendar
               </h1>
-              <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
-                gcalConnected && getStoredAccessToken()
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                  : 'bg-amber-50 text-amber-700 border-amber-200'
-              }`}>
+              <Badge tone={gcalConnected && getStoredAccessToken() ? 'success' : 'warning'}>
                 {gcalConnected && getStoredAccessToken() ? 'Connected' : 'Not connected'}
-              </span>
+              </Badge>
             </div>
              <p className="mt-1 max-w-xl text-sm text-slate-600">
                Your calendar is the plan. Record a prediction before you start to compare it with reality.
@@ -470,19 +468,14 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
         {/* View Mode & Primary Action Buttons (SYNC & NEW EVENT) */}
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Primary action: Sync when connected, Connect via panel when not */}
-          <button
+          <Button
             onClick={handleSyncGoogleCalendar}
-            disabled={isSyncing}
-             aria-busy={isSyncing}
-             className={`flex shrink-0 items-center space-x-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50 ${
-               gcalConnected && getStoredAccessToken()
-                 ? 'bg-blue-600 text-white hover:bg-blue-700'
-                 : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
-             }`}
+            loading={isSyncing}
+            variant={gcalConnected && getStoredAccessToken() ? 'primary' : 'secondary'}
           >
-            <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-             <span>{isSyncing ? 'Syncing...' : 'Sync calendar'}</span>
-          </button>
+            <RefreshCw className="w-4 h-4" />
+            <span>{isSyncing ? 'Syncing...' : 'Sync calendar'}</span>
+          </Button>
 
           <SegmentedControl
             ariaLabel="Calendar view mode"
@@ -494,13 +487,13 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
             ]}
           />
 
-          <button
+          <Button
             onClick={handleOpenCreateModal}
-             className="flex items-center space-x-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            variant="secondary"
           >
             <Plus className="w-4 h-4" />
-             <span>New event</span>
-          </button>
+            <span>New event</span>
+          </Button>
         </div>
       </div>
 
@@ -516,13 +509,13 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
               </p>
             </div>
           </div>
-          <button
+          <Button
             onClick={handleSyncGoogleCalendar}
-            disabled={isSyncing}
-            className="shrink-0 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+            loading={isSyncing}
+            className="shrink-0"
           >
             {isSyncing ? 'Connecting...' : 'Connect Google Calendar'}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -542,12 +535,14 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
-                  <button
+                  <Button
                     onClick={handleToday}
-                    className="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-xs font-bold text-slate-700 transition-colors"
+                    variant="secondary"
+                    size="sm"
+                    className="rounded-xl"
                   >
                     Today
-                  </button>
+                  </Button>
                   <button
                     onClick={handleNextDate}
                     className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 transition-colors"
@@ -599,19 +594,22 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
                   Click <strong>"Sync calendar"</strong> to pull down events, or create a new event for this day.
                 </p>
                 <div className="flex items-center justify-center space-x-3 mt-4">
-                  <button
+                  <Button
                     onClick={handleSyncGoogleCalendar}
-                    className="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors flex items-center space-x-1.5"
+                    size="sm"
+                    className="rounded-xl"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
                     <span>Sync Google Calendar</span>
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => setCalendarScope('all')}
-                    className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-bold hover:bg-slate-50 transition-colors"
+                    variant="secondary"
+                    size="sm"
+                    className="rounded-xl"
                   >
                     View All {events.length} Events
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (
@@ -677,18 +675,20 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
 
                       {/* Card Footer Actions */}
                       <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                        <button
-                          onClick={() => handleCalibrateEvent(evt)}
-                          disabled={isRecorded}
-                          className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
-                            isRecorded
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default'
-                              : 'bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200'
-                          }`}
-                        >
-                          <Target className="w-3.5 h-3.5" />
-                           <span>{isRecorded ? 'Prediction recorded' : 'Record a prediction'}</span>
-                        </button>
+                          <Button
+                            onClick={() => handleCalibrateEvent(evt)}
+                            disabled={isRecorded}
+                            variant="secondary"
+                            size="sm"
+                            className={`rounded-xl ${
+                              isRecorded
+                                ? 'cursor-default border-emerald-200 bg-emerald-50 text-emerald-700'
+                                : 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'
+                            }`}
+                          >
+                            <Target className="w-3.5 h-3.5" />
+                            <span>{isRecorded ? 'Prediction recorded' : 'Record a prediction'}</span>
+                          </Button>
 
                         <div className="flex items-center space-x-1">
                           <button
@@ -794,20 +794,32 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
                   </p>
                 </div>
               </div>
-              <button
+              <Button
                 onClick={handleSyncGoogleCalendar}
-                disabled={isSyncing}
-                className="px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 text-xs font-bold transition-colors flex items-center space-x-1.5"
+                loading={isSyncing}
+                variant="secondary"
+                size="sm"
+                className="rounded-xl"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                <RefreshCw className="w-3.5 h-3.5" />
                 <span>Refresh Sync</span>
-              </button>
+              </Button>
             </div>
 
             {events.length === 0 ? (
-              <p className="py-8 text-center text-sm text-slate-500">
-                No events synced yet. Sync your calendar to see linked predictions here.
-              </p>
+              <div className="py-8 text-center space-y-3">
+                <p className="text-sm text-slate-500">
+                  No events synced yet. Sync your calendar to see linked predictions here.
+                </p>
+                <Button
+                  onClick={handleSyncGoogleCalendar}
+                  loading={isSyncing}
+                  size="sm"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Sync calendar
+                </Button>
+              </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {events.map(evt => {
@@ -832,15 +844,9 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
                       </div>
 
                       <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 text-xs">
-                        <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md border ${
-                          isRecorded
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : isPlanLinked
-                            ? 'bg-blue-50 text-blue-700 border-blue-200'
-                            : 'bg-slate-50 text-slate-500 border-slate-200'
-                        }`}>
+                        <Badge tone={isRecorded ? 'success' : isPlanLinked ? 'info' : 'neutral'}>
                           {isRecorded ? 'Prediction recorded' : isPlanLinked ? 'Plan linked' : 'Not linked'}
-                        </span>
+                        </Badge>
 
                         <button
                           onClick={() => setSelectedEventForView(evt)}
@@ -868,20 +874,23 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
           maxWidth="max-w-xl"
           footer={
             <div className="flex items-center justify-between">
-              <button
+              <Button
                 onClick={() => handleDeleteEvent(selectedEventForView.id, selectedEventForView.summary)}
-                className="flex items-center space-x-1.5 rounded-lg px-3 py-2 text-xs font-bold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700"
+                variant="danger"
+                size="sm"
+                className="rounded-lg"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Delete event</span>
-              </button>
+              </Button>
 
-              <button
+              <Button
                 onClick={() => setSelectedEventForView(null)}
-                className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors"
+                size="sm"
+                className="rounded-xl bg-slate-900 hover:bg-slate-800"
               >
                 Done
-              </button>
+              </Button>
             </div>
           }
         >
@@ -1111,19 +1120,18 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
             </div>
 
             <div className="pt-3 border-t border-slate-100 flex items-center justify-end space-x-3 shrink-0">
-              <button
+              <Button
                 type="button"
                 onClick={() => setIsEventModalOpen(false)}
-                className="px-4 py-2 rounded-xl text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+                variant="tertiary"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
-                className="px-5 py-2 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-colors"
               >
                 {editingEvent ? 'Save Changes' : 'Create Event'}
-              </button>
+              </Button>
             </div>
           </form>
         </ModalShell>

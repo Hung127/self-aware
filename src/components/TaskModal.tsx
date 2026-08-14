@@ -3,6 +3,8 @@ import { TaskItem, TaskCategory, AppSettings, TaskPredictionDecision, Behavioral
 import { CATEGORIES, getRealityCheck, PROGRAMMING_TASK_TYPES, formatMinutesToHours } from '../utils/calibrationEngine';
 import { Target, AlertTriangle, Info, Clock, Check, Shield } from 'lucide-react';
 import { ModalShell } from './ui/ModalShell';
+import { Button } from './ui/Button';
+import { Field, inputCls, inputErrorCls } from './ui/Field';
 
 const QUICK_FORECAST_CHIPS = [30, 60, 90, 120, 180];
 
@@ -42,6 +44,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   const todayStr = new Date().toISOString().split('T')[0];
 
   const [title, setTitle] = useState(existingTask?.title || initialValues?.title || '');
+  const [titleError, setTitleError] = useState<string | undefined>();
   const [category, setCategory] = useState<TaskCategory>(existingTask?.category || initialValues?.category || 'Programming');
   const [tag, setTag] = useState(existingTask?.tag || initialValues?.tag || '');
   const [behavioralTaskType, setBehavioralTaskType] = useState<BehavioralTaskType>(
@@ -132,7 +135,11 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim()) {
+      setTitleError('Task name is required.');
+      return;
+    }
+    setTitleError(undefined);
 
      const startDateTime = initialValues?.plannedStart && !existingTask
        ? initialValues.plannedStart
@@ -218,20 +225,12 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       maxWidth="max-w-xl"
       footer={
         <div className="flex items-center justify-end space-x-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
-          >
+          <Button type="button" variant="tertiary" onClick={onClose}>
             Cancel
-          </button>
-          <button
-            type="submit"
-            form="prediction-modal-form"
-            className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
-          >
+          </Button>
+          <Button type="submit" form="prediction-modal-form">
             {existingTask ? 'Save prediction' : 'Record prediction'}
-          </button>
+          </Button>
         </div>
       }
     >
@@ -241,19 +240,21 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             <p className="mt-1 text-sm text-slate-600">What is scheduled?</p>
           </div>
           {/* Title */}
-          <div>
-            <label className="mb-1.5 block text-sm font-semibold text-slate-700">
-              Task name
-            </label>
+          <Field
+            label="Task name"
+            error={titleError}
+          >
             <input
               type="text"
               placeholder="e.g., Study Machine Learning, Refactor React state"
               value={title}
-              onChange={e => setTitle(e.target.value)}
-              required
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white placeholder-slate-400"
+              onChange={e => {
+                setTitle(e.target.value);
+                if (titleError) setTitleError(undefined);
+              }}
+              className={`${inputCls} ${titleError ? inputErrorCls : ''}`}
             />
-          </div>
+          </Field>
 
           {/* Category & Tag & Date */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -464,30 +465,28 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 </span>
                 
                 <div className="flex items-center space-x-2">
-                  <button
+                  <Button
                     type="button"
+                    size="sm"
                     onClick={handleKeepEstimate}
-                    className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors ${
+                    className={`border ${
                       userDecision === 'kept_original'
-                        ? 'bg-slate-800 text-white border-slate-800'
-                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                        ? 'bg-slate-800 border-slate-800 text-white'
+                        : 'border-slate-200 text-slate-700'
                     }`}
                   >
                     Keep my {formatMinutesToHours(initialUserPrediction)}
-                  </button>
+                  </Button>
 
-                  <button
+                  <Button
                     type="button"
+                    size="sm"
                     onClick={handleApplySuggested}
-                    className={`flex items-center space-x-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors shadow-2xs ${
-                      userDecision === 'accepted_suggestion'
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-blue-600 text-white hover:bg-blue-700'
-                    }`}
+                    className={`${userDecision === 'accepted_suggestion' ? 'bg-emerald-600 hover:bg-emerald-700' : ''}`}
                   >
                     {userDecision === 'accepted_suggestion' && <Check className="w-3.5 h-3.5" />}
-                     <span>Use {formatMinutesToHours(realityCheck.suggestedDurationMinutes)}</span>
-                  </button>
+                    Use {formatMinutesToHours(realityCheck.suggestedDurationMinutes)}
+                  </Button>
                 </div>
               </div>
             </div>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion, useReducedMotion } from 'motion/react';
 import { CheckCircle2, AlertTriangle, Info, XCircle, X } from 'lucide-react';
 
 export type ToastVariant = 'success' | 'error' | 'warning' | 'info';
@@ -18,6 +19,7 @@ interface ToastProps {
 }
 
 export const Toast: React.FC<ToastProps> = ({ toast, onClose, onAction }) => {
+  const reduceMotion = useReducedMotion();
   const icons: Record<ToastVariant, typeof Info> = {
     success: CheckCircle2,
     error: XCircle,
@@ -40,7 +42,14 @@ export const Toast: React.FC<ToastProps> = ({ toast, onClose, onAction }) => {
   };
 
   return (
-    <div role="status" aria-live="polite" className={`pointer-events-auto flex max-w-sm items-start gap-3 rounded-xl border bg-white px-4 py-3 text-sm font-medium shadow-lg ${border[toast.variant]}`}>
+    <motion.div
+      role="status"
+      aria-live="polite"
+      initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1, transition: { duration: reduceMotion ? 0 : 0.16 } }}
+      exit={reduceMotion ? undefined : { opacity: 0, y: 8, scale: 0.98, transition: { duration: 0.12 } }}
+      className={`pointer-events-auto flex max-w-sm items-start gap-3 rounded-xl border bg-white px-4 py-3 text-sm font-medium shadow-lg ${border[toast.variant]}`}
+    >
       <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${iconColor[toast.variant]}`} />
       <span className="flex-1 leading-snug text-slate-800">{toast.message}</span>
       {toast.actionLabel && (
@@ -60,6 +69,6 @@ export const Toast: React.FC<ToastProps> = ({ toast, onClose, onAction }) => {
       >
         <X className="h-4 w-4" />
       </button>
-    </div>
+    </motion.div>
   );
 };
