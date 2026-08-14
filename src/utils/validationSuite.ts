@@ -11,6 +11,7 @@ import {
   calculateSameDayCompletionRate,
   calculateCompletionCalibration,
   calculateAccuracyOverTime,
+  calculateRescheduledPlan,
   calculateOverallInsights,
   formatMinutesToHours
 } from './calibrationEngine';
@@ -1923,11 +1924,11 @@ export function runSystemValidationSuite(
     ];
 
     const durCal = calculateDurationCalibration(mockTasks);
-    // Signed errors: 0.5, -0.25 -> mean = 0.125 (12.5%), median = 0.125
+    // Signed errors: 0.5, -0.25 -> mean = 12.5%, median = 12.5%
     // Abs errors: 30, 15 -> mean = 22.5 (23m rounded), median = 22.5 (23m rounded)
     const pass =
       durCal.totalTasksCount === 2 &&
-      Math.abs(durCal.meanSignedErrorPercent - 0.125) < 0.001 &&
+      Math.abs(durCal.meanSignedErrorPercent - 12.5) < 0.001 &&
       durCal.meanAbsoluteErrorMinutes === 23 &&
       durCal.medianAbsoluteErrorMinutes === 23;
 
@@ -2017,7 +2018,7 @@ export function runSystemValidationSuite(
       sleepImpact.normalSleepMetrics?.completionRatePercent === 100 &&
       sleepImpact.normalSleepMetrics?.meanSignedErrorPercent === 0 &&
       sleepImpact.shortSleepMetrics?.completionRatePercent === 100 &&
-      sleepImpact.shortSleepMetrics?.meanSignedErrorPercent === 1;
+       sleepImpact.shortSleepMetrics?.meanSignedErrorPercent === 100;
 
     results.push({
       name: 'Sleep Group Metrics and Estimation Error Isolation',
@@ -2034,7 +2035,27 @@ export function runSystemValidationSuite(
     });
   }
 
+  // Test 40: Rescheduled Plan Preserves Time and Duration
+  try {
+    const plan = calculateRescheduledPlan('2026-08-10T23:00:00.000Z', 120, '2026-08-12');
+    const pass =
+      plan.plannedStart === '2026-08-12T23:00:00.000Z' &&
+      plan.plannedEnd === '2026-08-13T01:00:00.000Z';
+
+    results.push({
+      name: 'Rescheduled Plan Preserves Time and Duration',
+      passed: pass,
+      details: pass
+        ? 'Rescheduling moved the plan to the requested date while preserving its 23:00 start and 120-minute overnight duration.'
+        : `Rescheduling failed: start=${plan.plannedStart}, end=${plan.plannedEnd}`
+    });
+  } catch (e: any) {
+    results.push({
+      name: 'Rescheduled Plan Preserves Time and Duration',
+      passed: false,
+      details: `Failed with exception: ${e.message}`
+    });
+  }
+
   return results;
 }
-
-

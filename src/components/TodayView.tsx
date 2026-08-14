@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TaskItem, SleepRecord, AppSettings, TaskCategory } from '../types';
+import type { TaskFormDefaults } from './TaskModal';
 import { CATEGORIES, getRealityCheck, formatMinutesToHours } from '../utils/calibrationEngine';
 import {
   Play,
@@ -20,10 +21,10 @@ interface TodayViewProps {
   sleepRecords: SleepRecord[];
   settings: AppSettings;
   onUpdateTaskExecution: (taskId: string, updates: Partial<TaskItem['execution']>) => void;
+  onPostponeTask: (taskId: string, toDate: string) => void;
   onDeleteTask: (taskId: string) => void;
-  onOpenNewTask: () => void;
+  onOpenNewTask: (defaults?: TaskFormDefaults) => void;
   onOpenSleepLog: () => void;
-  onQuickAddTask: (title: string, category: TaskCategory, estMins: number) => void;
   onTriggerReflection: (task: TaskItem) => void;
 }
 
@@ -32,10 +33,10 @@ export const TodayView: React.FC<TodayViewProps> = ({
   sleepRecords,
   settings,
   onUpdateTaskExecution,
+  onPostponeTask,
   onDeleteTask,
   onOpenNewTask,
   onOpenSleepLog,
-  onQuickAddTask,
   onTriggerReflection
 }) => {
   const todayStr = new Date().toISOString().split('T')[0];
@@ -49,7 +50,8 @@ export const TodayView: React.FC<TodayViewProps> = ({
   const [activeTimerSeconds, setActiveTimerSeconds] = useState<Record<string, number>>({});
 
   // Filter tasks for Today
-  const todayTasks = tasks.filter(t => t.execution.originalScheduledDate === todayStr);
+  // Today follows the current plan; calibration keeps using original dates separately.
+  const todayTasks = tasks.filter(t => t.plannedStart.split('T')[0] === todayStr);
 
   // Find sleep record for today
   const todaySleep = sleepRecords.find(s => s.date === todayStr);
@@ -79,7 +81,12 @@ export const TodayView: React.FC<TodayViewProps> = ({
   const handleQuickSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!quickTitle.trim()) return;
-    onQuickAddTask(quickTitle.trim(), quickCategory, quickEstMins);
+    onOpenNewTask({
+      title: quickTitle.trim(),
+      category: quickCategory,
+      plannedMinutes: quickEstMins,
+      estimatedMinutes: quickEstMins
+    });
     setQuickTitle('');
   };
 
@@ -127,23 +134,10 @@ export const TodayView: React.FC<TodayViewProps> = ({
   };
 
   const handlePostponeTask = (task: TaskItem) => {
-    const existingEvents = task.execution.postponedEvents || [];
-    const nextDate = new Date();
+    const nextDate = new Date(task.plannedStart);
     nextDate.setDate(nextDate.getDate() + 1);
     const toDateStr = nextDate.toISOString().split('T')[0];
-
-    onUpdateTaskExecution(task.id, {
-      status: 'postponed',
-      postponedCount: (task.execution.postponedCount || 0) + 1,
-      postponedEvents: [
-        ...existingEvents,
-        {
-          postponedAt: new Date().toISOString(),
-          fromDate: task.execution.originalScheduledDate || todayStr,
-          toDate: toDateStr
-        }
-      ]
-    });
+    onPostponeTask(task.id, toDateStr);
   };
 
   const handleSkipTask = (task: TaskItem) => {

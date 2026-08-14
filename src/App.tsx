@@ -3,7 +3,6 @@ import {
   TaskItem,
   SleepRecord,
   AppSettings,
-  TaskCategory,
   ReflectionCategory,
   TestResult
 } from './types';
@@ -19,6 +18,7 @@ import {
   clearAllData
 } from './utils/storage';
 import { convertGCalEventToTask, getMockGCalEvents } from './utils/googleCalendar';
+import { calculateRescheduledPlan } from './utils/calibrationEngine';
 import {
   getStoredAccessToken,
   signInWithGoogleCalendar,
@@ -34,6 +34,7 @@ import { HistoryView } from './components/HistoryView';
 import { SettingsView } from './components/SettingsView';
 
 import { TaskModal } from './components/TaskModal';
+import type { TaskFormDefaults } from './components/TaskModal';
 import { SleepLogModal } from './components/SleepLogModal';
 import { TaskReflectionModal } from './components/TaskReflectionModal';
 import { ValidationReportModal } from './components/ValidationReportModal';
@@ -49,6 +50,7 @@ export default function App() {
   // Modal controls
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
+  const [taskFormDefaults, setTaskFormDefaults] = useState<TaskFormDefaults | undefined>();
 
   const [isSleepLogModalOpen, setIsSleepLogModalOpen] = useState(false);
 
@@ -105,37 +107,6 @@ export default function App() {
     }
   };
 
-  const handleQuickAddTask = (title: string, category: TaskCategory, estMins: number) => {
-    const today = new Date().toISOString().split('T')[0];
-    const now = new Date();
-    const startTimeStr = now.toTimeString().substring(0, 5);
-
-    const startISO = new Date(`${today}T${startTimeStr}:00.000Z`).toISOString();
-    const endISO = new Date(new Date(`${today}T${startTimeStr}:00.000Z`).getTime() + estMins * 60000).toISOString();
-
-    const prefilledTask: TaskItem = {
-      id: `task-quick-${Date.now()}`,
-      title,
-      category,
-      plannedStart: startISO,
-      plannedEnd: endISO,
-      plannedDurationMinutes: estMins,
-      estimatedDurationMinutes: estMins,
-      confidence: 80,
-      originalPlannedStart: startISO,
-      originalEstimatedDurationMinutes: estMins,
-      createdAt: now.toISOString(),
-      execution: {
-        status: 'not_started',
-        postponedCount: 0,
-        originalScheduledDate: today,
-      }
-    };
-
-    setEditingTask(prefilledTask);
-    setIsTaskModalOpen(true);
-  };
-
   const handleUpdateTaskExecution = (taskId: string, updates: Partial<TaskItem['execution']>) => {
     handleSetTasks(
       tasks.map(t => {
@@ -151,6 +122,31 @@ export default function App() {
         return t;
       })
     );
+  };
+
+  const handlePostponeTask = (taskId: string, toDate: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const plannedDuration = task.plannedDurationMinutes || task.estimatedDurationMinutes;
+    const rescheduledPlan = calculateRescheduledPlan(task.plannedStart, plannedDuration, toDate);
+    const existingEvents = task.execution.postponedEvents || [];
+
+    handleSetTasks(tasks.map(t => t.id === taskId ? {
+      ...t,
+      plannedStart: rescheduledPlan.plannedStart,
+      plannedEnd: rescheduledPlan.plannedEnd,
+      execution: {
+        ...t.execution,
+        status: 'postponed',
+        postponedCount: (t.execution.postponedCount || 0) + 1,
+        postponedEvents: [...existingEvents, {
+          postponedAt: new Date().toISOString(),
+          fromDate: t.plannedStart.split('T')[0],
+          toDate
+        }]
+      }
+    } : t));
   };
 
   const handleDeleteTask = (taskId: string) => {
@@ -277,6 +273,7 @@ export default function App() {
         setActiveTab={setActiveTab}
         onOpenNewTask={() => {
           setEditingTask(null);
+          setTaskFormDefaults(undefined);
           setIsTaskModalOpen(true);
         }}
         onOpenSleepLog={() => setIsSleepLogModalOpen(true)}
@@ -291,13 +288,14 @@ export default function App() {
             sleepRecords={sleepRecords}
             settings={settings}
             onUpdateTaskExecution={handleUpdateTaskExecution}
+            onPostponeTask={handlePostponeTask}
             onDeleteTask={handleDeleteTask}
-            onOpenNewTask={() => {
+            onOpenNewTask={(defaults) => {
               setEditingTask(null);
+              setTaskFormDefaults(defaults);
               setIsTaskModalOpen(true);
             }}
             onOpenSleepLog={() => setIsSleepLogModalOpen(true)}
-            onQuickAddTask={handleQuickAddTask}
             onTriggerReflection={handleTriggerReflection}
           />
         )}
@@ -365,6 +363,7 @@ export default function App() {
         existingTask={editingTask}
         allTasks={tasks}
         settings={settings}
+        initialValues={taskFormDefaults}
       />
 
       <SleepLogModal

@@ -10,6 +10,15 @@ interface TaskModalProps {
   existingTask?: TaskItem | null;
   allTasks: TaskItem[];
   settings: AppSettings;
+  initialValues?: TaskFormDefaults;
+}
+
+export interface TaskFormDefaults {
+  title?: string;
+  category?: TaskCategory;
+  tag?: string;
+  plannedMinutes?: number;
+  estimatedMinutes?: number;
 }
 
 export const TaskModal: React.FC<TaskModalProps> = ({
@@ -18,15 +27,16 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   onSaveTask,
   existingTask,
   allTasks,
-  settings
+  settings,
+  initialValues
 }) => {
   if (!isOpen) return null;
 
   const todayStr = new Date().toISOString().split('T')[0];
 
-  const [title, setTitle] = useState(existingTask?.title || '');
-  const [category, setCategory] = useState<TaskCategory>(existingTask?.category || 'Programming');
-  const [tag, setTag] = useState(existingTask?.tag || '');
+  const [title, setTitle] = useState(existingTask?.title || initialValues?.title || '');
+  const [category, setCategory] = useState<TaskCategory>(existingTask?.category || initialValues?.category || 'Programming');
+  const [tag, setTag] = useState(existingTask?.tag || initialValues?.tag || '');
   const [scheduledDate, setScheduledDate] = useState(
     existingTask?.plannedStart ? existingTask.plannedStart.split('T')[0] : todayStr
   );
@@ -38,16 +48,16 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   
   // Scheduled Plan Duration in Minutes (e.g. Calendar block or planned time window)
   const [plannedMinutes, setPlannedMinutes] = useState<number>(
-    existingTask?.plannedDurationMinutes || existingTask?.estimatedDurationMinutes || 120
+    existingTask?.plannedDurationMinutes || initialValues?.plannedMinutes || existingTask?.estimatedDurationMinutes || 120
   );
   
   // User Calibrated Estimated Duration in Minutes
   const [estimatedMinutes, setEstimatedMinutes] = useState<number>(
-    existingTask?.estimatedDurationMinutes || 120
+    existingTask?.estimatedDurationMinutes || initialValues?.estimatedMinutes || 120
   );
   // Track the user-entered estimate before Reality Check adjustment
   const [initialUserPrediction, setInitialUserPrediction] = useState<number>(
-    existingTask?.originalEstimatedDurationMinutes || existingTask?.estimatedDurationMinutes || 120
+    existingTask?.originalEstimatedDurationMinutes || existingTask?.estimatedDurationMinutes || initialValues?.estimatedMinutes || 120
   );
 
   const [confidence, setConfidence] = useState<number>(existingTask?.confidence || 80);
@@ -70,8 +80,27 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       setInitialUserPrediction(existingTask.originalEstimatedDurationMinutes || existingTask.estimatedDurationMinutes);
       setConfidence(existingTask.confidence);
       setUserDecision(existingTask.realityCheck?.userDecision ?? null);
+    } else if (initialValues) {
+      setTitle(initialValues.title || '');
+      setCategory(initialValues.category || 'Programming');
+      setTag(initialValues.tag || '');
+      setPlannedMinutes(initialValues.plannedMinutes || initialValues.estimatedMinutes || 120);
+      const estimate = initialValues.estimatedMinutes || initialValues.plannedMinutes || 120;
+      setEstimatedMinutes(estimate);
+      setInitialUserPrediction(estimate);
+      setConfidence(80);
+      setUserDecision(null);
+    } else {
+      setTitle('');
+      setCategory('Programming');
+      setTag('');
+      setPlannedMinutes(120);
+      setEstimatedMinutes(120);
+      setInitialUserPrediction(120);
+      setConfidence(80);
+      setUserDecision(null);
     }
-  }, [existingTask]);
+  }, [existingTask, initialValues]);
 
   const handleApplySuggested = () => {
     if (realityCheck.suggestedDurationMinutes) {
@@ -87,9 +116,6 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   const handleEstimateChange = (val: number) => {
     const valid = Math.max(5, val);
     setEstimatedMinutes(valid);
-    if (!existingTask) {
-      setInitialUserPrediction(valid);
-    }
     setUserDecision(null);
   };
 
@@ -115,7 +141,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         estimatedMinutes !== realityCheck.suggestedDurationMinutes
       ) {
         finalDecision = 'custom_adjusted';
-      } else if (userDecision) {
+      } else if (userDecision === 'custom_adjusted') {
         finalDecision = userDecision;
       }
     }
@@ -128,7 +154,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       ? {
           shown: true,
           suggestedDurationMinutes: realityCheck.suggestedDurationMinutes,
-          acceptedSuggestion: finalDecision === 'accepted_suggestion',
+          acceptedSuggestion: finalDecision === 'accepted_suggestion' ? true : finalDecision === 'kept_original' ? false : undefined,
           userDecision: finalDecision,
           originalPredictionMinutes: immutableOriginalEstimate,
           chosenDurationMinutes: estimatedMinutes,
@@ -425,4 +451,3 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     </div>
   );
 };
-

@@ -101,6 +101,30 @@ export function calculateCompletionDelayDays(originalScheduledDate: string, actu
 }
 
 /**
+ * Moves the current planned time window to a new calendar date without changing its duration.
+ */
+export function calculateRescheduledPlan(
+  plannedStart: string,
+  plannedDurationMinutes: number,
+  toDate: string
+): { plannedStart: string; plannedEnd: string } {
+  const currentStart = new Date(plannedStart);
+  if (isNaN(currentStart.getTime()) || !toDate || plannedDurationMinutes <= 0) {
+    return { plannedStart, plannedEnd: plannedStart };
+  }
+
+  const nextStart = new Date(`${toDate}T${currentStart.toISOString().substring(11, 19)}.000Z`);
+  if (isNaN(nextStart.getTime())) {
+    return { plannedStart, plannedEnd: plannedStart };
+  }
+
+  return {
+    plannedStart: nextStart.toISOString(),
+    plannedEnd: new Date(nextStart.getTime() + plannedDurationMinutes * 60000).toISOString()
+  };
+}
+
+/**
  * Identifies and computes the Reference Class for a proposed prediction.
  * Matching hierarchy:
  * 1. Same category and same tag (if tag provided)
@@ -351,8 +375,8 @@ export function calculateDurationCalibration(tasks: TaskItem[]): DurationCalibra
   const overallAvgRatio = completedTasks.length > 0 ? (overallRatioSum / completedTasks.length) : 1;
   const overallErrorPercent = Math.round((overallAvgRatio - 1) * 100);
 
-  const meanSignedErrorPercent = completedTasks.length > 0 ? calculateMean(allSignedErrors) : 0;
-  const medianSignedErrorPercent = completedTasks.length > 0 ? calculateMedian(allSignedErrors) : 0;
+  const meanSignedErrorPercent = completedTasks.length > 0 ? calculateMean(allSignedErrors) * 100 : 0;
+  const medianSignedErrorPercent = completedTasks.length > 0 ? calculateMedian(allSignedErrors) * 100 : 0;
   const meanAbsoluteErrorMinutes = completedTasks.length > 0 ? Math.round(calculateMean(allAbsErrors)) : 0;
   const medianAbsoluteErrorMinutes = completedTasks.length > 0 ? Math.round(calculateMedian(allAbsErrors)) : 0;
   const meanActualDurationMinutes = completedTasks.length > 0 ? Math.round(calculateMean(allActualDurations)) : 0;
@@ -392,8 +416,8 @@ export function calculateDurationCalibration(tasks: TaskItem[]): DurationCalibra
       const mult = catRatioSum / catTasks.length;
       categoryBreakdown[cat] = {
         averageErrorPercent: Math.round((mult - 1) * 100),
-        meanSignedErrorPercent: calculateMean(catSigned),
-        medianSignedErrorPercent: calculateMedian(catSigned),
+        meanSignedErrorPercent: calculateMean(catSigned) * 100,
+        medianSignedErrorPercent: calculateMedian(catSigned) * 100,
         meanAbsoluteErrorMinutes: Math.round(calculateMean(catAbs)),
         medianAbsoluteErrorMinutes: Math.round(calculateMedian(catAbs)),
         meanActualDurationMinutes: Math.round(calculateMean(catActs)),
@@ -571,8 +595,8 @@ export function calculateSleepImpact(tasks: TaskItem[], sleepRecords: SleepRecor
     eligibleTaskCount: normalSleepTotalTasks,
     completedTaskCount: normalSleepCompletedTasks,
     completionRatePercent: normalRate,
-    meanSignedErrorPercent: normalSignedErrors.length > 0 ? calculateMean(normalSignedErrors) : 0,
-    medianSignedErrorPercent: normalSignedErrors.length > 0 ? calculateMedian(normalSignedErrors) : 0,
+    meanSignedErrorPercent: normalSignedErrors.length > 0 ? calculateMean(normalSignedErrors) * 100 : 0,
+    medianSignedErrorPercent: normalSignedErrors.length > 0 ? calculateMedian(normalSignedErrors) * 100 : 0,
     meanAbsoluteErrorMinutes: normalAbsErrors.length > 0 ? Math.round(calculateMean(normalAbsErrors)) : 0,
     medianAbsoluteErrorMinutes: normalAbsErrors.length > 0 ? Math.round(calculateMedian(normalAbsErrors)) : 0,
   };
@@ -581,8 +605,8 @@ export function calculateSleepImpact(tasks: TaskItem[], sleepRecords: SleepRecor
     eligibleTaskCount: shortSleepTotalTasks,
     completedTaskCount: shortSleepCompletedTasks,
     completionRatePercent: shortRate,
-    meanSignedErrorPercent: shortSignedErrors.length > 0 ? calculateMean(shortSignedErrors) : 0,
-    medianSignedErrorPercent: shortSignedErrors.length > 0 ? calculateMedian(shortSignedErrors) : 0,
+    meanSignedErrorPercent: shortSignedErrors.length > 0 ? calculateMean(shortSignedErrors) * 100 : 0,
+    medianSignedErrorPercent: shortSignedErrors.length > 0 ? calculateMedian(shortSignedErrors) * 100 : 0,
     meanAbsoluteErrorMinutes: shortAbsErrors.length > 0 ? Math.round(calculateMean(shortAbsErrors)) : 0,
     medianAbsoluteErrorMinutes: shortAbsErrors.length > 0 ? Math.round(calculateMedian(shortAbsErrors)) : 0,
   };
