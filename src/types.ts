@@ -120,12 +120,28 @@ export interface ConfidenceCalibration {
   actualSuccessRatePercent: number; // e.g., 58%
 }
 
+export interface WeeklyAccuracyTrend {
+  periodLabel: string; // e.g. "Week 1", "Week 2", "Past 7 Days"
+  completedTaskCount: number;
+  averageEstimationErrorPercent: number; // e.g. 72% -> 38%
+  averageAbsoluteErrorMinutes: number;
+}
+
+export interface AccuracyOverTimeCalibration {
+  hasEnoughData: boolean;
+  weeklyTrends: WeeklyAccuracyTrend[];
+  overallTrendDirection: 'improving' | 'stable' | 'needs_more_data';
+  earliestErrorPercent?: number;
+  recentErrorPercent?: number;
+}
+
 export interface OverallCalibrationInsights {
   duration: DurationCalibration;
   startTime: StartTimeCalibration;
   sleepImpact: SleepImpactCalibration;
   confidenceBrackets: ConfidenceCalibration[];
   sameDayCompletionRatePercent: number;
+  accuracyOverTime: AccuracyOverTimeCalibration;
 }
 
 export interface AppSettings {

@@ -313,6 +313,76 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* CARD 5: PREDICTION ACCURACY OVER TIME (Key Product Metric) */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div className="flex items-center space-x-2.5">
+            <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-100 text-blue-600">
+              <TrendingUp className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="font-bold text-lg text-slate-900">Prediction Accuracy Over Time</h2>
+              <p className="text-xs text-slate-500">
+                The primary measure of calibration: tracking if your estimation error decreases as you incorporate personal evidence.
+              </p>
+            </div>
+          </div>
+
+          {insights.accuracyOverTime.hasEnoughData && (
+            <span className={`text-xs font-bold px-3 py-1 rounded-full border self-start sm:self-auto ${
+              insights.accuracyOverTime.overallTrendDirection === 'improving'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                : 'bg-blue-50 text-blue-700 border-blue-200'
+            }`}>
+              {insights.accuracyOverTime.overallTrendDirection === 'improving'
+                ? 'Calibration Improving'
+                : 'Calibration Stable'}
+            </span>
+          )}
+        </div>
+
+        {insights.accuracyOverTime.hasEnoughData ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+              {insights.accuracyOverTime.weeklyTrends.map((trend, idx) => (
+                <div key={idx} className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+                      {trend.periodLabel}
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      {trend.completedTaskCount} tasks
+                    </span>
+                  </div>
+                  <div className="text-2xl font-extrabold text-blue-600">
+                    {trend.averageEstimationErrorPercent}%
+                  </div>
+                  <span className="text-[11px] text-slate-500 block">
+                    Avg error ({trend.averageAbsoluteErrorMinutes}m diff)
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-blue-50/60 border border-blue-100 flex items-center justify-between text-xs text-slate-700">
+              <span className="font-medium">
+                Initial error: <strong>{insights.accuracyOverTime.earliestErrorPercent}%</strong> → Recent error: <strong>{insights.accuracyOverTime.recentErrorPercent}%</strong>
+              </span>
+              <span className="text-slate-500 text-[11px]">
+                Goal: Closer to 0% estimation error
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="p-6 rounded-xl bg-slate-50 border border-slate-200 text-center space-y-1">
+            <p className="text-sm font-semibold text-slate-700">Not enough data yet</p>
+            <p className="text-xs text-slate-400">
+              Complete at least 5 tasks across multiple sessions to reveal chronological accuracy trends.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

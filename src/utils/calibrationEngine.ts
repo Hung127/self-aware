@@ -8,6 +8,8 @@ import {
   StartTimeCalibration,
   SleepImpactCalibration,
   ConfidenceCalibration,
+  WeeklyAccuracyTrend,
+  AccuracyOverTimeCalibration,
   OverallCalibrationInsights
 } from '../types';
 
@@ -23,12 +25,23 @@ export const CATEGORIES: TaskCategory[] = [
 
 /**
  * Calculates percentage error between predicted and actual duration.
+ * error = (actual_duration - predicted_duration) / predicted_duration
  * Example: predicted = 120 (2h), actual = 210 (3.5h) => (210 - 120)/120 = +0.75 (+75%)
  */
 export function calculateEstimationError(predictedMinutes: number, actualMinutes: number): number {
   if (!predictedMinutes || predictedMinutes <= 0) return 0;
   if (actualMinutes < 0) return 0;
   return (actualMinutes - predictedMinutes) / predictedMinutes;
+}
+
+/**
+ * Calculates absolute duration error in minutes:
+ * absolute_error = abs(actual_duration - predicted_duration)
+ */
+export function calculateAbsoluteError(predictedMinutes: number, actualMinutes: number): number {
+  if (!predictedMinutes || predictedMinutes <= 0) return 0;
+  if (actualMinutes < 0) return 0;
+  return Math.abs(actualMinutes - predictedMinutes);
 }
 
 /**
@@ -374,6 +387,119 @@ export function calculateSameDayCompletionRate(tasks: TaskItem[]): number {
 }
 
 /**
+ * Calculates prediction accuracy over time (e.g. Week 1 -> Week 4).
+ * Groups completed tasks chronologically to observe how estimation error changes.
+ */
+export function calculateAccuracyOverTime(tasks: TaskItem[]): AccuracyOverTimeCalibration {
+  const completedTasks = tasks
+    .filter(
+      t => t.execution.status === 'completed' &&
+           t.execution.actualDurationMinutes !== undefined &&
+           t.execution.actualDurationMinutes > 0
+    )
+    .sort((a, b) => new Date(a.plannedStart).getTime() - new Date(b.plannedStart).getTime());
+
+  if (completedTasks.length < 3) {
+    return {
+      hasEnoughData: false,
+      weeklyTrends: [],
+      overallTrendDirection: 'needs_more_data'
+    };
+  }
+
+  // Group tasks into temporal chunks (e.g. by 7-day windows or sequential batches)
+  const startTimeMs = new Date(completedTasks[0].plannedStart).getTime();
+  const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+  const buckets: Map<number, TaskItem[]> = new Map();
+
+  completedTasks.forEach(task => {
+    const taskTimeMs = new Date(task.plannedStart).getTime();
+    const weekIndex = Math.max(0, Math.floor((taskTimeMs - startTimeMs) / ONE_WEEK_MS));
+    if (!buckets.has(weekIndex)) {
+      buckets.set(weekIndex, []);
+    }
+    buckets.get(weekIndex)!.push(task);
+  });
+
+  // If all tasks are in 1 week or span is narrow, group by sequential chunks of 4-5 tasks
+  const weeklyTrends: WeeklyAccuracyTrend[] = [];
+
+  if (buckets.size > 1) {
+    const sortedWeeks = Array.from(buckets.keys()).sort((a, b) => a - b);
+    sortedWeeks.forEach(weekIdx => {
+      const weekTasks = buckets.get(weekIdx)!;
+      let totalPercentError = 0;
+      let totalAbsErrorMinutes = 0;
+
+      weekTasks.forEach(t => {
+        const est = t.estimatedDurationMinutes || 1;
+        const act = t.execution.actualDurationMinutes || est;
+        totalPercentError += Math.abs((act - est) / est);
+        totalAbsErrorMinutes += Math.abs(act - est);
+      });
+
+      const avgPercent = Math.round((totalPercentError / weekTasks.length) * 100);
+      const avgAbsMins = Math.round(totalAbsErrorMinutes / weekTasks.length);
+
+      weeklyTrends.push({
+        periodLabel: `Week ${weekIdx + 1}`,
+        completedTaskCount: weekTasks.length,
+        averageEstimationErrorPercent: avgPercent,
+        averageAbsoluteErrorMinutes: avgAbsMins
+      });
+    });
+  } else {
+    // Partition sequentially (e.g. First Half vs Second Half)
+    const mid = Math.ceil(completedTasks.length / 2);
+    const batch1 = completedTasks.slice(0, mid);
+    const batch2 = completedTasks.slice(mid);
+
+    const computeBatch = (batch: TaskItem[], label: string): WeeklyAccuracyTrend => {
+      let totalPercentError = 0;
+      let totalAbsErrorMinutes = 0;
+      batch.forEach(t => {
+        const est = t.estimatedDurationMinutes || 1;
+        const act = t.execution.actualDurationMinutes || est;
+        totalPercentError += Math.abs((act - est) / est);
+        totalAbsErrorMinutes += Math.abs(act - est);
+      });
+      return {
+        periodLabel: label,
+        completedTaskCount: batch.length,
+        averageEstimationErrorPercent: Math.round((totalPercentError / batch.length) * 100),
+        averageAbsoluteErrorMinutes: Math.round(totalAbsErrorMinutes / batch.length)
+      };
+    };
+
+    weeklyTrends.push(computeBatch(batch1, 'Earlier Sessions'));
+    if (batch2.length > 0) {
+      weeklyTrends.push(computeBatch(batch2, 'Recent Sessions'));
+    }
+  }
+
+  const earliest = weeklyTrends.length > 0 ? weeklyTrends[0].averageEstimationErrorPercent : undefined;
+  const recent = weeklyTrends.length > 1 ? weeklyTrends[weeklyTrends.length - 1].averageEstimationErrorPercent : earliest;
+
+  let trendDirection: 'improving' | 'stable' | 'needs_more_data' = 'needs_more_data';
+  if (earliest !== undefined && recent !== undefined && weeklyTrends.length >= 2) {
+    if (recent < earliest - 5) {
+      trendDirection = 'improving';
+    } else {
+      trendDirection = 'stable';
+    }
+  }
+
+  return {
+    hasEnoughData: completedTasks.length >= 5,
+    weeklyTrends,
+    overallTrendDirection: trendDirection,
+    earliestErrorPercent: earliest,
+    recentErrorPercent: recent
+  };
+}
+
+/**
  * Helper to compute full insights object.
  */
 export function calculateOverallInsights(
@@ -385,7 +511,8 @@ export function calculateOverallInsights(
     startTime: calculateStartTimeCalibration(tasks),
     sleepImpact: calculateSleepImpact(tasks, sleepRecords),
     confidenceBrackets: calculateConfidenceCalibration(tasks),
-    sameDayCompletionRatePercent: calculateSameDayCompletionRate(tasks)
+    sameDayCompletionRatePercent: calculateSameDayCompletionRate(tasks),
+    accuracyOverTime: calculateAccuracyOverTime(tasks)
   };
 }
 
