@@ -227,9 +227,15 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                         <span className={`text-xs font-extrabold px-2 py-0.5 rounded-md border ${
                           errorPercent > 0
                             ? 'bg-amber-50 text-amber-800 border-amber-200'
+                            : errorPercent < 0
+                            ? 'bg-blue-50 text-blue-800 border-blue-200'
                             : 'bg-emerald-50 text-emerald-800 border-emerald-200'
                         }`}>
-                          {errorPercent > 0 ? `+${errorPercent}% Underestimate` : `${errorPercent}% On Target`}
+                          {errorPercent > 0
+                            ? `+${errorPercent}% Underestimate`
+                            : errorPercent < 0
+                            ? `${errorPercent}% Overestimate`
+                            : '0% On Target'}
                         </span>
                       )}
                     </div>

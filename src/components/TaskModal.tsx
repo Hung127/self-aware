@@ -81,11 +81,19 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       new Date(`${scheduledDate}T${startTime}:00.000Z`).getTime() + estimatedMinutes * 60000
     ).toISOString();
 
+    const userDecision = acceptedSuggestion === true
+      ? 'accepted_suggestion'
+      : acceptedSuggestion === false
+      ? 'kept_original'
+      : 'custom_adjusted';
+
     const realityCheckDecision: TaskPredictionDecision | undefined = realityCheck.shouldWarn
       ? {
           shown: true,
           suggestedDurationMinutes: realityCheck.suggestedDurationMinutes,
           acceptedSuggestion: acceptedSuggestion === true,
+          userDecision,
+          originalPredictionMinutes: existingTask?.originalEstimatedDurationMinutes || existingTask?.estimatedDurationMinutes || estimatedMinutes,
           finalPredictionMinutes: estimatedMinutes,
           createdAt: new Date().toISOString()
         }

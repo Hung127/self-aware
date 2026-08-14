@@ -503,7 +503,7 @@ export function calculateSleepImpact(tasks: TaskItem[], sleepRecords: SleepRecor
     }
   });
 
-  const hasEnoughData = (normalSleepTotalTasks >= 7 && shortSleepTotalTasks >= 5) || (normalSleepTotalTasks >= 3 && shortSleepTotalTasks >= 2);
+  const hasEnoughData = normalSleepTotalTasks >= 7 && shortSleepTotalTasks >= 7;
 
   const normalRate = normalSleepTotalTasks > 0 ? Math.round((normalSleepCompletedTasks / normalSleepTotalTasks) * 100) : 0;
   const shortRate = shortSleepTotalTasks > 0 ? Math.round((shortSleepCompletedTasks / shortSleepTotalTasks) * 100) : 0;
@@ -554,16 +554,15 @@ export function calculateConfidenceCalibration(tasks: TaskItem[]): ConfidenceCal
       };
     }
 
-    // A task in this bracket is successful if completed on schedule with duration error <= 25%
+    // Success definition: task completed on the originally scheduled date
     let successfulCount = 0;
     inRangeTasks.forEach(t => {
-      if (t.execution.status === 'completed' && t.execution.actualDurationMinutes) {
-        const est = t.originalEstimatedDurationMinutes || t.estimatedDurationMinutes;
-        const act = t.execution.actualDurationMinutes;
-        const error = (act - est) / est;
-        if (error <= 0.25) {
-          successfulCount++;
-        }
+      if (
+        t.execution.status === 'completed' &&
+        t.execution.actualCompletionDate &&
+        t.execution.actualCompletionDate === t.execution.originalScheduledDate
+      ) {
+        successfulCount++;
       }
     });
 

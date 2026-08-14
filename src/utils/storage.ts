@@ -7,7 +7,7 @@ const SETTINGS_KEY = 'personal_calibration_settings_v1';
 export const DEFAULT_SETTINGS: AppSettings = {
   googleCalendarConnected: false,
   autoImportGCal: true,
-  minObservationsForRealityCheck: 3,
+  minObservationsForRealityCheck: 5,
   smallSuggestionThresholdPercent: 15,
   realityCheckThresholdPercent: 30,
 };
@@ -405,7 +405,21 @@ export function loadTasks(): TaskItem[] {
       saveTasks(sample);
       return sample;
     }
-    return JSON.parse(raw);
+    const parsed: TaskItem[] = JSON.parse(raw);
+    // Normalize older or legacy tasks
+    return parsed.map(t => ({
+      ...t,
+      plannedDurationMinutes: t.plannedDurationMinutes || t.estimatedDurationMinutes || 60,
+      estimatedDurationMinutes: t.estimatedDurationMinutes || t.plannedDurationMinutes || 60,
+      originalEstimatedDurationMinutes: t.originalEstimatedDurationMinutes || t.estimatedDurationMinutes || t.plannedDurationMinutes || 60,
+      originalPlannedStart: t.originalPlannedStart || t.plannedStart,
+      confidence: typeof t.confidence === 'number' ? t.confidence : 80,
+      execution: {
+        ...t.execution,
+        postponedCount: t.execution?.postponedCount || 0,
+        originalScheduledDate: t.execution?.originalScheduledDate || (t.plannedStart ? t.plannedStart.split('T')[0] : getTodayStr())
+      }
+    }));
   } catch (err) {
     console.error('Error loading tasks from localStorage:', err);
     return getInitialSampleTasks();
@@ -460,7 +474,15 @@ export function loadSettings(): AppSettings {
       saveSettings(DEFAULT_SETTINGS);
       return DEFAULT_SETTINGS;
     }
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    const parsed = JSON.parse(raw);
+    return {
+      ...DEFAULT_SETTINGS,
+      ...parsed,
+      minObservationsForRealityCheck:
+        typeof parsed.minObservationsForRealityCheck === 'number' && parsed.minObservationsForRealityCheck >= 3
+          ? parsed.minObservationsForRealityCheck
+          : DEFAULT_SETTINGS.minObservationsForRealityCheck
+    };
   } catch (err) {
     console.error('Error loading settings from localStorage:', err);
     return DEFAULT_SETTINGS;

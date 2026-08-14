@@ -101,16 +101,20 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                 Primary Pattern
               </span>
               <p className="text-base font-bold text-blue-600">
-                {maxUnderestimateError > 0 ? (
+                {maxUnderestimateTasks >= 5 && maxUnderestimateError > 0 ? (
                   <>
                     You underestimate <span className="underline">{maxUnderestimateCat.toLowerCase()}</span> tasks by {maxUnderestimateError}% on average.
                   </>
-                ) : (
+                ) : durationData.totalTasksCount >= 5 ? (
                   <>You predict overall task durations with high accuracy.</>
+                ) : (
+                  <>Not enough data yet.</>
                 )}
               </p>
               <span className="text-[11px] text-slate-400 block">
-                ↑ Based on {maxUnderestimateTasks || durationData.totalTasksCount} completed sessions
+                {durationData.totalTasksCount >= 5
+                  ? `↑ Based on ${maxUnderestimateTasks || durationData.totalTasksCount} completed sessions`
+                  : 'Need at least 5 completed sessions in a category to identify recurring patterns'}
               </span>
             </div>
 
@@ -128,7 +132,7 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                   <div key={cat} className="flex items-center justify-between text-xs p-2.5 rounded-xl bg-slate-50 border border-slate-200">
                     <span className="font-semibold text-slate-800">{cat} ({item.taskCount})</span>
                     <span className={`font-bold ${isUnder ? 'text-amber-700' : 'text-emerald-700'}`}>
-                      {isUnder ? `+${item.averageErrorPercent}% overestimate` : `${item.averageErrorPercent}% on target`} ({item.multiplier}×)
+                      {isUnder ? `+${item.averageErrorPercent}% underestimate` : item.averageErrorPercent < 0 ? `${item.averageErrorPercent}% overestimate` : `${item.averageErrorPercent}% on target`} ({item.multiplier}×)
                     </span>
                   </div>
                 );
@@ -221,11 +225,13 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                 {sleepData.hasEnoughData ? (
                   <>&lt;6h sleep → {sleepData.completionDropPercent}% fewer planned tasks completed.</>
                 ) : (
-                  <>Log 3+ days of sleep records to reveal correlation.</>
+                  <>Not enough data yet.</>
                 )}
               </p>
               <span className="text-[11px] text-slate-400 block">
-                ↑ Based on {sleepData.shortSleepDaysCount + sleepData.normalSleepDaysCount} observed sleep cycles
+                {sleepData.hasEnoughData
+                  ? `↑ Based on ${sleepData.shortSleepDaysCount + sleepData.normalSleepDaysCount} observed sleep cycles`
+                  : 'Log at least 7 tasks under each sleep condition to reveal correlations'}
               </span>
             </div>
 
@@ -271,17 +277,24 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
             {/* Headline */}
             {(() => {
               const ninety = confidenceBrackets.find(b => b.bracket === 95 || b.rangeLabel.includes('90'));
-              const rate = ninety && ninety.predictedCount > 0 ? ninety.actualSuccessRatePercent : 58;
+              const hasData = !!(ninety && ninety.sampleSufficient && ninety.predictedCount > 0);
+              const rate = hasData ? ninety.actualSuccessRatePercent : 0;
               return (
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                     High Confidence Outcome
                   </span>
                   <p className="text-base font-bold text-blue-600">
-                    Your 90%+ confidence predictions succeed {rate}% of the time.
+                    {hasData ? (
+                      `Your 90%+ confidence predictions succeed ${rate}% of the time.`
+                    ) : (
+                      'Not enough data yet.'
+                    )}
                   </p>
                   <span className="text-[11px] text-slate-400 block">
-                    Evidence-based reflection on high-certainty predictions
+                    {hasData
+                      ? `↑ Based on ${ninety.predictedCount} high-certainty predictions`
+                      : 'Need at least 5 predictions in the 90%+ confidence bracket to evaluate certainty'}
                   </span>
                 </div>
               );

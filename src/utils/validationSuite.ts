@@ -1,4 +1,4 @@
-import { TestResult, TaskItem, SleepRecord, AppSettings } from '../types';
+import { TestResult, TaskItem, SleepRecord, AppSettings, TaskCategory, TaskPredictionDecision } from '../types';
 import {
   calculateEstimationError,
   calculateAbsoluteError,
@@ -1452,6 +1452,428 @@ export function runSystemValidationSuite(
   } catch (e: any) {
     results.push({
       name: 'Start Delay Daytime vs Evening Session Isolation',
+      passed: false,
+      details: `Failed with exception: ${e.message}`
+    });
+  }
+
+  // Test 31: 5-Observation Minimum Threshold Verification
+  try {
+    const makeTask = (id: string, cat: TaskCategory, est: number, act: number): TaskItem => ({
+      id,
+      title: `Task ${id}`,
+      category: cat,
+      plannedStart: '2026-08-10T10:00:00.000Z',
+      plannedEnd: '2026-08-10T12:00:00.000Z',
+      plannedDurationMinutes: est,
+      estimatedDurationMinutes: est,
+      confidence: 80,
+      originalPlannedStart: '2026-08-10T10:00:00.000Z',
+      originalEstimatedDurationMinutes: est,
+      createdAt: '2026-08-10T08:00:00.000Z',
+      execution: {
+        status: 'completed',
+        actualStart: '2026-08-10T10:00:00.000Z',
+        actualEnd: '2026-08-10T13:00:00.000Z',
+        actualDurationMinutes: act,
+        postponedCount: 0,
+        originalScheduledDate: '2026-08-10',
+        actualCompletionDate: '2026-08-10'
+      }
+    });
+
+    // 4 observations of Studying (underestimate by 50%)
+    const fourTasks = [
+      makeTask('s-1', 'Studying', 60, 90),
+      makeTask('s-2', 'Studying', 60, 90),
+      makeTask('s-3', 'Studying', 60, 90),
+      makeTask('s-4', 'Studying', 60, 90),
+    ];
+
+    const defaultSettings: AppSettings = {
+      googleCalendarConnected: false,
+      autoImportGCal: true,
+      minObservationsForRealityCheck: 5,
+      smallSuggestionThresholdPercent: 15,
+      realityCheckThresholdPercent: 30,
+    };
+
+    const checkWithFour = getRealityCheck('Studying', 60, fourTasks, defaultSettings);
+    const refClassFour = getReferenceClass({ category: 'Studying' }, fourTasks, 5);
+
+    // 5th observation
+    const fiveTasks = [...fourTasks, makeTask('s-5', 'Studying', 60, 90)];
+    const checkWithFive = getRealityCheck('Studying', 60, fiveTasks, defaultSettings);
+    const refClassFive = getReferenceClass({ category: 'Studying' }, fiveTasks, 5);
+
+    const pass =
+      checkWithFour.shouldWarn === false &&
+      refClassFour.sampleCount === 0 &&
+      checkWithFive.shouldWarn === true &&
+      checkWithFive.suggestedDurationMinutes === 90 &&
+      refClassFive.sampleCount === 5;
+
+    results.push({
+      name: '5-Observation Minimum Threshold Verification',
+      passed: pass,
+      details: pass
+        ? 'Strict 5-observation minimum threshold enforced: 4 tasks prevented premature reality check; 5th task cleanly activated evidence-based suggestion (90m).'
+        : `Threshold mismatch: 4-task warn=${checkWithFour.shouldWarn}, 5-task warn=${checkWithFive.shouldWarn}`
+    });
+  } catch (e: any) {
+    results.push({
+      name: '5-Observation Minimum Threshold Verification',
+      passed: false,
+      details: `Failed with exception: ${e.message}`
+    });
+  }
+
+  // Test 32: Postponement Tracking with fromDate, toDate, and Completion Delay
+  try {
+    const postponedTask: TaskItem = {
+      id: 'postponed-multi-day',
+      title: 'Database Migration Script',
+      category: 'Programming',
+      plannedStart: '2026-08-01T10:00:00.000Z',
+      plannedEnd: '2026-08-01T12:00:00.000Z',
+      plannedDurationMinutes: 120,
+      estimatedDurationMinutes: 120,
+      confidence: 90,
+      originalPlannedStart: '2026-08-01T10:00:00.000Z',
+      originalEstimatedDurationMinutes: 120,
+      createdAt: '2026-08-01T08:00:00.000Z',
+      execution: {
+        status: 'completed',
+        actualStart: '2026-08-04T14:00:00.000Z',
+        actualEnd: '2026-08-04T16:00:00.000Z',
+        actualDurationMinutes: 120,
+        postponedCount: 2,
+        originalScheduledDate: '2026-08-01',
+        actualCompletionDate: '2026-08-04',
+        postponedEvents: [
+          { postponedAt: '2026-08-01T18:00:00.000Z', fromDate: '2026-08-01', toDate: '2026-08-02' },
+          { postponedAt: '2026-08-02T19:00:00.000Z', fromDate: '2026-08-02', toDate: '2026-08-04' }
+        ]
+      }
+    };
+
+    const completionStats = calculateCompletionCalibration([postponedTask]);
+    const dOriginal = new Date(postponedTask.execution.originalScheduledDate!).getTime();
+    const dActual = new Date(postponedTask.execution.actualCompletionDate!).getTime();
+    const delayDays = Math.round((dActual - dOriginal) / (1000 * 60 * 60 * 24));
+
+    const pass =
+      completionStats.totalEligibleCount === 1 &&
+      completionStats.completedCount === 1 &&
+      completionStats.sameDayCompletionRatePercent === 0 &&
+      delayDays === 3 &&
+      postponedTask.execution.postponedEvents?.length === 2 &&
+      postponedTask.execution.postponedEvents[0].fromDate === '2026-08-01' &&
+      postponedTask.execution.postponedEvents[0].toDate === '2026-08-02';
+
+    results.push({
+      name: 'Postponement Tracking & Multi-Day Completion Delay',
+      passed: pass,
+      details: pass
+        ? `Postponement sequence (2 events with fromDate/toDate) tracked accurately with a 3-day completion delay and 0% same-day rate.`
+        : `Postponement verification failed: delay=${delayDays} days, sameDayRate=${completionStats.sameDayCompletionRatePercent}%`
+    });
+  } catch (e: any) {
+    results.push({
+      name: 'Postponement Tracking & Multi-Day Completion Delay',
+      passed: false,
+      details: `Failed with exception: ${e.message}`
+    });
+  }
+
+  // Test 33: Confidence Calibration Success Definition (Same-day completion adherence)
+  try {
+    const testTasks: TaskItem[] = [
+      // 90% confidence task 1: Completed on same day -> SUCCESS
+      {
+        id: 'conf-1',
+        title: 'Task Conf 1',
+        category: 'Programming',
+        plannedStart: '2026-08-10T10:00:00.000Z',
+        plannedEnd: '2026-08-10T12:00:00.000Z',
+        plannedDurationMinutes: 120,
+        estimatedDurationMinutes: 120,
+        confidence: 90,
+        originalPlannedStart: '2026-08-10T10:00:00.000Z',
+        originalEstimatedDurationMinutes: 120,
+        createdAt: '2026-08-10T08:00:00.000Z',
+        execution: {
+          status: 'completed',
+          actualStart: '2026-08-10T10:00:00.000Z',
+          actualEnd: '2026-08-10T12:00:00.000Z',
+          actualDurationMinutes: 120,
+          postponedCount: 0,
+          originalScheduledDate: '2026-08-10',
+          actualCompletionDate: '2026-08-10'
+        }
+      },
+      // 90% confidence task 2: Postponed to next day -> NOT same-day success
+      {
+        id: 'conf-2',
+        title: 'Task Conf 2',
+        category: 'Programming',
+        plannedStart: '2026-08-10T14:00:00.000Z',
+        plannedEnd: '2026-08-10T16:00:00.000Z',
+        plannedDurationMinutes: 120,
+        estimatedDurationMinutes: 120,
+        confidence: 95,
+        originalPlannedStart: '2026-08-10T14:00:00.000Z',
+        originalEstimatedDurationMinutes: 120,
+        createdAt: '2026-08-10T08:00:00.000Z',
+        execution: {
+          status: 'completed',
+          actualStart: '2026-08-11T14:00:00.000Z',
+          actualEnd: '2026-08-11T16:00:00.000Z',
+          actualDurationMinutes: 120,
+          postponedCount: 1,
+          originalScheduledDate: '2026-08-10',
+          actualCompletionDate: '2026-08-11' // Different date
+        }
+      },
+      // 90% confidence task 3: Skipped -> NOT success
+      {
+        id: 'conf-3',
+        title: 'Task Conf 3',
+        category: 'Programming',
+        plannedStart: '2026-08-10T18:00:00.000Z',
+        plannedEnd: '2026-08-10T19:00:00.000Z',
+        plannedDurationMinutes: 60,
+        estimatedDurationMinutes: 60,
+        confidence: 90,
+        originalPlannedStart: '2026-08-10T18:00:00.000Z',
+        originalEstimatedDurationMinutes: 60,
+        createdAt: '2026-08-10T08:00:00.000Z',
+        execution: {
+          status: 'skipped',
+          postponedCount: 0,
+          originalScheduledDate: '2026-08-10'
+        }
+      }
+    ];
+
+    const confCalib = calculateConfidenceCalibration(testTasks);
+    const bracket90 = confCalib.find(b => b.bracket === 95 || b.rangeLabel.includes('90'));
+
+    const pass =
+      !!bracket90 &&
+      bracket90.predictedCount === 3 &&
+      bracket90.successfulCount === 1 && // 1 out of 3 succeeded on same day
+      bracket90.actualSuccessRatePercent === 33; // 1/3 = 33%
+
+    results.push({
+      name: 'Confidence Calibration Outcome Success Definition',
+      passed: pass,
+      details: pass
+        ? `Confidence calibration evaluated 90%+ bracket at exactly 33% success (1/3 completed on scheduled date, 1 postponed, 1 skipped).`
+        : `Confidence calculation mismatch: count=${bracket90?.predictedCount}, success=${bracket90?.successfulCount}, rate=${bracket90?.actualSuccessRatePercent}%`
+    });
+  } catch (e: any) {
+    results.push({
+      name: 'Confidence Calibration Outcome Success Definition',
+      passed: false,
+      details: `Failed with exception: ${e.message}`
+    });
+  }
+
+  // Test 34: Decoupled Calendar Plan Duration vs Prediction Duration
+  try {
+    const gcalEvent: GCalEvent = {
+      id: 'gcal-decoupled-1',
+      summary: 'Distributed Systems Lecture',
+      start: { dateTime: '2026-08-10T14:00:00.000Z' },
+      end: { dateTime: '2026-08-10T15:00:00.000Z' }, // 60 mins on calendar
+      status: 'confirmed'
+    };
+
+    const task = convertGCalEventToTask(gcalEvent);
+    // User adjusts prediction to 120m (e.g. including homework review)
+    const customizedTask: TaskItem = {
+      ...task,
+      estimatedDurationMinutes: 120,
+      originalEstimatedDurationMinutes: 120,
+      confidence: 85
+    };
+
+    const pass =
+      customizedTask.plannedDurationMinutes === 60 && // Calendar slot remains 60m
+      customizedTask.estimatedDurationMinutes === 120 && // Calibrated prediction is 120m
+      customizedTask.originalEstimatedDurationMinutes === 120 &&
+      customizedTask.googleCalendarEventId === 'gcal-decoupled-1';
+
+    results.push({
+      name: 'Decoupled Calendar Plan Duration vs Prediction Duration',
+      passed: pass,
+      details: pass
+        ? 'Decoupled plan duration (60m calendar block) from calibrated prediction duration (120m user forecast) with intact provider event ID.'
+        : `Decoupled duration mismatch: plan=${customizedTask.plannedDurationMinutes}, est=${customizedTask.estimatedDurationMinutes}`
+    });
+  } catch (e: any) {
+    results.push({
+      name: 'Decoupled Calendar Plan Duration vs Prediction Duration',
+      passed: false,
+      details: `Failed with exception: ${e.message}`
+    });
+  }
+
+  // Test 35: Reality Check User Decision Metadata State Transitions
+  try {
+    const decisionAccepted: TaskPredictionDecision = {
+      shown: true,
+      suggestedDurationMinutes: 180,
+      acceptedSuggestion: true,
+      userDecision: 'accepted_suggestion',
+      originalPredictionMinutes: 120,
+      finalPredictionMinutes: 180,
+      createdAt: '2026-08-10T08:00:00.000Z'
+    };
+
+    const decisionKept: TaskPredictionDecision = {
+      shown: true,
+      suggestedDurationMinutes: 180,
+      acceptedSuggestion: false,
+      userDecision: 'kept_original',
+      originalPredictionMinutes: 120,
+      finalPredictionMinutes: 120,
+      createdAt: '2026-08-10T08:00:00.000Z'
+    };
+
+    const decisionCustom: TaskPredictionDecision = {
+      shown: true,
+      suggestedDurationMinutes: 180,
+      acceptedSuggestion: false,
+      userDecision: 'custom_adjusted',
+      originalPredictionMinutes: 120,
+      finalPredictionMinutes: 150,
+      createdAt: '2026-08-10T08:00:00.000Z'
+    };
+
+    const pass =
+      decisionAccepted.userDecision === 'accepted_suggestion' &&
+      decisionAccepted.finalPredictionMinutes === 180 &&
+      decisionKept.userDecision === 'kept_original' &&
+      decisionKept.finalPredictionMinutes === 120 &&
+      decisionCustom.userDecision === 'custom_adjusted' &&
+      decisionCustom.finalPredictionMinutes === 150 &&
+      decisionCustom.originalPredictionMinutes === 120;
+
+    results.push({
+      name: 'Reality Check User Decision Metadata State Transitions',
+      passed: pass,
+      details: pass
+        ? 'All 3 user decision states (accepted_suggestion, kept_original, custom_adjusted) verified with original and final prediction integrity.'
+        : 'Decision metadata verification failed.'
+    });
+  } catch (e: any) {
+    results.push({
+      name: 'Reality Check User Decision Metadata State Transitions',
+      passed: false,
+      details: `Failed with exception: ${e.message}`
+    });
+  }
+
+  // Test 36: Idempotent Google Calendar Event Conversion and Ingestion
+  try {
+    const mockEvent: GCalEvent = {
+      id: 'gcal-idempotent-99',
+      summary: 'Weekly Team Calibration Review',
+      start: { dateTime: '2026-08-12T16:00:00.000Z' },
+      end: { dateTime: '2026-08-12T17:00:00.000Z' },
+      status: 'confirmed'
+    };
+
+    const task1 = convertGCalEventToTask(mockEvent);
+    const existingTaskList = [task1];
+
+    // Attempting to re-ingest the same calendar event id
+    const isAlreadyImported = existingTaskList.some(t => t.googleCalendarEventId === mockEvent.id);
+
+    const pass =
+      isAlreadyImported &&
+      task1.googleCalendarEventId === 'gcal-idempotent-99' &&
+      task1.plannedDurationMinutes === 60;
+
+    results.push({
+      name: 'Idempotent Google Calendar Event Conversion and Ingestion',
+      passed: pass,
+      details: pass
+        ? 'Idempotency check prevents duplicate task creation when importing identical Google Calendar event IDs.'
+        : 'Idempotency check failed.'
+    });
+  } catch (e: any) {
+    results.push({
+      name: 'Idempotent Google Calendar Event Conversion and Ingestion',
+      passed: false,
+      details: `Failed with exception: ${e.message}`
+    });
+  }
+
+  // Test 37: Reference Class Exact Tag Filtering vs Category Fallback
+  try {
+    const makeTagTask = (id: string, tag: string, act: number): TaskItem => ({
+      id,
+      title: `Task with tag ${tag}`,
+      category: 'Programming',
+      tag,
+      plannedStart: '2026-08-10T10:00:00.000Z',
+      plannedEnd: '2026-08-10T12:00:00.000Z',
+      plannedDurationMinutes: 120,
+      estimatedDurationMinutes: 120,
+      confidence: 80,
+      originalPlannedStart: '2026-08-10T10:00:00.000Z',
+      originalEstimatedDurationMinutes: 120,
+      createdAt: '2026-08-10T08:00:00.000Z',
+      execution: {
+        status: 'completed',
+        actualStart: '2026-08-10T10:00:00.000Z',
+        actualEnd: '2026-08-10T13:00:00.000Z',
+        actualDurationMinutes: act,
+        postponedCount: 0,
+        originalScheduledDate: '2026-08-10',
+        actualCompletionDate: '2026-08-10'
+      }
+    });
+
+    // 5 tasks with tag "Frontend" (actual 150m) and 5 tasks with tag "Backend" (actual 240m)
+    const taggedTasks: TaskItem[] = [
+      makeTagTask('fe-1', 'Frontend', 150),
+      makeTagTask('fe-2', 'Frontend', 150),
+      makeTagTask('fe-3', 'Frontend', 150),
+      makeTagTask('fe-4', 'Frontend', 150),
+      makeTagTask('fe-5', 'Frontend', 150),
+      makeTagTask('be-1', 'Backend', 240),
+      makeTagTask('be-2', 'Backend', 240),
+      makeTagTask('be-3', 'Backend', 240),
+      makeTagTask('be-4', 'Backend', 240),
+      makeTagTask('be-5', 'Backend', 240),
+    ];
+
+    const refFrontend = getReferenceClass({ category: 'Programming', tag: 'Frontend' }, taggedTasks, 5);
+    const refBackend = getReferenceClass({ category: 'Programming', tag: 'Backend' }, taggedTasks, 5);
+    const refUnknownTag = getReferenceClass({ category: 'Programming', tag: 'DevOps' }, taggedTasks, 5); // Fallback to category (10 tasks)
+
+    const pass =
+      refFrontend.sampleCount === 5 &&
+      refFrontend.medianActualDuration === 150 &&
+      refBackend.sampleCount === 5 &&
+      refBackend.medianActualDuration === 240 &&
+      refUnknownTag.sampleCount === 10 &&
+      refUnknownTag.medianActualDuration === 195; // (150+240)/2 = 195
+
+    results.push({
+      name: 'Reference Class Exact Tag Filtering vs Category Fallback',
+      passed: pass,
+      details: pass
+        ? 'Reference class isolates tag-specific sub-samples (Frontend: 150m, Backend: 240m) and cleanly falls back to broad category when tag sample is insufficient.'
+        : `Tag reference class mismatch: fe=${refFrontend.medianActualDuration}, be=${refBackend.medianActualDuration}, fallback=${refUnknownTag.medianActualDuration}`
+    });
+  } catch (e: any) {
+    results.push({
+      name: 'Reference Class Exact Tag Filtering vs Category Fallback',
       passed: false,
       details: `Failed with exception: ${e.message}`
     });

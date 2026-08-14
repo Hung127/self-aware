@@ -128,6 +128,10 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
   const handlePostponeTask = (task: TaskItem) => {
     const existingEvents = task.execution.postponedEvents || [];
+    const nextDate = new Date();
+    nextDate.setDate(nextDate.getDate() + 1);
+    const toDateStr = nextDate.toISOString().split('T')[0];
+
     onUpdateTaskExecution(task.id, {
       status: 'postponed',
       postponedCount: (task.execution.postponedCount || 0) + 1,
@@ -135,7 +139,8 @@ export const TodayView: React.FC<TodayViewProps> = ({
         ...existingEvents,
         {
           postponedAt: new Date().toISOString(),
-          fromDate: task.execution.originalScheduledDate || todayStr
+          fromDate: task.execution.originalScheduledDate || todayStr,
+          toDate: toDateStr
         }
       ]
     });
