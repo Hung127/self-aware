@@ -79,7 +79,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       }
 
       setSyncStatusMsg({ type: 'info', text: 'Fetching events from your primary Google Calendar...' });
-      const realEvents = await fetchRealGoogleCalendarEvents(token);
+      const { events: realEvents } = await fetchRealGoogleCalendarEvents(token);
 
       // Convert real events into tasks
       const gcalTasks = realEvents.map(convertGCalEventToTask);

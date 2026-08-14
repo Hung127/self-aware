@@ -213,7 +213,7 @@ export default function App() {
         token = authResult.accessToken;
       }
 
-      const realEvents = await fetchRealGoogleCalendarEvents(token);
+      const { events: realEvents } = await fetchRealGoogleCalendarEvents(token);
       const newGCalTasks = realEvents.map(convertGCalEventToTask);
 
       // Merge non-duplicate GCal tasks

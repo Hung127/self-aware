@@ -26,6 +26,19 @@ export type SkipReason =
   | 'did_not_feel_like_it'
   | 'other';
 
+export type EvidenceLevel =
+  | 'no_pattern'      // 0-4 observations
+  | 'early_pattern'   // 5-9 observations
+  | 'established'     // 10-19 observations
+  | 'strong_reference'; // 20+ observations
+
+export type BehavioralTaskType =
+  | 'implementation'
+  | 'debugging'
+  | 'testing'
+  | 'documentation'
+  | 'other';
+
 export type ReflectionCategory =
   | 'harder_than_expected'
   | 'started_late'
@@ -71,10 +84,13 @@ export interface TaskPrediction {
   planSource?: PlanSource;
   predictionStatus?: PredictionStatus;
   
-  // Calibration prediction
+// Calibration prediction
   estimatedDurationMinutes: number;
   confidence: number; // Percentage 10-100%
-  
+
+  // Behavioral task type for reference-class filtering
+  behavioralTaskType?: BehavioralTaskType;
+
   // Metadata & Calendar link
   googleCalendarEventId?: string;
   originalPlannedStart: string; // Preserved even if GCal shifts
@@ -99,6 +115,7 @@ export interface TaskExecution {
 
 export interface TaskItem extends TaskPrediction {
   execution: TaskExecution;
+  schemaVersion?: string;
 }
 
 export interface SleepRecord {
@@ -122,7 +139,7 @@ export interface ReferenceClassStatistics {
   medianSignedError: number;
   meanAbsoluteError: number;
   medianAbsoluteError: number;
-  matchedBy: 'category_and_tag' | 'category' | 'none';
+  matchedBy: 'category_and_tag' | 'category' | 'category_and_task_type' | 'none';
   tasks: TaskItem[];
 }
 
@@ -136,7 +153,7 @@ export interface RealityCheckSuggestion {
   averageErrorPercent: number; // relative discrepancy: (medianActual - predicted) / predicted
   message: string;
   suggestedDurationMinutes: number;
-  matchedBy?: 'category_and_tag' | 'category' | 'none';
+  matchedBy?: 'category_and_tag' | 'category' | 'category_and_task_type' | 'none';
 }
 
 export interface SleepGroupMetrics {

@@ -3,6 +3,7 @@ import { TaskItem, SleepRecord, AppSettings, TaskCategory } from '../types';
 const TASKS_KEY = 'personal_calibration_tasks_v1';
 const SLEEP_KEY = 'personal_calibration_sleep_v1';
 const SETTINGS_KEY = 'personal_calibration_settings_v1';
+export const STORAGE_SCHEMA_VERSION = 'v1';
 
 export const DEFAULT_SETTINGS: AppSettings = {
   googleCalendarConnected: false,
@@ -405,28 +406,102 @@ export function loadTasks(): TaskItem[] {
       saveTasks(sample);
       return sample;
     }
-    const parsed: TaskItem[] = JSON.parse(raw);
-    // Normalize older or legacy tasks
-    return parsed.map(t => ({
-      ...t,
-      plannedDurationMinutes: t.plannedDurationMinutes || t.estimatedDurationMinutes || 60,
-      estimatedDurationMinutes: t.estimatedDurationMinutes || t.plannedDurationMinutes || 60,
-      originalEstimatedDurationMinutes: t.originalEstimatedDurationMinutes || t.estimatedDurationMinutes || t.plannedDurationMinutes || 60,
-      originalPlannedStart: t.originalPlannedStart || t.plannedStart,
-      confidence: typeof t.confidence === 'number' ? t.confidence : 80,
-      execution: {
-        ...t.execution,
-        postponedCount: t.execution?.postponedCount || 0,
-        durationMeasurementStatus: t.execution?.durationMeasurementStatus || (t.execution?.status === 'completed' && !t.execution?.actualDurationMinutes ? 'unknown' : undefined),
-        originalScheduledDate: t.execution?.originalScheduledDate || (t.plannedStart ? t.plannedStart.split('T')[0] : getTodayStr())
-      },
-      planSource: t.planSource || (t.googleCalendarEventId ? 'google_calendar' : 'manual'),
-      predictionStatus: t.predictionStatus || 'recorded'
-    }));
+    // Parse without type assertion, then normalize
+    const parsed: any[] = JSON.parse(raw);
+    if (parsed.length === 0) {
+      return getInitialSampleTasks();
+    }
+    // Detect schema version from first task
+    const schemaVersion = (parsed[0] as any).schemaVersion || 'v0';
+    return parsed.map((t: any) => {
+      // Legacy tasks (v0) need migration
+      if (schemaVersion === 'v0') {
+        return migrateTaskV0ToV1(t);
+      }
+      // Current schema (v1) - preserve existing fields, fill missing new fields
+      return {
+        // Required TaskItem fields
+        id: t.id || t.id,
+        title: t.title || 'Untitled task',
+        category: t.category || 'Other',
+        tag: t.tag,
+        // Planned times
+        plannedStart: t.plannedStart,
+        plannedEnd: t.plannedEnd,
+        plannedDurationMinutes: t.plannedDurationMinutes,
+        // Calibration prediction
+        estimatedDurationMinutes: t.estimatedDurationMinutes,
+        confidence: typeof t.confidence === 'number' ? t.confidence : 80,
+        // New v1 fields
+        behavioralTaskType: t.behavioralTaskType || 'other',
+        originalEstimatedDurationMinutes: t.originalEstimatedDurationMinutes,
+        originalPlannedStart: t.originalPlannedStart,
+        predictionStatus: t.predictionStatus || 'recorded',
+        planSource: t.planSource || (t.googleCalendarEventId ? 'google_calendar' : 'manual'),
+        // Metadata
+        googleCalendarEventId: t.googleCalendarEventId,
+        // Preserve any existing fields
+        ...(t.realityCheck ? { realityCheck: t.realityCheck } : {}),
+        // Mark schema version
+        schemaVersion: (t as any).schemaVersion || schemaVersion
+      } as TaskItem;
+    });
   } catch (err) {
     console.error('Error loading tasks from localStorage:', err);
     return getInitialSampleTasks();
   }
+}
+
+/**
+ * Migrate a v0 task (no explicit prediction separation) to v1 schema.
+ * - originalEstimatedDurationMinutes from best available field
+ * - behavioralTaskType defaults to 'other'
+ * - planSource inferred from googleCalendarEventId
+ */
+export function migrateTaskV0ToV1(t: any): TaskItem {
+  const estFrom = t.originalEstimatedDurationMinutes
+    || t.estimatedDurationMinutes
+    || t.plannedDurationMinutes
+    || 60;
+
+  return {
+    // Required TaskItem fields
+    id: t.id,
+    title: t.title,
+    category: t.category,
+    tag: t.tag,
+    // Planned times
+    plannedStart: t.plannedStart,
+    plannedEnd: t.plannedEnd,
+    plannedDurationMinutes: t.plannedDurationMinutes,
+    // Calibration prediction
+    estimatedDurationMinutes: t.estimatedDurationMinutes,
+    confidence: typeof t.confidence === 'number' ? t.confidence : 80,
+    // New v1 fields
+    behavioralTaskType: t.behavioralTaskType || 'other',
+    originalEstimatedDurationMinutes: estFrom,
+    originalPlannedStart: t.originalPlannedStart,
+    predictionStatus: t.predictionStatus || 'recorded',
+    planSource: t.planSource || (t.googleCalendarEventId ? 'google_calendar' : 'manual'),
+    // Metadata
+    googleCalendarEventId: t.googleCalendarEventId,
+    execution: {
+      status: t.execution?.status || 'not_started',
+      postponedCount: t.execution?.postponedCount || 0,
+      actualStart: t.execution?.actualStart,
+      actualEnd: t.execution?.actualEnd,
+      actualDurationMinutes: t.execution?.actualDurationMinutes,
+      durationMeasurementStatus: t.execution?.durationMeasurementStatus,
+      originalScheduledDate: t.execution?.originalScheduledDate,
+      actualCompletionDate: t.execution?.actualCompletionDate,
+      reflection: t.execution?.reflection
+    },
+    createdAt: t.createdAt,
+    // Preserve any existing v0-specific fields
+    ...(t.realityCheck ? { realityCheck: t.realityCheck } : {}),
+    // Mark as migrated from legacy
+    schemaVersion: 'v1'
+  };
 }
 
 export function saveTasks(tasks: TaskItem[]): void {

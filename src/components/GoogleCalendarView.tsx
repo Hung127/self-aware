@@ -221,7 +221,7 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
       if (res.success) {
         const activeToken = getStoredAccessToken();
         if (activeToken) {
-          const realEvents = await fetchRealGoogleCalendarEvents(activeToken);
+          const { events: realEvents } = await fetchRealGoogleCalendarEvents(activeToken);
           saveEventsToStorage(realEvents);
         }
         showToast(`Synced! ${res.count} events retrieved from your Google Calendar account.`);

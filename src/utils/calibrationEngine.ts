@@ -13,7 +13,9 @@ import {
   WeeklyAccuracyTrend,
   AccuracyOverTimeCalibration,
   OverallCalibrationInsights,
-  RealityCheckEffectiveness
+  RealityCheckEffectiveness,
+  EvidenceLevel,
+  BehavioralTaskType
 } from '../types';
 
 export const CATEGORIES: TaskCategory[] = [
@@ -24,6 +26,33 @@ export const CATEGORIES: TaskCategory[] = [
   'Exercise',
   'Personal',
   'Other'
+];
+
+export const EVIDENCE_LEVELS: EvidenceLevel[] = ['no_pattern', 'early_pattern', 'established', 'strong_reference'];
+
+/**
+ * Maps observation count to evidence level for UI display.
+ * - 0-4: no_pattern
+ * - 5-9: early_pattern
+ * - 10-19: established
+ * - 20+: strong_reference
+ */
+export function getEvidenceLevel(observationCount: number): EvidenceLevel {
+  if (observationCount >= 20) return 'strong_reference';
+  if (observationCount >= 10) return 'established';
+  if (observationCount >= 5) return 'early_pattern';
+  return 'no_pattern';
+}
+
+/**
+ * Behavioral task type labels for Programming category.
+ * Used for reference-class filtering before ML classification.
+ */
+export const PROGRAMMING_TASK_TYPES: BehavioralTaskType[] = [
+  'implementation',
+  'debugging',
+  'testing',
+  'documentation'
 ];
 
 /** Canonical accessors keep plan, forecast, and outcome semantics consistent. */
@@ -158,9 +187,12 @@ export function calculateRescheduledPlan(
  * 1. Same category and same tag (if tag provided)
  * 2. Same category
  * 3. Otherwise return insufficient data
+ *
+ * For Programming category, behavioral task types (implementation/debugging/testing/documentation)
+ * are considered as sub-filtering before falling back to broad category match.
  */
 export function getReferenceClass(
-  taskPrediction: { category: TaskCategory; tag?: string; id?: string },
+  taskPrediction: { category: TaskCategory; tag?: string; id?: string; taskType?: BehavioralTaskType },
   allTasks: TaskItem[],
   minObservations: number = 5
 ): ReferenceClassStatistics {
@@ -189,10 +221,26 @@ export function getReferenceClass(
     }
   }
 
-  // Step 2: Category match
+  // Step 2: Category match with behavioral task type sub-filtering for Programming
   if (matchedTasks.length === 0) {
     const categoryMatches = eligibleTasks.filter(t => t.category === taskPrediction.category);
-    if (categoryMatches.length >= minObservations) {
+
+    // If Programming category, further filter by behavioral task type
+    if (taskPrediction.category === 'Programming' && taskPrediction.taskType) {
+      const typeMatches = categoryMatches.filter(
+        t => t.behavioralTaskType === taskPrediction.taskType
+      );
+      if (typeMatches.length >= minObservations) {
+        matchedTasks = typeMatches;
+        matchedBy = 'category_and_task_type';
+      } else if (typeMatches.length > 0 && categoryMatches.length >= minObservations) {
+        // Task type sample too small, fall back to broad category
+        matchedTasks = categoryMatches;
+        matchedBy = 'category';
+      }
+    }
+
+    if (matchedTasks.length === 0 && categoryMatches.length >= minObservations) {
       matchedTasks = categoryMatches;
       matchedBy = 'category';
     }

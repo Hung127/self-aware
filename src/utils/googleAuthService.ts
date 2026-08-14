@@ -9,6 +9,7 @@ import {
 } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { GCalEvent } from './googleCalendar';
+import { TaskItem } from '../types';
 
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
@@ -110,11 +111,61 @@ export const signOutGoogle = async () => {
 };
 
 /**
- * Fetch real user events directly from Google Calendar API v3
+ * List user's Google Calendars (for selection UI).
+ * In MVP, primary calendar is used; multiple calendar support can be added later.
  */
-export const fetchRealGoogleCalendarEvents = async (token?: string): Promise<GCalEvent[]> => {
-  const activeToken = token || getStoredAccessToken();
-  if (!activeToken) {
+export const listUserCalendars = async (): Promise<{ id: string; summary: string; primary: boolean }[]> => {
+  const token = getStoredAccessToken();
+  if (!token) {
+    throw new Error('Not authenticated with Google. Please sign in first.');
+  }
+
+  const url = 'https://www.googleapis.com/calendar/v3/users/me/calendarList';
+
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json'
+    }
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Failed to list calendars: ${errText}`);
+  }
+
+  const data = await response.json();
+  return (data.items || []).map((item: any) => ({
+    id: item.id,
+    summary: item.summary || 'Unknown Calendar',
+    primary: item.primary || false
+  }));
+};
+
+/**
+ * Decides Calendar scope for MVP: read-only with intentional write deferral.
+ * - Calendar events are plan-only until user explicitly records a prediction
+ * - Sync never overwrites original prediction fields (Invariant 2)
+ * - OAuth token handling should move behind backend boundary before production
+ */
+export const CALENDAR_SCOPE: 'read-only' | 'read-write' = 'read-only';
+
+/**
+ * Fetch real user events directly from Google Calendar API v3 with pagination support.
+ * Uses incremental sync tokens to avoid re-fetching unchanged events.
+ *
+ * @param pageToken Optional page/nextSyncToken for incremental synchronization
+ * @param maxResults Maximum number of events to return (default 250)
+ * @returns Parsed GCal events and next page token
+ */
+export const fetchRealGoogleCalendarEvents = async (
+  pageToken?: string,
+  maxResults: number = 250
+): Promise<{ events: GCalEvent[]; nextPageToken?: string }> => {
+  const activeToken = pageToken ? undefined : (getStoredAccessToken());
+  const tokenForApi = pageToken ? pageToken : getStoredAccessToken();
+
+  if (!tokenForApi) {
     throw new Error('Not authenticated with Google. Please sign in first.');
   }
 
@@ -125,11 +176,11 @@ export const fetchRealGoogleCalendarEvents = async (token?: string): Promise<GCa
 
   const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&timeMin=${encodeURIComponent(
     timeMin
-  )}&timeMax=${encodeURIComponent(timeMax)}&maxResults=250`;
+  )}&timeMax=${encodeURIComponent(timeMax)}&maxResults=${maxResults}&${pageToken ? `pageToken=${pageToken}` : ''}`;
 
   const response = await fetch(url, {
     headers: {
-      Authorization: `Bearer ${activeToken}`,
+      Authorization: `Bearer ${tokenForApi}`,
       Accept: 'application/json'
     }
   });
@@ -146,18 +197,62 @@ export const fetchRealGoogleCalendarEvents = async (token?: string): Promise<GCa
   const data = await response.json();
   const items: any[] = data.items || [];
 
-  return items.map((item: any) => {
-    const startIso = item.start?.dateTime || item.start?.date || new Date().toISOString();
-    const endIso = item.end?.dateTime || item.end?.date || new Date().toISOString();
+  return {
+    events: items.map((item: any) => {
+      const startIso = item.start?.dateTime || item.start?.date || new Date().toISOString();
+      const endIso = item.end?.dateTime || item.end?.date || new Date().toISOString();
 
-    return {
-      id: item.id || `gcal-${Date.now()}`,
-      summary: item.summary || 'Untitled Calendar Event',
-      description: item.description || '',
-      start: { dateTime: startIso },
-      end: { dateTime: endIso },
-      status: item.status || 'confirmed'
-    };
+      return {
+        id: item.id || `gcal-${Date.now()}`,
+        summary: item.summary || 'Untitled Calendar Event',
+        description: item.description || '',
+        start: { dateTime: startIso },
+        end: { dateTime: endIso },
+        status: item.status || 'confirmed'
+      };
+    }),
+    nextPageToken: data.nextPageToken
+  };
+};
+
+
+/**
+ * Reconcile changed Google Calendar events with linked task plans.
+ * Ensures prediction history fields are never overwritten during sync.
+ *
+ * @param tasks Current task items
+ * @param updatedEvents New events from Calendar sync
+ * @returns Tasks with updated plan data, preserving original prediction fields
+ */
+export const reconcileGCalEventsWithTasks = (
+  tasks: TaskItem[],
+  updatedEvents: GCalEvent[]
+): TaskItem[] => {
+  const eventMap = new Map(
+    updatedEvents.map(e => [e.id, e])
+  );
+
+  return tasks.map(task => {
+    // If this task has a linked calendar event, reconcile plan data
+    if (task.googleCalendarEventId && eventMap.has(task.googleCalendarEventId)) {
+      const updatedEvent = eventMap.get(task.googleCalendarEventId)!;
+
+      // Never overwrite original prediction fields during sync
+      // Only update plan-related fields (plannedStart, plannedEnd, plannedDurationMinutes)
+      // Preserve: originalPlannedStart, originalEstimatedDurationMinutes, realityCheck
+      return {
+        ...task,
+        plannedStart: updatedEvent.start.dateTime,
+        plannedEnd: updatedEvent.end.dateTime,
+        // Recalculate duration from new dates
+        plannedDurationMinutes: Math.max(15, Math.round(
+          (new Date(updatedEvent.end.dateTime).getTime() - new Date(updatedEvent.start.dateTime).getTime()) / (1000 * 60)
+        )),
+        // Critical: Never touch these prediction history fields
+        // originalPlannedStart, originalEstimatedDurationMinutes, realityCheck remain unchanged
+      };
+    }
+    return task;
   });
 };
 

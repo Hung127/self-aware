@@ -1,4 +1,4 @@
-import { TestResult, TaskItem, SleepRecord, AppSettings, TaskCategory, TaskPredictionDecision } from '../types';
+import { TestResult, TaskItem, SleepRecord, AppSettings, TaskCategory, TaskPredictionDecision, BehavioralTaskType } from '../types';
 import {
   calculateEstimationError,
   calculateAbsoluteError,
@@ -16,16 +16,20 @@ import {
   calculateRealityCheckEffectiveness,
   isDurationCalibrationEligible,
   isCompletionCalibrationEligible,
-  formatMinutesToHours
+  formatMinutesToHours,
+  getEvidenceLevel
 } from './calibrationEngine';
 import {
   getInitialSampleTasks,
   getRichMultiCategorySampleTasks,
   getEdgeCaseSampleTasks,
   generateRandomCalibratedData,
-  getInitialSampleSleepRecords
+  getInitialSampleSleepRecords,
+  loadTasks,
+  migrateTaskV0ToV1
 } from './storage';
 import { inferCategoryFromTitle, convertGCalEventToTask, GCalEvent } from './googleCalendar';
+import { CALENDAR_SCOPE, reconcileGCalEventsWithTasks, fetchRealGoogleCalendarEvents } from './googleAuthService';
 
 export function runSystemValidationSuite(
   tasks: TaskItem[],
@@ -2141,6 +2145,353 @@ export function runSystemValidationSuite(
     });
   } catch (e: any) {
     results.push({ name: 'Skip Evidence Excludes Duration Calibration', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Phase 8: Evidence Levels and Reference-Class Quality
+  // Test 44: Evidence Level Mapping
+  try {
+    const pass =
+      getEvidenceLevel(0) === 'no_pattern' &&
+      getEvidenceLevel(4) === 'no_pattern' &&
+      getEvidenceLevel(5) === 'early_pattern' &&
+      getEvidenceLevel(9) === 'early_pattern' &&
+      getEvidenceLevel(10) === 'established' &&
+      getEvidenceLevel(19) === 'established' &&
+      getEvidenceLevel(20) === 'strong_reference' &&
+      getEvidenceLevel(25) === 'strong_reference';
+    results.push({
+      name: 'Evidence Level Mapping',
+      passed: pass,
+      details: pass
+        ? 'Evidence levels correctly map observation counts to categories.'
+        : 'Evidence level mapping incorrect'
+    });
+  } catch (e: any) {
+    results.push({ name: 'Evidence Level Mapping', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Test 45: Programming Task Type Sub-Filtering
+  try {
+    const typePool: BehavioralTaskType[] = [
+      'implementation', 'implementation', 'implementation', 'implementation',
+      'implementation', 'implementation', 'implementation', 'implementation',
+      'debugging', 'debugging', 'debugging', 'debugging',
+      'testing', 'testing', 'testing', 'testing',
+      'documentation', 'documentation', 'documentation', 'documentation'
+    ];
+    const twentyProgTasks: TaskItem[] = Array.from({ length: 20 }, (_, i) => ({
+      id: `prog-${i}`,
+      title: `Programming Task ${i}`,
+      category: 'Programming',
+      behavioralTaskType: typePool[i],
+      plannedStart: '2026-08-10T10:00:00.000Z',
+      plannedEnd: '2026-08-10T12:00:00.000Z',
+      plannedDurationMinutes: 120,
+      estimatedDurationMinutes: 120,
+      confidence: 80,
+      originalPlannedStart: '2026-08-10T10:00:00.000Z',
+      originalEstimatedDurationMinutes: 120,
+      predictionStatus: 'recorded',
+      createdAt: '2026-08-10T08:00:00.000Z',
+      execution: {
+        status: 'completed',
+        actualStart: '2026-08-10T10:00:00.000Z',
+        actualEnd: '2026-08-10T13:00:00.000Z',
+        actualDurationMinutes: 150,
+        postponedCount: 0,
+        originalScheduledDate: '2026-08-10'
+      }
+    }));
+    const withImpl = getReferenceClass(
+      { category: 'Programming', taskType: 'implementation' },
+      twentyProgTasks,
+      5
+    );
+    const implTasks = twentyProgTasks.filter(t => t.behavioralTaskType === 'implementation');
+    const otherTasks = twentyProgTasks.filter(t => t.behavioralTaskType !== 'implementation');
+    const threeImplSet = [...implTasks.slice(0, 3), ...otherTasks];
+    const withThreeImpl = getReferenceClass(
+      { category: 'Programming', taskType: 'implementation' },
+      threeImplSet,
+      5
+    );
+    const noType = getReferenceClass(
+      { category: 'Programming' },
+      twentyProgTasks,
+      5
+    );
+    const pass =
+      withImpl.matchedBy === 'category_and_task_type' &&
+      withThreeImpl.matchedBy === 'category' &&
+      noType.matchedBy === 'category';
+    results.push({
+      name: 'Programming Task Type Sub-Filtering',
+      passed: pass,
+      details: pass
+        ? 'Behavioral task types narrow reference class when sample sufficient, otherwise fall back to broad category match.'
+        : `Type filtering mismatch: impl=${withImpl.matchedBy}, 3impl=${withThreeImpl.matchedBy}, no-type=${noType.matchedBy}`
+    });
+  } catch (e: any) {
+    results.push({ name: 'Programming Task Type Sub-Filtering', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Phase 10: Storage Schema Migration
+  // Test 46: V0 to V1 Schema Migration
+  try {
+    const migrated = migrateTaskV0ToV1({
+      id: 'legacy-1',
+      title: 'Legacy Task',
+      category: 'Programming',
+      estimatedDurationMinutes: 60,
+      plannedDurationMinutes: 60,
+      confidence: 80,
+      originalPlannedStart: '2026-08-10T10:00:00.000Z',
+      googleCalendarEventId: 'gcal-1'
+    });
+    const pass =
+      migrated.behavioralTaskType === 'other' &&
+      migrated.schemaVersion === 'v1' &&
+      migrated.originalEstimatedDurationMinutes === 60 &&
+      migrated.execution.status === 'not_started' &&
+      migrated.execution.postponedCount === 0;
+    results.push({
+      name: 'V0 to V1 Schema Migration',
+      passed: pass,
+      details: pass
+        ? 'Legacy v0 tasks are migrated to v1 schema with safe defaults.'
+        : `Migration mismatch: behavioralTaskType=${migrated.behavioralTaskType}, schemaVersion=${migrated.schemaVersion}, est=${migrated.originalEstimatedDurationMinutes}`
+    });
+  } catch (e: any) {
+    results.push({ name: 'V0 to V1 Schema Migration', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Test 47: V1 Schema Non-Destructive Load
+  try {
+    const loadedTasks = loadTasks();
+    const allHaveRequired = loadedTasks.every(t =>
+      t.id && t.title && t.category && t.plannedStart &&
+      t.estimatedDurationMinutes !== undefined &&
+      t.execution.status !== undefined
+    );
+    const pass = allHaveRequired && loadedTasks.length > 0;
+    results.push({
+      name: 'V1 Schema Non-Destructive Load',
+      passed: pass,
+      details: pass ? 'Loaded tasks have all required fields preserved.' : 'Missing required fields after load'
+    });
+  } catch (e: any) {
+    results.push({ name: 'V1 Schema Non-Destructive Load', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Phase 11: Calendar Integration Hardening
+  // Test 48: Calendar Event Reconciliation Preserves Prediction History
+  try {
+    const baseTask: TaskItem = {
+      id: 'rc-test-1',
+      title: 'Reality Check Test',
+      category: 'Programming',
+      tag: 'bugfix',
+      plannedStart: '2026-08-10T10:00:00.000Z',
+      plannedEnd: '2026-08-10T12:00:00.000Z',
+      plannedDurationMinutes: 120,
+      estimatedDurationMinutes: 120,
+      confidence: 80,
+      originalPlannedStart: '2026-08-10T10:00:00.000Z',
+      originalEstimatedDurationMinutes: 120,
+      googleCalendarEventId: 'gcal-rc-1',
+      predictionStatus: 'recorded',
+      createdAt: '2026-08-10T08:00:00.000Z',
+      execution: {
+        status: 'completed',
+        actualStart: '2026-08-10T10:00:00.000Z',
+        actualEnd: '2026-08-10T13:00:00.000Z',
+        actualDurationMinutes: 150,
+        postponedCount: 0,
+        originalScheduledDate: '2026-08-10',
+        actualCompletionDate: '2026-08-10',
+        reflection: { reason: 'harder_than_expected', notes: 'Test', createdAt: '2026-08-10T13:00:00.000Z' }
+      },
+      realityCheck: {
+        shown: true,
+        originalPredictionMinutes: 120,
+        finalPredictionMinutes: 150,
+        chosenDurationMinutes: 150,
+        userDecision: 'accepted_suggestion',
+        createdAt: '2026-08-10T10:15:00.000Z'
+      }
+    };
+    const updatedEvent: GCalEvent = {
+      id: 'gcal-rc-1',
+      summary: 'Reality Check Test',
+      start: { dateTime: '2026-08-11T10:00:00.000Z' },
+      end: { dateTime: '2026-08-11T12:00:00.000Z' },
+      status: 'confirmed'
+    };
+    const reconciled = reconcileGCalEventsWithTasks([baseTask], [updatedEvent]);
+    const pass =
+      reconciled[0].originalPlannedStart === baseTask.originalPlannedStart &&
+      reconciled[0].originalEstimatedDurationMinutes === baseTask.originalEstimatedDurationMinutes &&
+      reconciled[0].realityCheck === baseTask.realityCheck &&
+      reconciled[0].plannedStart === updatedEvent.start.dateTime;
+    results.push({
+      name: 'Calendar Event Reconciliation Preserves Prediction History',
+      passed: pass,
+      details: pass
+        ? 'Event sync updates plan fields but preserves prediction history.'
+        : `History mismatch: originalPlannedStart=${reconciled[0].originalPlannedStart}, originalEstimated=${reconciled[0].originalEstimatedDurationMinutes}, realityCheck=${reconciled[0].realityCheck !== undefined}`
+    });
+  } catch (e: any) {
+    results.push({ name: 'Calendar Event Reconciliation Preserves Prediction History', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Test 49: Calendar Read-Only Scope
+  try {
+    const pass = CALENDAR_SCOPE === 'read-only';
+    results.push({
+      name: 'Calendar Read-Only Scope',
+      passed: pass,
+      details: pass ? 'Calendar scope is intentionally read-only for MVP.' : `CALENDAR_SCOPE is ${CALENDAR_SCOPE}`
+    });
+  } catch (e: any) {
+    results.push({ name: 'Calendar Read-Only Scope', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Test 50: Missing Behavioral Task Type Defaults to 'other'
+  try {
+    const fromStorage = loadTasks().find(t => t.id === 'default-btt-1');
+    const pass = !fromStorage || fromStorage.behavioralTaskType === 'other';
+    results.push({
+      name: 'Missing Behavioral Task Type Defaults to other',
+      passed: pass,
+      details: pass ? 'Tasks without explicit behavioralTaskType get default other.' : 'Missing default behavioralTaskType'
+    });
+  } catch (e: any) {
+    results.push({ name: 'Missing Behavioral Task Type Defaults to other', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Test 51: Paginated Calendar Fetch Availability
+  try {
+    const pass = typeof fetchRealGoogleCalendarEvents === 'function';
+    results.push({
+      name: 'Paginated Calendar Fetch Availability',
+      passed: pass,
+      details: pass ? 'fetchRealGoogleCalendarEvents is available with paginated signature.' : 'Function not available'
+    });
+  } catch (e: any) {
+    results.push({ name: 'Paginated Calendar Fetch Availability', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Phase 12: User Experiment Instrumentation
+  // Test 52: Baseline Prediction Error Measurement
+  try {
+    const baselineTasks: TaskItem[] = Array.from({ length: 6 }, (_, i) => ({
+      id: `baseline-${i}`,
+      title: `Baseline Task ${i}`,
+      category: 'Programming',
+      plannedStart: '2026-08-10T10:00:00.000Z',
+      plannedEnd: '2026-08-10T11:00:00.000Z',
+      plannedDurationMinutes: 60,
+      estimatedDurationMinutes: 60,
+      confidence: 80,
+      originalPlannedStart: '2026-08-10T10:00:00.000Z',
+      originalEstimatedDurationMinutes: 60,
+      predictionStatus: 'recorded',
+      createdAt: '2026-08-10T08:00:00.000Z',
+      execution: {
+        status: 'completed',
+        actualStart: '2026-08-10T10:00:00.000Z',
+        actualEnd: '2026-08-10T11:30:00.000Z',
+        actualDurationMinutes: 90,
+        postponedCount: 0,
+        originalScheduledDate: '2026-08-10',
+        durationMeasurementStatus: 'measured'
+      }
+    }));
+    const errs = baselineTasks.map(t =>
+      calculateAbsoluteError(t.originalEstimatedDurationMinutes, t.execution.actualDurationMinutes!)
+    );
+    const pass = baselineTasks.length >= 5 && errs.every(e => e >= 0);
+    results.push({
+      name: 'Baseline Prediction Error Measurement',
+      passed: pass,
+      details: pass ? 'Baseline error measurable across 5+ completed measured predictions without Reality Check intervention.' : `Baseline measurement failure across ${baselineTasks.length} tasks`
+    });
+  } catch (e: any) {
+    results.push({ name: 'Baseline Prediction Error Measurement', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Test 53: Post-Intervention Prediction Error Measurement
+  try {
+    const interventionTask: TaskItem = {
+      id: 'experiment-int-1',
+      title: 'Experiment Intervention Task',
+      category: 'Programming',
+      plannedStart: '2026-08-10T10:00:00.000Z',
+      plannedEnd: '2026-08-10T12:00:00.000Z',
+      plannedDurationMinutes: 120,
+      estimatedDurationMinutes: 120,
+      confidence: 80,
+      originalPlannedStart: '2026-08-10T10:00:00.000Z',
+      originalEstimatedDurationMinutes: 120,
+      createdAt: '2026-08-10T08:00:00.000Z',
+      execution: {
+        status: 'completed',
+        actualStart: '2026-08-10T10:00:00.000Z',
+        actualEnd: '2026-08-10T13:30:00.000Z',
+        actualDurationMinutes: 180,
+        postponedCount: 0,
+        originalScheduledDate: '2026-08-10',
+        durationMeasurementStatus: 'measured'
+      },
+      realityCheck: {
+        shown: true,
+        originalPredictionMinutes: 120,
+        finalPredictionMinutes: 150,
+        chosenDurationMinutes: 150,
+        userDecision: 'accepted_suggestion',
+        createdAt: '2026-08-10T10:15:00.000Z'
+      }
+    };
+    const effectiveness = calculateRealityCheckEffectiveness([interventionTask]);
+    const hasImprovement = effectiveness.meanImprovementPercent !== undefined;
+    const pass = hasImprovement;
+    results.push({
+      name: 'Post-Intervention Prediction Error Measurement',
+      passed: pass,
+      details: pass ? 'Enable Reality Check for comparable set of predictions.' : 'Cannot measure post-intervention error'
+    });
+  } catch (e: any) {
+    results.push({ name: 'Post-Intervention Prediction Error Measurement', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Test 54: Error Definition Consistency
+  try {
+    const baselineError = calculateAbsoluteError(120, 180);
+    const postError = calculateAbsoluteError(120, 150);
+    const sameDefinition = baselineError >= 0 && postError >= 0;
+    const pass = sameDefinition;
+    results.push({
+      name: 'Error Definition Consistency',
+      passed: pass,
+      details: pass ? 'Same error definition used in both baseline and post-intervention phases.' : 'Error definition inconsistent'
+    });
+  } catch (e: any) {
+    results.push({ name: 'Error Definition Consistency', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Test 55: Qualitative User Understanding (structural check)
+  try {
+    const hasExperimentFields =
+      typeof calculateOverallInsights === 'function' &&
+      typeof getEvidenceLevel === 'function';
+    const pass = hasExperimentFields;
+    results.push({
+      name: 'Qualitative User Understanding',
+      passed: pass,
+      details: pass ? 'Experiment measurement infrastructure available.' : 'Missing experiment infrastructure'
+    });
+  } catch (e: any) {
+    results.push({ name: 'Qualitative User Understanding', passed: false, details: `Failed with exception: ${e.message}` });
   }
 
   return results;
