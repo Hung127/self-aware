@@ -29,10 +29,28 @@ export interface PostExecutionReflection {
   createdAt: string; // ISO string
 }
 
+export interface PostponementEvent {
+  postponedAt: string; // ISO string
+  fromDate: string;    // YYYY-MM-DD
+  toDate?: string;     // YYYY-MM-DD
+}
+
+export interface TaskPredictionDecision {
+  shown: boolean;
+  suggestedDurationMinutes?: number;
+  acceptedSuggestion?: boolean;
+  finalPredictionMinutes?: number;
+  originalPredictionMinutes?: number;
+  userDecision?: 'accepted_suggestion' | 'kept_original' | 'custom_adjusted';
+  chosenDurationMinutes?: number;
+  createdAt?: string;
+}
+
 export interface TaskPrediction {
   id: string;
   title: string;
   category: TaskCategory;
+  tag?: string; // Optional reference class sub-tag, e.g. "Assignment", "BugFix"
   
   // Planned times (e.g. Google Calendar schedule)
   plannedStart: string; // ISO string
@@ -46,7 +64,8 @@ export interface TaskPrediction {
   // Metadata & Calendar link
   googleCalendarEventId?: string;
   originalPlannedStart: string; // Preserved even if GCal shifts
-  originalEstimatedDurationMinutes: number; // Preserved
+  originalEstimatedDurationMinutes: number; // Immutable historical baseline
+  realityCheck?: TaskPredictionDecision; // Recorded decision when user created/edited prediction
   createdAt: string;
 }
 
@@ -56,6 +75,7 @@ export interface TaskExecution {
   actualEnd?: string;   // ISO string
   actualDurationMinutes?: number;
   postponedCount: number;
+  postponedEvents?: PostponementEvent[];
   originalScheduledDate: string; // YYYY-MM-DD
   actualCompletionDate?: string; // YYYY-MM-DD
   reflection?: PostExecutionReflection;
@@ -76,14 +96,31 @@ export interface SleepRecord {
   isShortSleep: boolean; // < 360 mins (6h)
 }
 
+export interface ReferenceClassStatistics {
+  sampleCount: number;
+  meanActualDuration: number;
+  medianActualDuration: number;
+  minActualDuration: number;
+  maxActualDuration: number;
+  meanSignedError: number;
+  medianSignedError: number;
+  meanAbsoluteError: number;
+  medianAbsoluteError: number;
+  matchedBy: 'category_and_tag' | 'category' | 'none';
+  tasks: TaskItem[];
+}
+
 export interface RealityCheckSuggestion {
   shouldWarn: boolean;
   severity: 'none' | 'small' | 'reality_check';
-  historicalAverageMinutes: number;
+  historicalAverageMinutes: number; // user-facing typical duration (median)
+  medianActualDurationMinutes: number;
+  meanActualDurationMinutes: number;
   sampleCount: number;
-  averageErrorPercent: number; // e.g. +43%
+  averageErrorPercent: number; // relative discrepancy: (medianActual - predicted) / predicted
   message: string;
   suggestedDurationMinutes: number;
+  matchedBy?: 'category_and_tag' | 'category' | 'none';
 }
 
 export interface DurationCalibration {
@@ -115,9 +152,11 @@ export interface SleepImpactCalibration {
 
 export interface ConfidenceCalibration {
   bracket: number; // e.g., 90%
+  rangeLabel: string; // e.g., "90–100%", "70–89%"
   predictedCount: number;
   successfulCount: number;
   actualSuccessRatePercent: number; // e.g., 58%
+  sampleSufficient: boolean; // >= 5 observations in bracket
 }
 
 export interface WeeklyAccuracyTrend {
@@ -135,12 +174,27 @@ export interface AccuracyOverTimeCalibration {
   recentErrorPercent?: number;
 }
 
+export interface CompletionCalibration {
+  totalEligibleCount: number;
+  completedCount: number;
+  postponedCount: number;
+  skippedCount: number;
+  sameDayCompletionRatePercent: number;
+  averageCompletionDelayDays: number;
+  categoryCompletionRates: Record<TaskCategory, {
+    total: number;
+    completed: number;
+    completionRatePercent: number;
+  }>;
+}
+
 export interface OverallCalibrationInsights {
   duration: DurationCalibration;
   startTime: StartTimeCalibration;
   sleepImpact: SleepImpactCalibration;
   confidenceBrackets: ConfidenceCalibration[];
   sameDayCompletionRatePercent: number;
+  completion: CompletionCalibration;
   accuracyOverTime: AccuracyOverTimeCalibration;
 }
 
@@ -157,3 +211,4 @@ export interface TestResult {
   passed: boolean;
   details: string;
 }
+

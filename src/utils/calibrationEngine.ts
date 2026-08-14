@@ -3,11 +3,13 @@ import {
   TaskCategory,
   SleepRecord,
   AppSettings,
+  ReferenceClassStatistics,
   RealityCheckSuggestion,
   DurationCalibration,
   StartTimeCalibration,
   SleepImpactCalibration,
   ConfidenceCalibration,
+  CompletionCalibration,
   WeeklyAccuracyTrend,
   AccuracyOverTimeCalibration,
   OverallCalibrationInsights
@@ -24,8 +26,30 @@ export const CATEGORIES: TaskCategory[] = [
 ];
 
 /**
- * Calculates percentage error between predicted and actual duration.
- * error = (actual_duration - predicted_duration) / predicted_duration
+ * Calculates arithmetic mean of a number array.
+ */
+export function calculateMean(values: number[]): number {
+  if (!values || values.length === 0) return 0;
+  const sum = values.reduce((acc, val) => acc + val, 0);
+  return sum / values.length;
+}
+
+/**
+ * Calculates statistical median of a number array.
+ */
+export function calculateMedian(values: number[]): number {
+  if (!values || values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 0) {
+    return (sorted[mid - 1] + sorted[mid]) / 2;
+  }
+  return sorted[mid];
+}
+
+/**
+ * Calculates signed percentage error between predicted and actual duration.
+ * signed_error = (actual_duration - predicted_duration) / predicted_duration
  * Example: predicted = 120 (2h), actual = 210 (3.5h) => (210 - 120)/120 = +0.75 (+75%)
  */
 export function calculateEstimationError(predictedMinutes: number, actualMinutes: number): number {
@@ -35,121 +59,273 @@ export function calculateEstimationError(predictedMinutes: number, actualMinutes
 }
 
 /**
- * Calculates absolute duration error in minutes:
- * absolute_error = abs(actual_duration - predicted_duration)
+ * Calculates relative absolute percentage error:
+ * absolute_error = abs(actual_duration - predicted_duration) / predicted_duration
  */
 export function calculateAbsoluteError(predictedMinutes: number, actualMinutes: number): number {
+  if (!predictedMinutes || predictedMinutes <= 0) return 0;
+  if (actualMinutes < 0) return 0;
+  return Math.abs(actualMinutes - predictedMinutes) / predictedMinutes;
+}
+
+/**
+ * Calculates absolute duration difference in minutes:
+ * diff = abs(actual_duration - predicted_duration)
+ */
+export function calculateAbsoluteDifferenceMinutes(predictedMinutes: number, actualMinutes: number): number {
   if (!predictedMinutes || predictedMinutes <= 0) return 0;
   if (actualMinutes < 0) return 0;
   return Math.abs(actualMinutes - predictedMinutes);
 }
 
 /**
+ * Calculates start delay in minutes against the original planned start time.
+ */
+export function calculateStartDelayMinutes(originalPlannedStart: string, actualStart: string): number {
+  if (!originalPlannedStart || !actualStart) return 0;
+  const plannedMs = new Date(originalPlannedStart).getTime();
+  const actualMs = new Date(actualStart).getTime();
+  if (isNaN(plannedMs) || isNaN(actualMs)) return 0;
+  return Math.round((actualMs - plannedMs) / (1000 * 60));
+}
+
+/**
+ * Calculates completion delay in days between original scheduled date and actual completion date.
+ */
+export function calculateCompletionDelayDays(originalScheduledDate: string, actualCompletionDate: string): number {
+  if (!originalScheduledDate || !actualCompletionDate) return 0;
+  const schedDate = new Date(originalScheduledDate).getTime();
+  const compDate = new Date(actualCompletionDate).getTime();
+  if (isNaN(schedDate) || isNaN(compDate)) return 0;
+  return Math.max(0, Math.round((compDate - schedDate) / (1000 * 60 * 60 * 24)));
+}
+
+/**
+ * Identifies and computes the Reference Class for a proposed prediction.
+ * Matching hierarchy:
+ * 1. Same category and same tag (if tag provided)
+ * 2. Same category
+ * 3. Otherwise return insufficient data
+ */
+export function getReferenceClass(
+  taskPrediction: { category: TaskCategory; tag?: string; id?: string },
+  allTasks: TaskItem[],
+  minObservations: number = 5
+): ReferenceClassStatistics {
+  // Filter eligible historical completed tasks:
+  // - status === 'completed'
+  // - actualDurationMinutes > 0
+  // - valid original prediction duration > 0
+  // - exclude current task if editing
+  const eligibleTasks = allTasks.filter(t => {
+    if (taskPrediction.id && t.id === taskPrediction.id) return false;
+    if (t.execution.status !== 'completed') return false;
+    const actualDur = t.execution.actualDurationMinutes;
+    if (!actualDur || actualDur <= 0) return false;
+    const origPred = t.originalEstimatedDurationMinutes || t.estimatedDurationMinutes;
+    if (!origPred || origPred <= 0) return false;
+    return true;
+  });
+
+  let matchedTasks: TaskItem[] = [];
+  let matchedBy: ReferenceClassStatistics['matchedBy'] = 'none';
+
+  // Step 1: Category + Tag match (if tag provided)
+  if (taskPrediction.tag && taskPrediction.tag.trim().length > 0) {
+    const cleanTag = taskPrediction.tag.trim().toLowerCase();
+    const tagMatches = eligibleTasks.filter(
+      t => t.category === taskPrediction.category && t.tag && t.tag.trim().toLowerCase() === cleanTag
+    );
+    if (tagMatches.length >= minObservations) {
+      matchedTasks = tagMatches;
+      matchedBy = 'category_and_tag';
+    }
+  }
+
+  // Step 2: Category match
+  if (matchedTasks.length === 0) {
+    const categoryMatches = eligibleTasks.filter(t => t.category === taskPrediction.category);
+    if (categoryMatches.length >= minObservations) {
+      matchedTasks = categoryMatches;
+      matchedBy = 'category';
+    }
+  }
+
+  // If no reference class met min observations
+  if (matchedTasks.length === 0) {
+    return {
+      sampleCount: 0,
+      meanActualDuration: 0,
+      medianActualDuration: 0,
+      minActualDuration: 0,
+      maxActualDuration: 0,
+      meanSignedError: 0,
+      medianSignedError: 0,
+      meanAbsoluteError: 0,
+      medianAbsoluteError: 0,
+      matchedBy: 'none',
+      tasks: []
+    };
+  }
+
+  const actualDurations = matchedTasks.map(t => t.execution.actualDurationMinutes!);
+  const signedErrors = matchedTasks.map(t => {
+    const pred = t.originalEstimatedDurationMinutes || t.estimatedDurationMinutes;
+    return calculateEstimationError(pred, t.execution.actualDurationMinutes!);
+  });
+  const absErrors = matchedTasks.map(t => {
+    const pred = t.originalEstimatedDurationMinutes || t.estimatedDurationMinutes;
+    return calculateAbsoluteError(pred, t.execution.actualDurationMinutes!);
+  });
+
+  return {
+    sampleCount: matchedTasks.length,
+    meanActualDuration: Math.round(calculateMean(actualDurations)),
+    medianActualDuration: Math.round(calculateMedian(actualDurations)),
+    minActualDuration: Math.min(...actualDurations),
+    maxActualDuration: Math.max(...actualDurations),
+    meanSignedError: calculateMean(signedErrors),
+    medianSignedError: calculateMedian(signedErrors),
+    meanAbsoluteError: calculateMean(absErrors),
+    medianAbsoluteError: calculateMedian(absErrors),
+    matchedBy,
+    tasks: matchedTasks
+  };
+}
+
+/**
  * Evaluates whether a Reality Check should be triggered for a proposed task estimate.
+ * Uses reference class median actual duration and symmetric configurable thresholds:
+ * - < 15%: no check
+ * - 15% - 30%: soft suggestion
+ * - > 30%: strong Reality Check
  */
 export function getRealityCheck(
   category: TaskCategory,
   estimatedDurationMinutes: number,
   allTasks: TaskItem[],
-  settings: AppSettings
+  settings: AppSettings,
+  tag?: string,
+  currentTaskId?: string
 ): RealityCheckSuggestion {
-  if (estimatedDurationMinutes <= 0) {
+  if (!estimatedDurationMinutes || estimatedDurationMinutes <= 0) {
     return {
       shouldWarn: false,
       severity: 'none',
       historicalAverageMinutes: 0,
+      medianActualDurationMinutes: 0,
+      meanActualDurationMinutes: 0,
       sampleCount: 0,
       averageErrorPercent: 0,
       message: 'Please enter a valid estimated duration.',
-      suggestedDurationMinutes: estimatedDurationMinutes
+      suggestedDurationMinutes: estimatedDurationMinutes || 0,
+      matchedBy: 'none'
     };
   }
 
-  // Filter completed tasks in the same category that have valid actual durations
-  const completedCategoryTasks = allTasks.filter(
-    t => t.category === category &&
-         t.execution.status === 'completed' &&
-         t.execution.actualDurationMinutes &&
-         t.execution.actualDurationMinutes > 0
+  const minObs = settings.minObservationsForRealityCheck || 5;
+  const refClass = getReferenceClass(
+    { category, tag, id: currentTaskId },
+    allTasks,
+    minObs
   );
 
-  const sampleCount = completedCategoryTasks.length;
-  const minObs = settings.minObservationsForRealityCheck || 3;
+  if (refClass.sampleCount < minObs) {
+    // Count how many eligible tasks exist for informational message
+    const eligibleInCategory = allTasks.filter(
+      t => t.category === category &&
+           t.execution.status === 'completed' &&
+           t.execution.actualDurationMinutes &&
+           t.execution.actualDurationMinutes > 0
+    ).length;
 
-  if (sampleCount < minObs) {
     return {
       shouldWarn: false,
       severity: 'none',
       historicalAverageMinutes: estimatedDurationMinutes,
-      sampleCount,
+      medianActualDurationMinutes: refClass.medianActualDuration,
+      meanActualDurationMinutes: refClass.meanActualDuration,
+      sampleCount: eligibleInCategory,
       averageErrorPercent: 0,
-      message: `Need at least ${minObs} completed ${category.toLowerCase()} tasks for calibrated reality checks (currently ${sampleCount}).`,
-      suggestedDurationMinutes: estimatedDurationMinutes
+      message: `Need at least ${minObs} completed ${category.toLowerCase()} tasks for calibrated reality checks (currently ${eligibleInCategory}).`,
+      suggestedDurationMinutes: estimatedDurationMinutes,
+      matchedBy: 'none'
     };
   }
 
-  // Calculate category multiplier (actual / estimated)
-  let totalRatio = 0;
-  completedCategoryTasks.forEach(t => {
-    const est = t.estimatedDurationMinutes || t.plannedDurationMinutes || 1;
-    const act = t.execution.actualDurationMinutes || est;
-    totalRatio += (act / est);
-  });
+  const medianActual = refClass.medianActualDuration;
+  const meanActual = refClass.meanActualDuration;
 
-  const averageRatio = totalRatio / sampleCount; // e.g. 1.43
-  const averageErrorPercent = Math.round((averageRatio - 1) * 100); // e.g. +43%
-  const historicalAverageMinutes = Math.round(estimatedDurationMinutes * averageRatio);
+  // relative discrepancy against median actual: (medianActual - estimated) / estimated
+  const difference = (medianActual - estimatedDurationMinutes) / estimatedDurationMinutes;
+  const absDifference = Math.abs(difference);
+  const diffPercent = Math.round(difference * 100);
 
-  const absError = Math.abs(averageErrorPercent);
+  const smallThresh = (settings.smallSuggestionThresholdPercent || 15) / 100;
+  const strongThresh = (settings.realityCheckThresholdPercent || 30) / 100;
 
-  if (averageErrorPercent > settings.realityCheckThresholdPercent) {
-    // Underestimated significantly
+  const tagLabel = tag ? ` (${tag})` : '';
+
+  // Case 1: < 15% -> No check
+  if (absDifference < smallThresh) {
     return {
-      shouldWarn: true,
-      severity: 'reality_check',
-      historicalAverageMinutes,
-      sampleCount,
-      averageErrorPercent,
-      message: `Similar ${category.toLowerCase()} tasks have taken you about ${formatMinutesToHours(historicalAverageMinutes)} on average (+${averageErrorPercent}% over estimate).`,
-      suggestedDurationMinutes: historicalAverageMinutes
-    };
-  } else if (averageErrorPercent > settings.smallSuggestionThresholdPercent) {
-    // Small suggestion
-    return {
-      shouldWarn: true,
-      severity: 'small',
-      historicalAverageMinutes,
-      sampleCount,
-      averageErrorPercent,
-      message: `Your estimate is slightly optimistic. Historical average for ${category.toLowerCase()} is ${formatMinutesToHours(historicalAverageMinutes)}.`,
-      suggestedDurationMinutes: historicalAverageMinutes
-    };
-  } else if (averageErrorPercent < -settings.realityCheckThresholdPercent) {
-    // Overestimated significantly
-    return {
-      shouldWarn: true,
-      severity: 'small',
-      historicalAverageMinutes,
-      sampleCount,
-      averageErrorPercent,
-      message: `You tend to overestimate ${category.toLowerCase()} tasks. Similar tasks usually take ${formatMinutesToHours(historicalAverageMinutes)}.`,
-      suggestedDurationMinutes: historicalAverageMinutes
+      shouldWarn: false,
+      severity: 'none',
+      historicalAverageMinutes: medianActual,
+      medianActualDurationMinutes: medianActual,
+      meanActualDurationMinutes: meanActual,
+      sampleCount: refClass.sampleCount,
+      averageErrorPercent: diffPercent,
+      message: `Your prediction for ${category.toLowerCase()}${tagLabel} tasks aligns closely with your historical typical duration (${formatMinutesToHours(medianActual)}).`,
+      suggestedDurationMinutes: estimatedDurationMinutes,
+      matchedBy: refClass.matchedBy
     };
   }
+
+  // Case 2: 15% - 30% -> Soft suggestion
+  if (absDifference <= strongThresh) {
+    const isUnderestimate = difference > 0;
+    const msg = isUnderestimate
+      ? `Your estimate is slightly optimistic. Historical typical duration for ${category.toLowerCase()}${tagLabel} is ${formatMinutesToHours(medianActual)} based on ${refClass.sampleCount} completed tasks.`
+      : `Your estimate is slightly conservative. Historical typical duration for ${category.toLowerCase()}${tagLabel} is ${formatMinutesToHours(medianActual)} based on ${refClass.sampleCount} completed tasks.`;
+
+    return {
+      shouldWarn: true,
+      severity: 'small',
+      historicalAverageMinutes: medianActual,
+      medianActualDurationMinutes: medianActual,
+      meanActualDurationMinutes: meanActual,
+      sampleCount: refClass.sampleCount,
+      averageErrorPercent: diffPercent,
+      message: msg,
+      suggestedDurationMinutes: medianActual,
+      matchedBy: refClass.matchedBy
+    };
+  }
+
+  // Case 3: > 30% -> Strong Reality Check
+  const isUnderestimate = difference > 0;
+  const msg = isUnderestimate
+    ? `You estimated ${formatMinutesToHours(estimatedDurationMinutes)}. Similar ${category.toLowerCase()}${tagLabel} tasks usually take you about ${formatMinutesToHours(medianActual)} (+${diffPercent}% longer than your estimate).`
+    : `You estimated ${formatMinutesToHours(estimatedDurationMinutes)}. Similar ${category.toLowerCase()}${tagLabel} tasks usually take you about ${formatMinutesToHours(medianActual)} (${diffPercent}% under your estimate).`;
 
   return {
-    shouldWarn: false,
-    severity: 'none',
-    historicalAverageMinutes,
-    sampleCount,
-    averageErrorPercent,
-    message: `Your predictions for ${category.toLowerCase()} tasks align closely with your history!`,
-    suggestedDurationMinutes: estimatedDurationMinutes
+    shouldWarn: true,
+    severity: 'reality_check',
+    historicalAverageMinutes: medianActual,
+    medianActualDurationMinutes: medianActual,
+    meanActualDurationMinutes: meanActual,
+    sampleCount: refClass.sampleCount,
+    averageErrorPercent: diffPercent,
+    message: msg,
+    suggestedDurationMinutes: medianActual,
+    matchedBy: refClass.matchedBy
   };
 }
 
 /**
  * Calculates duration calibration across all tasks and per category.
+ * Uses immutable original predictions.
  */
 export function calculateDurationCalibration(tasks: TaskItem[]): DurationCalibration {
   const completedTasks = tasks.filter(
@@ -160,7 +336,7 @@ export function calculateDurationCalibration(tasks: TaskItem[]): DurationCalibra
 
   let overallRatioSum = 0;
   completedTasks.forEach(t => {
-    const est = t.estimatedDurationMinutes || 1;
+    const est = t.originalEstimatedDurationMinutes || t.estimatedDurationMinutes || 1;
     const act = t.execution.actualDurationMinutes || est;
     overallRatioSum += (act / est);
   });
@@ -182,7 +358,7 @@ export function calculateDurationCalibration(tasks: TaskItem[]): DurationCalibra
     } else {
       let catRatioSum = 0;
       catTasks.forEach(t => {
-        const est = t.estimatedDurationMinutes || 1;
+        const est = t.originalEstimatedDurationMinutes || t.estimatedDurationMinutes || 1;
         const act = t.execution.actualDurationMinutes || est;
         catRatioSum += (act / est);
       });
@@ -191,7 +367,7 @@ export function calculateDurationCalibration(tasks: TaskItem[]): DurationCalibra
         averageErrorPercent: Math.round((mult - 1) * 100),
         multiplier: Math.round(mult * 100) / 100,
         taskCount: catTasks.length,
-        sampleSufficient: catTasks.length >= 3
+        sampleSufficient: catTasks.length >= 5
       };
     }
   });
@@ -204,7 +380,29 @@ export function calculateDurationCalibration(tasks: TaskItem[]): DurationCalibra
 }
 
 /**
- * Calculates start time delays and on-time adherence.
+ * Extracts nominal hour (0-23) from a date/time string without timezone drift issues.
+ * Supports ISO strings ("2026-08-10T19:00:00.000Z"), standard times ("19:00"), etc.
+ */
+export function getNominalHour(dateStr: string): number {
+  if (!dateStr) return 0;
+  if (dateStr.includes('T')) {
+    const timePart = dateStr.split('T')[1];
+    const hourPart = parseInt(timePart.split(':')[0], 10);
+    if (!isNaN(hourPart)) return hourPart;
+  }
+  if (dateStr.includes(':')) {
+    const hourPart = parseInt(dateStr.split(':')[0], 10);
+    if (!isNaN(hourPart)) return hourPart;
+  }
+  const d = new Date(dateStr);
+  if (!isNaN(d.getTime())) {
+    return d.getHours();
+  }
+  return 0;
+}
+
+/**
+ * Calculates start time delays and on-time adherence measured against the original planned start time.
  */
 export function calculateStartTimeCalibration(tasks: TaskItem[]): StartTimeCalibration {
   const startedTasks = tasks.filter(
@@ -226,18 +424,17 @@ export function calculateStartTimeCalibration(tasks: TaskItem[]): StartTimeCalib
   let eveningCount = 0;
 
   startedTasks.forEach(t => {
-    const plannedStart = new Date(t.plannedStart).getTime();
-    const actualStart = new Date(t.execution.actualStart!).getTime();
-    const delayMins = Math.round((actualStart - plannedStart) / (1000 * 60));
+    // Measure against original planned start if available
+    const plannedStartStr = t.originalPlannedStart || t.plannedStart;
+    const delayMins = calculateStartDelayMinutes(plannedStartStr, t.execution.actualStart!);
 
-    // Delay can be positive (late) or negative (early)
     totalDelay += Math.max(0, delayMins);
 
     if (delayMins <= 5) {
       onTimeCount++;
     }
 
-    const startHour = new Date(t.plannedStart).getHours();
+    const startHour = getNominalHour(plannedStartStr);
     if (startHour >= 18) {
       eveningDelayTotal += Math.max(0, delayMins);
       eveningCount++;
@@ -258,6 +455,8 @@ export function calculateStartTimeCalibration(tasks: TaskItem[]): StartTimeCalib
 
 /**
  * Calculates the impact of sleep duration on task completion rates.
+ * Strictly non-judgmental and evidence-focused.
+ * Requires at least 7 comparable observations per group for strong insights.
  */
 export function calculateSleepImpact(tasks: TaskItem[], sleepRecords: SleepRecord[]): SleepImpactCalibration {
   if (sleepRecords.length === 0 || tasks.length === 0) {
@@ -271,7 +470,7 @@ export function calculateSleepImpact(tasks: TaskItem[], sleepRecords: SleepRecor
     };
   }
 
-  // Create a map of date (YYYY-MM-DD) -> SleepRecord
+  // Map of date (YYYY-MM-DD) -> SleepRecord
   const sleepMap = new Map<string, SleepRecord>();
   sleepRecords.forEach(s => sleepMap.set(s.date, s));
 
@@ -304,7 +503,7 @@ export function calculateSleepImpact(tasks: TaskItem[], sleepRecords: SleepRecor
     }
   });
 
-  const hasEnoughData = (normalSleepTotalTasks >= 3 && shortSleepTotalTasks >= 2) || (shortSleepDays.size >= 1 && normalSleepDays.size >= 1);
+  const hasEnoughData = (normalSleepTotalTasks >= 7 && shortSleepTotalTasks >= 5) || (normalSleepTotalTasks >= 3 && shortSleepTotalTasks >= 2);
 
   const normalRate = normalSleepTotalTasks > 0 ? Math.round((normalSleepCompletedTasks / normalSleepTotalTasks) * 100) : 0;
   const shortRate = shortSleepTotalTasks > 0 ? Math.round((shortSleepCompletedTasks / shortSleepTotalTasks) * 100) : 0;
@@ -322,68 +521,132 @@ export function calculateSleepImpact(tasks: TaskItem[], sleepRecords: SleepRecor
 }
 
 /**
- * Calculates confidence calibration by comparing stated confidence with actual accuracy.
+ * Calculates confidence calibration by comparing stated confidence with actual outcomes.
+ * Uses standard confidence ranges:
+ * - 0–49%
+ * - 50–69%
+ * - 70–89%
+ * - 90–100%
  */
 export function calculateConfidenceCalibration(tasks: TaskItem[]): ConfidenceCalibration[] {
-  const completedTasks = tasks.filter(
-    t => t.execution.status === 'completed' && t.execution.actualDurationMinutes !== undefined
+  const eligibleTasks = tasks.filter(
+    t => t.execution.status === 'completed' || t.execution.status === 'postponed' || t.execution.status === 'skipped'
   );
 
-  const brackets = [50, 70, 80, 90, 95];
-  const results: ConfidenceCalibration[] = [];
+  const bracketsConfig = [
+    { bracket: 30, rangeLabel: '0–49%', min: 0, max: 49 },
+    { bracket: 60, rangeLabel: '50–69%', min: 50, max: 69 },
+    { bracket: 80, rangeLabel: '70–89%', min: 70, max: 89 },
+    { bracket: 95, rangeLabel: '90–100%', min: 90, max: 100 }
+  ];
 
-  brackets.forEach(bracket => {
-    // Match tasks with confidence within +/- 5%
-    const bracketTasks = completedTasks.filter(
-      t => Math.abs(t.confidence - bracket) <= 5
-    );
-
-    if (bracketTasks.length === 0) {
-      results.push({
-        bracket,
+  return bracketsConfig.map(b => {
+    const inRangeTasks = eligibleTasks.filter(t => t.confidence >= b.min && t.confidence <= b.max);
+    
+    if (inRangeTasks.length === 0) {
+      return {
+        bracket: b.bracket,
+        rangeLabel: b.rangeLabel,
         predictedCount: 0,
         successfulCount: 0,
-        actualSuccessRatePercent: 0
-      });
-      return;
+        actualSuccessRatePercent: 0,
+        sampleSufficient: false
+      };
     }
 
-    // A prediction is considered "successful" if error is <= 25% (i.e. did not wildly underestimate)
+    // A task in this bracket is successful if completed on schedule with duration error <= 25%
     let successfulCount = 0;
-    bracketTasks.forEach(t => {
-      const est = t.estimatedDurationMinutes;
-      const act = t.execution.actualDurationMinutes || est;
-      const error = (act - est) / est;
-      if (error <= 0.25) {
-        successfulCount++;
+    inRangeTasks.forEach(t => {
+      if (t.execution.status === 'completed' && t.execution.actualDurationMinutes) {
+        const est = t.originalEstimatedDurationMinutes || t.estimatedDurationMinutes;
+        const act = t.execution.actualDurationMinutes;
+        const error = (act - est) / est;
+        if (error <= 0.25) {
+          successfulCount++;
+        }
       }
     });
 
-    const successRate = Math.round((successfulCount / bracketTasks.length) * 100);
+    const successRate = Math.round((successfulCount / inRangeTasks.length) * 100);
 
-    results.push({
-      bracket,
-      predictedCount: bracketTasks.length,
+    return {
+      bracket: b.bracket,
+      rangeLabel: b.rangeLabel,
+      predictedCount: inRangeTasks.length,
       successfulCount,
-      actualSuccessRatePercent: successRate
-    });
+      actualSuccessRatePercent: successRate,
+      sampleSufficient: inRangeTasks.length >= 5
+    };
+  });
+}
+
+/**
+ * Calculates complete task completion calibration metrics.
+ */
+export function calculateCompletionCalibration(tasks: TaskItem[]): CompletionCalibration {
+  const eligibleTasks = tasks.filter(
+    t => t.execution.status === 'completed' || t.execution.status === 'postponed' || t.execution.status === 'skipped'
+  );
+
+  const completed = eligibleTasks.filter(t => t.execution.status === 'completed');
+  const postponed = eligibleTasks.filter(t => t.execution.status === 'postponed');
+  const skipped = eligibleTasks.filter(t => t.execution.status === 'skipped');
+
+  const sameDayCompleted = completed.filter(
+    t => t.execution.actualCompletionDate && t.execution.actualCompletionDate === t.execution.originalScheduledDate
+  );
+
+  const sameDayRate = eligibleTasks.length > 0
+    ? Math.round((sameDayCompleted.length / eligibleTasks.length) * 100)
+    : 100;
+
+  // Completion delay in days for completed tasks
+  let totalDelayDays = 0;
+  let delayCount = 0;
+  completed.forEach(t => {
+    if (t.execution.actualCompletionDate && t.execution.originalScheduledDate) {
+      const delay = calculateCompletionDelayDays(t.execution.originalScheduledDate, t.execution.actualCompletionDate);
+      totalDelayDays += delay;
+      delayCount++;
+    }
   });
 
-  return results;
+  const avgDelayDays = delayCount > 0 ? Math.round((totalDelayDays / delayCount) * 10) / 10 : 0;
+
+  const categoryCompletionRates: CompletionCalibration['categoryCompletionRates'] = {} as any;
+  CATEGORIES.forEach(cat => {
+    const catEligible = eligibleTasks.filter(t => t.category === cat);
+    const catCompleted = catEligible.filter(t => t.execution.status === 'completed');
+    categoryCompletionRates[cat] = {
+      total: catEligible.length,
+      completed: catCompleted.length,
+      completionRatePercent: catEligible.length > 0 ? Math.round((catCompleted.length / catEligible.length) * 100) : 0
+    };
+  });
+
+  return {
+    totalEligibleCount: eligibleTasks.length,
+    completedCount: completed.length,
+    postponedCount: postponed.length,
+    skippedCount: skipped.length,
+    sameDayCompletionRatePercent: sameDayRate,
+    averageCompletionDelayDays: avgDelayDays,
+    categoryCompletionRates
+  };
 }
 
 /**
  * Calculates same-day completion rate.
  */
 export function calculateSameDayCompletionRate(tasks: TaskItem[]): number {
-  const finishedTasks = tasks.filter(t => t.execution.status === 'completed' || t.execution.status === 'postponed');
-  if (finishedTasks.length === 0) return 100;
+  const eligible = tasks.filter(t => t.execution.status === 'completed' || t.execution.status === 'postponed' || t.execution.status === 'skipped');
+  if (eligible.length === 0) return 100;
 
-  const sameDayCompleted = finishedTasks.filter(
+  const sameDayCompleted = eligible.filter(
     t => t.execution.status === 'completed' && t.execution.actualCompletionDate === t.execution.originalScheduledDate
   );
 
-  return Math.round((sameDayCompleted.length / finishedTasks.length) * 100);
+  return Math.round((sameDayCompleted.length / eligible.length) * 100);
 }
 
 /**
@@ -407,7 +670,6 @@ export function calculateAccuracyOverTime(tasks: TaskItem[]): AccuracyOverTimeCa
     };
   }
 
-  // Group tasks into temporal chunks (e.g. by 7-day windows or sequential batches)
   const startTimeMs = new Date(completedTasks[0].plannedStart).getTime();
   const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -422,7 +684,6 @@ export function calculateAccuracyOverTime(tasks: TaskItem[]): AccuracyOverTimeCa
     buckets.get(weekIndex)!.push(task);
   });
 
-  // If all tasks are in 1 week or span is narrow, group by sequential chunks of 4-5 tasks
   const weeklyTrends: WeeklyAccuracyTrend[] = [];
 
   if (buckets.size > 1) {
@@ -433,7 +694,7 @@ export function calculateAccuracyOverTime(tasks: TaskItem[]): AccuracyOverTimeCa
       let totalAbsErrorMinutes = 0;
 
       weekTasks.forEach(t => {
-        const est = t.estimatedDurationMinutes || 1;
+        const est = t.originalEstimatedDurationMinutes || t.estimatedDurationMinutes || 1;
         const act = t.execution.actualDurationMinutes || est;
         totalPercentError += Math.abs((act - est) / est);
         totalAbsErrorMinutes += Math.abs(act - est);
@@ -450,7 +711,7 @@ export function calculateAccuracyOverTime(tasks: TaskItem[]): AccuracyOverTimeCa
       });
     });
   } else {
-    // Partition sequentially (e.g. First Half vs Second Half)
+    // Partition sequentially (First Half vs Second Half)
     const mid = Math.ceil(completedTasks.length / 2);
     const batch1 = completedTasks.slice(0, mid);
     const batch2 = completedTasks.slice(mid);
@@ -459,7 +720,7 @@ export function calculateAccuracyOverTime(tasks: TaskItem[]): AccuracyOverTimeCa
       let totalPercentError = 0;
       let totalAbsErrorMinutes = 0;
       batch.forEach(t => {
-        const est = t.estimatedDurationMinutes || 1;
+        const est = t.originalEstimatedDurationMinutes || t.estimatedDurationMinutes || 1;
         const act = t.execution.actualDurationMinutes || est;
         totalPercentError += Math.abs((act - est) / est);
         totalAbsErrorMinutes += Math.abs(act - est);
@@ -512,6 +773,7 @@ export function calculateOverallInsights(
     sleepImpact: calculateSleepImpact(tasks, sleepRecords),
     confidenceBrackets: calculateConfidenceCalibration(tasks),
     sameDayCompletionRatePercent: calculateSameDayCompletionRate(tasks),
+    completion: calculateCompletionCalibration(tasks),
     accuracyOverTime: calculateAccuracyOverTime(tasks)
   };
 }

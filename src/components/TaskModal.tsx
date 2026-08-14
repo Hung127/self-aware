@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { TaskItem, TaskCategory, AppSettings } from '../types';
+import { TaskItem, TaskCategory, AppSettings, TaskPredictionDecision } from '../types';
 import { CATEGORIES, getRealityCheck, formatMinutesToHours } from '../utils/calibrationEngine';
-import { Target, AlertTriangle, Info, Clock, X, ArrowRight } from 'lucide-react';
+import { Target, AlertTriangle, Info, Clock, X, Check, Shield } from 'lucide-react';
 
 interface TaskModalProps {
   isOpen: boolean;
@@ -26,6 +26,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
   const [title, setTitle] = useState(existingTask?.title || '');
   const [category, setCategory] = useState<TaskCategory>(existingTask?.category || 'Programming');
+  const [tag, setTag] = useState(existingTask?.tag || '');
   const [scheduledDate, setScheduledDate] = useState(
     existingTask?.plannedStart ? existingTask.plannedStart.split('T')[0] : todayStr
   );
@@ -40,25 +41,35 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     existingTask?.estimatedDurationMinutes || 120
   );
   const [confidence, setConfidence] = useState<number>(existingTask?.confidence || 80);
+  const [acceptedSuggestion, setAcceptedSuggestion] = useState<boolean | null>(
+    existingTask?.realityCheck?.acceptedSuggestion ?? null
+  );
 
   // Reality Check evaluation
-  const realityCheck = getRealityCheck(category, estimatedMinutes, allTasks, settings);
+  const realityCheck = getRealityCheck(category, estimatedMinutes, allTasks, settings, tag, existingTask?.id);
 
   useEffect(() => {
     if (existingTask) {
       setTitle(existingTask.title);
       setCategory(existingTask.category);
+      setTag(existingTask.tag || '');
       setScheduledDate(existingTask.plannedStart.split('T')[0]);
       setStartTime(new Date(existingTask.plannedStart).toTimeString().substring(0, 5));
       setEstimatedMinutes(existingTask.estimatedDurationMinutes);
       setConfidence(existingTask.confidence);
+      setAcceptedSuggestion(existingTask.realityCheck?.acceptedSuggestion ?? null);
     }
   }, [existingTask]);
 
   const handleApplySuggested = () => {
     if (realityCheck.suggestedDurationMinutes) {
       setEstimatedMinutes(realityCheck.suggestedDurationMinutes);
+      setAcceptedSuggestion(true);
     }
+  };
+
+  const handleKeepEstimate = () => {
+    setAcceptedSuggestion(false);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -70,10 +81,21 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       new Date(`${scheduledDate}T${startTime}:00.000Z`).getTime() + estimatedMinutes * 60000
     ).toISOString();
 
+    const realityCheckDecision: TaskPredictionDecision | undefined = realityCheck.shouldWarn
+      ? {
+          shown: true,
+          suggestedDurationMinutes: realityCheck.suggestedDurationMinutes,
+          acceptedSuggestion: acceptedSuggestion === true,
+          finalPredictionMinutes: estimatedMinutes,
+          createdAt: new Date().toISOString()
+        }
+      : existingTask?.realityCheck;
+
     const task: TaskItem = {
       id: existingTask?.id || `task-${Date.now()}`,
       title: title.trim(),
       category,
+      tag: tag.trim() || undefined,
       plannedStart: startDateTime,
       plannedEnd: endDateTime,
       plannedDurationMinutes: estimatedMinutes,
@@ -81,6 +103,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       confidence,
       originalPlannedStart: existingTask?.originalPlannedStart || startDateTime,
       originalEstimatedDurationMinutes: existingTask?.originalEstimatedDurationMinutes || estimatedMinutes,
+      realityCheck: realityCheckDecision,
       createdAt: existingTask?.createdAt || new Date().toISOString(),
       execution: existingTask?.execution || {
         status: 'not_started',
@@ -134,8 +157,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             />
           </div>
 
-          {/* Category & Date */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Category & Tag & Date */}
+          <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
                 Category
@@ -143,7 +166,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
               <select
                 value={category}
                 onChange={e => setCategory(e.target.value as TaskCategory)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
               >
                 {CATEGORIES.map(cat => (
                   <option key={cat} value={cat}>
@@ -155,14 +178,27 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
             <div>
               <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-                Scheduled Date
+                Sub-tag <span className="text-[10px] text-slate-400 font-normal">(Opt)</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Assignment"
+                value={tag}
+                onChange={e => setTag(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white placeholder-slate-400"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+                Date
               </label>
               <input
                 type="date"
                 value={scheduledDate}
                 onChange={e => setScheduledDate(e.target.value)}
                 required
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
               />
             </div>
           </div>
@@ -193,7 +229,10 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                   max="1440"
                   step="5"
                   value={estimatedMinutes}
-                  onChange={e => setEstimatedMinutes(Math.max(5, parseInt(e.target.value) || 0))}
+                  onChange={e => {
+                    setEstimatedMinutes(Math.max(5, parseInt(e.target.value) || 0));
+                    setAcceptedSuggestion(null);
+                  }}
                   required
                   className="w-full bg-slate-50 border border-blue-200 rounded-xl px-3.5 py-2.5 text-blue-600 font-bold text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
                 />
@@ -230,10 +269,10 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
           {/* LIVE REALITY CHECK BANNER */}
           {realityCheck.shouldWarn && (
-            <div className={`p-4 rounded-xl border space-y-2.5 transition-all ${
+            <div className={`p-4 rounded-xl border space-y-3 transition-all ${
               realityCheck.severity === 'reality_check'
-                ? 'bg-amber-50 border-amber-200 text-amber-900'
-                : 'bg-blue-50 border-blue-100 text-slate-800'
+                ? 'bg-amber-50/80 border-amber-200 text-amber-900'
+                : 'bg-blue-50/80 border-blue-100 text-slate-800'
             }`}>
               <div className="flex items-start space-x-3">
                 <div className="mt-0.5 shrink-0">
@@ -243,38 +282,59 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                     <Info className="w-5 h-5 text-blue-600" />
                   )}
                 </div>
-                <div className="space-y-1">
-                  <div className="flex items-center space-x-2">
-                    <span className="font-bold text-sm text-slate-900">Reality Check</span>
+                <div className="space-y-1 flex-1">
+                  <div className="flex items-center justify-between flex-wrap gap-1">
+                    <span className="font-bold text-sm text-slate-900">
+                      {realityCheck.severity === 'reality_check' ? 'Reality Check' : 'Historical Calibration Note'}
+                    </span>
                     <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600">
-                      Based on {realityCheck.sampleCount} past {category.toLowerCase()} tasks
+                      {realityCheck.sampleCount} similar tasks observed {realityCheck.matchedBy === 'category_and_tag' ? `(${tag})` : ''}
                     </span>
                   </div>
-                  <p className="text-xs leading-relaxed opacity-90 text-slate-700">
+                  <p className="text-xs leading-relaxed text-slate-700">
                     {realityCheck.message}
                   </p>
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between">
+              <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between flex-wrap gap-2">
                 <span className="text-xs text-slate-600">
-                  Original: <strong className="text-slate-800">{formatMinutesToHours(estimatedMinutes)}</strong> → Calibrated: <strong className="text-blue-600">{formatMinutesToHours(realityCheck.suggestedDurationMinutes)}</strong>
+                  Your estimate: <strong className="text-slate-800">{formatMinutesToHours(estimatedMinutes)}</strong> | Typical: <strong className="text-blue-600">{formatMinutesToHours(realityCheck.suggestedDurationMinutes)}</strong>
                 </span>
-                <button
-                  type="button"
-                  onClick={handleApplySuggested}
-                  className="flex items-center space-x-1.5 text-xs font-bold px-3 py-1.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-2xs"
-                >
-                  <span>Adjust to {formatMinutesToHours(realityCheck.suggestedDurationMinutes)}</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
+                
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={handleKeepEstimate}
+                    className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors ${
+                      acceptedSuggestion === false
+                        ? 'bg-slate-800 text-white border-slate-800'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    Keep my {formatMinutesToHours(estimatedMinutes)}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleApplySuggested}
+                    className={`flex items-center space-x-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors shadow-2xs ${
+                      acceptedSuggestion === true
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
+                  >
+                    {acceptedSuggestion === true && <Check className="w-3.5 h-3.5" />}
+                    <span>Adjust to {formatMinutesToHours(realityCheck.suggestedDurationMinutes)}</span>
+                  </button>
+                </div>
               </div>
             </div>
           )}
 
           {!realityCheck.shouldWarn && (
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 flex items-center space-x-2.5 text-xs">
-              <Clock className="w-4 h-4 text-slate-400 shrink-0" />
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 flex items-center space-x-2.5 text-xs">
+              <Shield className="w-4 h-4 text-slate-400 shrink-0" />
               <span>{realityCheck.message}</span>
             </div>
           )}
@@ -300,3 +360,4 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     </div>
   );
 };
+

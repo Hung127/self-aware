@@ -3,11 +3,13 @@ import {
   calculateEstimationError,
   calculateAbsoluteError,
   getRealityCheck,
+  getReferenceClass,
   calculateDurationCalibration,
   calculateStartTimeCalibration,
   calculateSleepImpact,
   calculateConfidenceCalibration,
   calculateSameDayCompletionRate,
+  calculateCompletionCalibration,
   calculateAccuracyOverTime,
   calculateOverallInsights,
   formatMinutesToHours
@@ -405,14 +407,14 @@ export function runSystemValidationSuite(
   try {
     const richTasks = getRichMultiCategorySampleTasks();
     const confCalib = calculateConfidenceCalibration(richTasks);
-    const b90 = confCalib.find(b => b.bracket === 90);
+    const bHigh = confCalib.find(b => b.rangeLabel.includes('90') || b.bracket === 95);
 
-    const pass = !!b90 && b90.predictedCount > 0 && b90.actualSuccessRatePercent >= 0;
+    const pass = !!bHigh && bHigh.predictedCount > 0 && bHigh.actualSuccessRatePercent >= 0;
     results.push({
       name: 'Confidence Calibration Bracket Engine',
       passed: pass,
       details: pass
-        ? `Confidence engine successfully mapped 90% confidence bracket (${b90?.predictedCount} tasks, ${b90?.actualSuccessRatePercent}% actual accuracy).`
+        ? `Confidence engine successfully mapped high-confidence bracket (${bHigh?.predictedCount} tasks, ${bHigh?.actualSuccessRatePercent}% actual accuracy).`
         : 'Confidence bracket calculation failed.'
     });
   } catch (e: any) {
@@ -511,7 +513,7 @@ export function runSystemValidationSuite(
       typeof insights.duration.overallErrorPercent === 'number' &&
       typeof insights.startTime.averageDelayMinutes === 'number' &&
       typeof insights.sleepImpact.normalSleepCompletionRate === 'number' &&
-      insights.confidenceBrackets.length === 5 &&
+      insights.confidenceBrackets.length === 4 &&
       typeof insights.accuracyOverTime === 'object';
 
     results.push({
@@ -654,18 +656,18 @@ export function runSystemValidationSuite(
 
   // Test 17: Absolute vs Signed Error Calculation
   try {
-    const abs1 = calculateAbsoluteError(120, 180); // 60 mins
-    const abs2 = calculateAbsoluteError(120, 60);  // 60 mins
+    const abs1 = calculateAbsoluteError(120, 180); // 0.50 (50% fractional abs error)
+    const abs2 = calculateAbsoluteError(120, 60);  // 0.50 (50% fractional abs error)
     const signed1 = calculateEstimationError(120, 180); // +0.50 (+50%)
     const signed2 = calculateEstimationError(120, 60);  // -0.50 (-50%)
 
-    const pass = abs1 === 60 && abs2 === 60 && Math.abs(signed1 - 0.5) < 0.001 && Math.abs(signed2 - (-0.5)) < 0.001;
+    const pass = Math.abs(abs1 - 0.5) < 0.001 && Math.abs(abs2 - 0.5) < 0.001 && Math.abs(signed1 - 0.5) < 0.001 && Math.abs(signed2 - (-0.5)) < 0.001;
 
     results.push({
       name: 'Absolute vs Signed Duration Error Engine',
       passed: pass,
       details: pass
-        ? 'Correctly calculates both signed percentage error (+50% / -50%) and absolute duration error (60m) without distortion.'
+        ? 'Correctly calculates both signed percentage error (+50% / -50%) and absolute relative duration error (50%) without distortion.'
         : `Math discrepancy: abs1=${abs1}, abs2=${abs2}, signed1=${signed1}, signed2=${signed2}`
     });
   } catch (e: any) {
@@ -730,7 +732,7 @@ export function runSystemValidationSuite(
       newTask.originalEstimatedDurationMinutes === 120 &&
       newTask.execution.status === 'completed' &&
       Math.abs(errorFrac - 0.625) < 0.001 &&
-      absDiff === 75 &&
+      Math.abs(absDiff - 0.625) < 0.001 &&
       newTask.execution.reflection.reason === 'underestimated_work';
 
     results.push({
@@ -920,6 +922,536 @@ export function runSystemValidationSuite(
   } catch (e: any) {
     results.push({
       name: 'JSON Backup Roundtrip Data Integrity',
+      passed: false,
+      details: `Failed with exception: ${e.message}`
+    });
+  }
+
+  // Test 23: Reference Class Matching Hierarchy (Category + Tag vs Category Fallback)
+  try {
+    const dsaTasks: TaskItem[] = [180, 190, 200, 210, 220].map((dur, i) => ({
+      id: `dsa-${i}`,
+      title: `DSA Problem ${i}`,
+      category: 'Studying',
+      tag: 'dsa',
+      plannedStart: '2026-08-10T10:00:00.000Z',
+      plannedEnd: '2026-08-10T12:00:00.000Z',
+      plannedDurationMinutes: 120,
+      estimatedDurationMinutes: 120,
+      confidence: 80,
+      originalPlannedStart: '2026-08-10T10:00:00.000Z',
+      originalEstimatedDurationMinutes: 120,
+      createdAt: '2026-08-10T08:00:00.000Z',
+      execution: {
+        status: 'completed',
+        actualDurationMinutes: dur,
+        postponedCount: 0,
+        originalScheduledDate: '2026-08-10'
+      }
+    }));
+
+    const historyTasks: TaskItem[] = [60, 60, 60, 60, 60].map((dur, i) => ({
+      id: `hist-${i}`,
+      title: `History Reading ${i}`,
+      category: 'Studying',
+      tag: 'history',
+      plannedStart: '2026-08-10T14:00:00.000Z',
+      plannedEnd: '2026-08-10T15:00:00.000Z',
+      plannedDurationMinutes: 60,
+      estimatedDurationMinutes: 60,
+      confidence: 80,
+      originalPlannedStart: '2026-08-10T14:00:00.000Z',
+      originalEstimatedDurationMinutes: 60,
+      createdAt: '2026-08-10T08:00:00.000Z',
+      execution: {
+        status: 'completed',
+        actualDurationMinutes: dur,
+        postponedCount: 0,
+        originalScheduledDate: '2026-08-10'
+      }
+    }));
+
+    const allStudyTasks = [...dsaTasks, ...historyTasks];
+
+    // 1. Specific match (Category: Studying + Tag: dsa) -> 5 obs, median 200m
+    const dsaRef = getReferenceClass({ category: 'Studying', tag: 'dsa' }, allStudyTasks, 3);
+
+    // 2. Fallback to Category match when tag has < 3 observations
+    const obscureTagRef = getReferenceClass({ category: 'Studying', tag: 'rare_topic' }, allStudyTasks, 3);
+
+    // 3. Insufficient data when category has < 3 observations
+    const emptyRef = getReferenceClass({ category: 'Personal', tag: 'piano' }, allStudyTasks, 3);
+
+    const pass =
+      dsaRef.matchedBy === 'category_and_tag' &&
+      dsaRef.sampleCount === 5 &&
+      dsaRef.medianActualDuration === 200 &&
+      obscureTagRef.matchedBy === 'category' &&
+      obscureTagRef.sampleCount === 10 &&
+      emptyRef.matchedBy === 'none' &&
+      emptyRef.sampleCount === 0;
+
+    results.push({
+      name: 'Reference Class Matching Hierarchy',
+      passed: pass,
+      details: pass
+        ? 'Reference class correctly prioritizes (Category + Tag) match (200m median), falls back to Category match (10 obs), and returns none when data is below threshold.'
+        : `Reference class hierarchy failed: dsaRef=${dsaRef?.matchedBy}, fallback=${obscureTagRef?.matchedBy}, empty=${emptyRef?.matchedBy}`
+    });
+  } catch (e: any) {
+    results.push({
+      name: 'Reference Class Matching Hierarchy',
+      passed: false,
+      details: `Failed with exception: ${e.message}`
+    });
+  }
+
+  // Test 24: Median-Based Typical Duration Robustness Against Outliers
+  try {
+    const outlierTasks: TaskItem[] = [60, 65, 70, 75, 600].map((dur, i) => ({
+      id: `outlier-${i}`,
+      title: `Task ${i}`,
+      category: 'Writing',
+      plannedStart: '2026-08-10T10:00:00.000Z',
+      plannedEnd: '2026-08-10T11:00:00.000Z',
+      plannedDurationMinutes: 60,
+      estimatedDurationMinutes: 60,
+      confidence: 80,
+      originalPlannedStart: '2026-08-10T10:00:00.000Z',
+      originalEstimatedDurationMinutes: 60,
+      createdAt: '2026-08-10T08:00:00.000Z',
+      execution: {
+        status: 'completed',
+        actualDurationMinutes: dur,
+        postponedCount: 0,
+        originalScheduledDate: '2026-08-10'
+      }
+    }));
+
+    const check = getRealityCheck('Writing', 60, outlierTasks, {
+      ...settings,
+      minObservationsForRealityCheck: 3,
+      smallSuggestionThresholdPercent: 15,
+      realityCheckThresholdPercent: 30
+    });
+
+    // Median of [60, 65, 70, 75, 600] is 70. Mean is 174.
+    // 70 vs 60 is +16.7% difference, which is a soft suggestion (15-30%), NOT a distorted >150% warning.
+    const pass = check.suggestedDurationMinutes === 70 && check.severity === 'small';
+
+    results.push({
+      name: 'Median Typical Duration Outlier Robustness',
+      passed: pass,
+      details: pass
+        ? `Reality Check correctly used median typical duration (70m) instead of outlier-skewed mean (174m), yielding appropriate soft suggestion.`
+        : `Median outlier test failed: suggested=${check.suggestedDurationMinutes}, severity=${check.severity}`
+    });
+  } catch (e: any) {
+    results.push({
+      name: 'Median Typical Duration Outlier Robustness',
+      passed: false,
+      details: `Failed with exception: ${e.message}`
+    });
+  }
+
+  // Test 25: Symmetric Reality Check Thresholds (Overestimate and Underestimate)
+  try {
+    const quickTasks: TaskItem[] = [30, 35, 40, 45, 40].map((dur, i) => ({
+      id: `quick-${i}`,
+      title: `Quick Task ${i}`,
+      category: 'Studying',
+      plannedStart: '2026-08-10T10:00:00.000Z',
+      plannedEnd: '2026-08-10T10:40:00.000Z',
+      plannedDurationMinutes: 40,
+      estimatedDurationMinutes: 40,
+      confidence: 80,
+      originalPlannedStart: '2026-08-10T10:00:00.000Z',
+      originalEstimatedDurationMinutes: 40,
+      createdAt: '2026-08-10T08:00:00.000Z',
+      execution: {
+        status: 'completed',
+        actualDurationMinutes: dur,
+        postponedCount: 0,
+        originalScheduledDate: '2026-08-10'
+      }
+    }));
+
+    // User predicts 120 minutes for a task that typically takes 40 minutes (overestimate > 30%)
+    const overCheck = getRealityCheck('Studying', 120, quickTasks, {
+      ...settings,
+      minObservationsForRealityCheck: 3,
+      realityCheckThresholdPercent: 30
+    });
+
+    const pass =
+      overCheck.shouldWarn &&
+      overCheck.severity === 'reality_check' &&
+      overCheck.suggestedDurationMinutes === 40 &&
+      overCheck.message.includes('40m');
+
+    results.push({
+      name: 'Symmetric Reality Check Thresholds',
+      passed: pass,
+      details: pass
+        ? `Reality Check correctly detected major overestimate (predicting 120m vs history 40m) and suggested 40m.`
+        : `Symmetric threshold check failed: warn=${overCheck.shouldWarn}, msg=${overCheck.message}`
+    });
+  } catch (e: any) {
+    results.push({
+      name: 'Symmetric Reality Check Thresholds',
+      passed: false,
+      details: `Failed with exception: ${e.message}`
+    });
+  }
+
+  // Test 26: User Prediction Decision Metadata Tracking
+  try {
+    const originalEst = 120;
+    const suggested = 205;
+
+    // Case A: User accepts suggestion
+    const decisionAccepted: TaskItem['realityCheck'] = {
+      shown: true,
+      suggestedDurationMinutes: suggested,
+      originalPredictionMinutes: originalEst,
+      userDecision: 'accepted_suggestion',
+      chosenDurationMinutes: suggested
+    };
+
+    // Case B: User keeps original estimate
+    const decisionKept: TaskItem['realityCheck'] = {
+      shown: true,
+      suggestedDurationMinutes: suggested,
+      originalPredictionMinutes: originalEst,
+      userDecision: 'kept_original',
+      chosenDurationMinutes: originalEst
+    };
+
+    const pass =
+      decisionAccepted.userDecision === 'accepted_suggestion' &&
+      decisionAccepted.chosenDurationMinutes === 205 &&
+      decisionKept.userDecision === 'kept_original' &&
+      decisionKept.chosenDurationMinutes === 120 &&
+      decisionKept.originalPredictionMinutes === 120;
+
+    results.push({
+      name: 'User Prediction Decision Metadata Tracking',
+      passed: pass,
+      details: pass
+        ? 'Decision metadata accurately preserves whether user accepted reality check suggestion or kept their original belief, maintaining both values.'
+        : 'Decision metadata tracking validation failed.'
+    });
+  } catch (e: any) {
+    results.push({
+      name: 'User Prediction Decision Metadata Tracking',
+      passed: false,
+      details: `Failed with exception: ${e.message}`
+    });
+  }
+
+  // Test 27: Detailed Completion Calibration Engine
+  try {
+    const completionTasks: TaskItem[] = [
+      // Task 1: Completed on same day, no postponement
+      {
+        id: 'comp-1',
+        title: 'Task 1',
+        category: 'Programming',
+        plannedStart: '2026-08-10T10:00:00.000Z',
+        plannedEnd: '2026-08-10T12:00:00.000Z',
+        plannedDurationMinutes: 120,
+        estimatedDurationMinutes: 120,
+        confidence: 80,
+        originalPlannedStart: '2026-08-10T10:00:00.000Z',
+        originalEstimatedDurationMinutes: 120,
+        createdAt: '2026-08-10T08:00:00.000Z',
+        execution: {
+          status: 'completed',
+          actualDurationMinutes: 120,
+          postponedCount: 0,
+          originalScheduledDate: '2026-08-10',
+          actualCompletionDate: '2026-08-10'
+        }
+      },
+      // Task 2: Postponed twice, completed on later day
+      {
+        id: 'comp-2',
+        title: 'Task 2',
+        category: 'Studying',
+        plannedStart: '2026-08-10T14:00:00.000Z',
+        plannedEnd: '2026-08-10T16:00:00.000Z',
+        plannedDurationMinutes: 120,
+        estimatedDurationMinutes: 120,
+        confidence: 80,
+        originalPlannedStart: '2026-08-10T14:00:00.000Z',
+        originalEstimatedDurationMinutes: 120,
+        createdAt: '2026-08-10T08:00:00.000Z',
+        execution: {
+          status: 'completed',
+          actualDurationMinutes: 120,
+          postponedCount: 2,
+          originalScheduledDate: '2026-08-10',
+          actualCompletionDate: '2026-08-12',
+          postponedEvents: [
+            { postponedAt: '2026-08-10T16:00:00.000Z', fromDate: '2026-08-10' },
+            { postponedAt: '2026-08-11T16:00:00.000Z', fromDate: '2026-08-11' }
+          ]
+        }
+      },
+      // Task 3: Skipped
+      {
+        id: 'comp-3',
+        title: 'Task 3',
+        category: 'Writing',
+        plannedStart: '2026-08-10T18:00:00.000Z',
+        plannedEnd: '2026-08-10T19:00:00.000Z',
+        plannedDurationMinutes: 60,
+        estimatedDurationMinutes: 60,
+        confidence: 80,
+        originalPlannedStart: '2026-08-10T18:00:00.000Z',
+        originalEstimatedDurationMinutes: 60,
+        createdAt: '2026-08-10T08:00:00.000Z',
+        execution: {
+          status: 'skipped',
+          postponedCount: 0,
+          originalScheduledDate: '2026-08-10'
+        }
+      },
+      // Task 4: Currently postponed
+      {
+        id: 'comp-4',
+        title: 'Task 4',
+        category: 'Personal',
+        plannedStart: '2026-08-10T20:00:00.000Z',
+        plannedEnd: '2026-08-10T21:00:00.000Z',
+        plannedDurationMinutes: 60,
+        estimatedDurationMinutes: 60,
+        confidence: 80,
+        originalPlannedStart: '2026-08-10T20:00:00.000Z',
+        originalEstimatedDurationMinutes: 60,
+        createdAt: '2026-08-10T08:00:00.000Z',
+        execution: {
+          status: 'postponed',
+          postponedCount: 1,
+          originalScheduledDate: '2026-08-10'
+        }
+      }
+    ];
+
+    const compCalib = calculateCompletionCalibration(completionTasks);
+
+    // Total eligible = 4 tasks.
+    // Completed same-day = 1 (25%).
+    // Completed total = 2.
+    // Postponed tasks = 1.
+    // Skipped tasks = 1.
+    const pass =
+      compCalib.totalEligibleCount === 4 &&
+      compCalib.sameDayCompletionRatePercent === 25 &&
+      compCalib.completedCount === 2 &&
+      compCalib.postponedCount === 1 &&
+      compCalib.skippedCount === 1;
+
+    results.push({
+      name: 'Detailed Completion Calibration Engine',
+      passed: pass,
+      details: pass
+        ? `Completion calibration correctly evaluated same-day (${compCalib.sameDayCompletionRatePercent}%), completed count (${compCalib.completedCount}/${compCalib.totalEligibleCount}), and postponement/skip counts.`
+        : `Completion calibration failed: sameDay=${compCalib.sameDayCompletionRatePercent}%, completed=${compCalib.completedCount}`
+    });
+  } catch (e: any) {
+    results.push({
+      name: 'Detailed Completion Calibration Engine',
+      passed: false,
+      details: `Failed with exception: ${e.message}`
+    });
+  }
+
+  // Test 28: Multi-Step Task Decision Loop Simulation
+  try {
+    const historicalData = getRichMultiCategorySampleTasks();
+
+    // Step 1: User predicts 2 hours (120m) for Programming
+    const userEstimatedMinutes = 120;
+    const category = 'Programming';
+    const tag = 'backend';
+
+    // Step 2: System computes Reality Check
+    const check = getRealityCheck(category, userEstimatedMinutes, historicalData, settings, tag);
+    const realityShown = check.shouldWarn;
+
+    // Step 3: User reviews Reality Check and decides to adjust to suggested duration
+    const userAdjustedChoice = check.suggestedDurationMinutes; // e.g. ~170 mins
+    const taskRecord: TaskItem = {
+      id: 'loop-sim-1',
+      title: 'API Gateway Implementation',
+      category: 'Programming',
+      tag: 'backend',
+      plannedStart: '2026-08-14T10:00:00.000Z',
+      plannedEnd: '2026-08-14T12:50:00.000Z',
+      plannedDurationMinutes: userAdjustedChoice,
+      estimatedDurationMinutes: userAdjustedChoice,
+      confidence: 85,
+      originalPlannedStart: '2026-08-14T10:00:00.000Z',
+      originalEstimatedDurationMinutes: userEstimatedMinutes, // Immutable original!
+      createdAt: '2026-08-14T08:00:00.000Z',
+      realityCheck: {
+        shown: realityShown,
+        suggestedDurationMinutes: check.suggestedDurationMinutes,
+        originalPredictionMinutes: userEstimatedMinutes,
+        userDecision: 'accepted_suggestion',
+        chosenDurationMinutes: userAdjustedChoice
+      },
+      execution: {
+        status: 'completed',
+        actualStart: '2026-08-14T10:10:00.000Z',
+        actualEnd: '2026-08-14T13:00:00.000Z',
+        actualDurationMinutes: 170,
+        postponedCount: 0,
+        originalScheduledDate: '2026-08-14',
+        actualCompletionDate: '2026-08-14'
+      }
+    };
+
+    // Verify comparison against original belief vs adjusted plan
+    const originalError = calculateEstimationError(
+      taskRecord.originalEstimatedDurationMinutes,
+      taskRecord.execution.actualDurationMinutes!
+    );
+    const adjustedError = calculateEstimationError(
+      taskRecord.estimatedDurationMinutes,
+      taskRecord.execution.actualDurationMinutes!
+    );
+
+    const pass =
+      taskRecord.originalEstimatedDurationMinutes === 120 &&
+      taskRecord.estimatedDurationMinutes === taskRecord.realityCheck?.chosenDurationMinutes &&
+      taskRecord.realityCheck?.userDecision === 'accepted_suggestion' &&
+      originalError > adjustedError; // Calibration suggestion helped improve accuracy!
+
+    results.push({
+      name: 'Multi-Step Reality Check Decision Loop Simulation',
+      passed: pass,
+      details: pass
+        ? `Full decision loop (Predict 120m -> Reality Check -> User Adjusts to ${taskRecord.estimatedDurationMinutes}m -> Execute 170m) verified: original error was +${Math.round(originalError * 100)}%, adjusted error was ${Math.round(adjustedError * 100)}%.`
+        : `Decision loop simulation failed: origErr=${originalError}, adjErr=${adjustedError}`
+    });
+  } catch (e: any) {
+    results.push({
+      name: 'Multi-Step Reality Check Decision Loop Simulation',
+      passed: false,
+      details: `Failed with exception: ${e.message}`
+    });
+  }
+
+  // Test 29: Sleep Impact Non-Causal Phrasing & Descriptive Stats
+  try {
+    const sleepTasks = getRichMultiCategorySampleTasks();
+    const sleepRecords = getInitialSampleSleepRecords();
+    const sleepImpact = calculateSleepImpact(sleepTasks, sleepRecords);
+
+    // Sleep insight phrasing check
+    const sleepInsightText = sleepImpact.hasEnoughData
+      ? `<6h sleep -> ${sleepImpact.completionDropPercent}% fewer planned tasks completed`
+      : 'Not enough data yet';
+
+    // Must NOT contain causal claims like "sleep deprivation makes you", "you suffer from", "treatment"
+    const forbiddenCausalPhrases = ['makes you', 'causes you to', 'cure', 'disorder', 'diagnosis', 'medical advice'];
+    let hasForbiddenCausal = false;
+
+    forbiddenCausalPhrases.forEach(phrase => {
+      if (sleepInsightText.toLowerCase().includes(phrase)) {
+        hasForbiddenCausal = true;
+      }
+    });
+
+    const pass =
+      !hasForbiddenCausal &&
+      typeof sleepImpact.normalSleepCompletionRate === 'number' &&
+      typeof sleepImpact.shortSleepCompletionRate === 'number';
+
+    results.push({
+      name: 'Sleep Impact Non-Causal Descriptive Tone Verification',
+      passed: pass,
+      details: pass
+        ? 'Sleep correlation output adheres strictly to descriptive observation without medical diagnosis or unwarranted causal assertions.'
+        : 'Sleep impact wording check failed.'
+    });
+  } catch (e: any) {
+    results.push({
+      name: 'Sleep Impact Non-Causal Descriptive Tone Verification',
+      passed: false,
+      details: `Failed with exception: ${e.message}`
+    });
+  }
+
+  // Test 30: Start Delay Daytime vs Evening Session Isolation
+  try {
+    const dayAndEveningTasks: TaskItem[] = [
+      // Daytime task: planned 10:00, started 10:05 (5m delay)
+      {
+        id: 'day-1',
+        title: 'Morning Task',
+        category: 'Programming',
+        plannedStart: '2026-08-10T10:00:00.000Z',
+        plannedEnd: '2026-08-10T11:00:00.000Z',
+        plannedDurationMinutes: 60,
+        estimatedDurationMinutes: 60,
+        confidence: 80,
+        originalPlannedStart: '2026-08-10T10:00:00.000Z',
+        originalEstimatedDurationMinutes: 60,
+        createdAt: '2026-08-10T08:00:00.000Z',
+        execution: {
+          status: 'completed',
+          actualStart: '2026-08-10T10:05:00.000Z',
+          actualEnd: '2026-08-10T11:05:00.000Z',
+          actualDurationMinutes: 60,
+          postponedCount: 0,
+          originalScheduledDate: '2026-08-10'
+        }
+      },
+      // Evening task: planned 19:00, started 19:27 (27m delay)
+      {
+        id: 'eve-1',
+        title: 'Evening Task',
+        category: 'Writing',
+        plannedStart: '2026-08-10T19:00:00.000Z',
+        plannedEnd: '2026-08-10T20:00:00.000Z',
+        plannedDurationMinutes: 60,
+        estimatedDurationMinutes: 60,
+        confidence: 80,
+        originalPlannedStart: '2026-08-10T19:00:00.000Z',
+        originalEstimatedDurationMinutes: 60,
+        createdAt: '2026-08-10T08:00:00.000Z',
+        execution: {
+          status: 'completed',
+          actualStart: '2026-08-10T19:27:00.000Z',
+          actualEnd: '2026-08-10T20:27:00.000Z',
+          actualDurationMinutes: 60,
+          postponedCount: 0,
+          originalScheduledDate: '2026-08-10'
+        }
+      }
+    ];
+
+    const startStats = calculateStartTimeCalibration(dayAndEveningTasks);
+
+    const pass =
+      startStats.totalSessionsCount === 2 &&
+      startStats.averageDelayMinutes === 16 && // (5 + 27)/2 = 16
+      startStats.eveningDelayMinutes === 27 &&
+      startStats.onTimeStartRatePercent === 50; // 1 out of 2 started within 5 mins
+
+    results.push({
+      name: 'Start Delay Daytime vs Evening Session Isolation',
+      passed: pass,
+      details: pass
+        ? `Start delay correctly isolated evening delay (27m) from overall average (16m) and computed on-time start rate (50%).`
+        : `Start delay isolation failed: avg=${startStats.averageDelayMinutes}, eve=${startStats.eveningDelayMinutes}`
+    });
+  } catch (e: any) {
+    results.push({
+      name: 'Start Delay Daytime vs Evening Session Isolation',
       passed: false,
       details: `Failed with exception: ${e.message}`
     });

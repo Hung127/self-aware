@@ -270,18 +270,18 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
 
             {/* Headline */}
             {(() => {
-              const ninety = confidenceBrackets.find(b => b.bracket === 90);
+              const ninety = confidenceBrackets.find(b => b.bracket === 95 || b.rangeLabel.includes('90'));
               const rate = ninety && ninety.predictedCount > 0 ? ninety.actualSuccessRatePercent : 58;
               return (
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
-                    Confidence Overestimation
+                    High Confidence Outcome
                   </span>
                   <p className="text-base font-bold text-blue-600">
-                    Your 90% confidence predictions succeed {rate}% of the time.
+                    Your 90%+ confidence predictions succeed {rate}% of the time.
                   </p>
                   <span className="text-[11px] text-slate-400 block">
-                    Exposes overconfidence without judgement
+                    Evidence-based reflection on high-certainty predictions
                   </span>
                 </div>
               );
@@ -294,11 +294,11 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
               </span>
               <div className="space-y-1.5">
                 {confidenceBrackets.map(b => (
-                  <div key={b.bracket} className="flex items-center justify-between text-xs p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-                    <span className="font-semibold text-slate-800">{b.bracket}% Stated Confidence</span>
+                  <div key={b.rangeLabel} className="flex items-center justify-between text-xs p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                    <span className="font-semibold text-slate-800">{b.rangeLabel} Stated Confidence</span>
                     <div className="flex items-center space-x-2">
                       <span className="text-slate-400">({b.predictedCount} tasks)</span>
-                      <span className={`font-bold ${b.actualSuccessRatePercent >= b.bracket ? 'text-emerald-600' : 'text-amber-600'}`}>
+                      <span className={`font-bold ${b.predictedCount === 0 ? 'text-slate-400' : b.actualSuccessRatePercent >= 70 ? 'text-emerald-600' : 'text-amber-600'}`}>
                         {b.predictedCount > 0 ? `${b.actualSuccessRatePercent}% actual` : 'No data'}
                       </span>
                     </div>
