@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TaskItem, SleepRecord, AppSettings, TaskCategory } from '../types';
+import { TaskItem, SleepRecord, AppSettings, TaskCategory, SkipReason } from '../types';
 import type { TaskFormDefaults } from './TaskModal';
 import { CATEGORIES, getRealityCheck, formatMinutesToHours, getHistoricalCalibrationBaseline } from '../utils/calibrationEngine';
 import {
@@ -141,8 +141,17 @@ export const TodayView: React.FC<TodayViewProps> = ({
   };
 
   const handleSkipTask = (task: TaskItem) => {
+    const reasonInput = window.prompt(
+      'Optional skip reason: too_tired, forgot, harder_than_expected, something_more_important, unexpected_event, did_not_feel_like_it, or other',
+      ''
+    )?.trim() as SkipReason | undefined;
+    const validReasons: SkipReason[] = [
+      'too_tired', 'forgot', 'harder_than_expected', 'something_more_important',
+      'unexpected_event', 'did_not_feel_like_it', 'other'
+    ];
     onUpdateTaskExecution(task.id, {
-      status: 'skipped'
+      status: 'skipped',
+      skipReason: reasonInput && validReasons.includes(reasonInput) ? reasonInput : undefined
     });
   };
 

@@ -31,6 +31,7 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
   const startTimeData = insights.startTime;
   const sleepData = insights.sleepImpact;
   const confidenceBrackets = insights.confidenceBrackets;
+  const realityCheckData = insights.realityCheckEffectiveness;
 
   // Find strongest recurring category pattern (requires >= 5 completed observations)
   let maxPatternCat = '';
@@ -81,8 +82,56 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
       </div>
 
        {/* Evidence hierarchy: strongest pattern first, supporting observations below. */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* CARD 1: TASK DURATION CALIBRATION */}
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+         {/* CARD: REALITY CHECK EFFECTIVENESS */}
+         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs flex flex-col justify-between space-y-5 md:col-span-2">
+           <div className="space-y-4">
+             <div className="flex items-center justify-between">
+               <div className="flex items-center space-x-2.5">
+                 <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600">
+                   <TrendingUp className="w-5 h-5" />
+                 </div>
+                 <div>
+                   <h2 className="font-bold text-lg text-slate-900">Reality Check Effectiveness</h2>
+                   <p className="text-xs text-slate-500">Did the final planning estimate get closer to actual execution?</p>
+                 </div>
+               </div>
+               <span className="text-xs text-slate-500 font-semibold bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
+                 {realityCheckData.eligibleTaskCount} evaluated
+               </span>
+             </div>
+             {realityCheckData.hasEnoughData ? (
+               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                   <span className="text-[11px] text-slate-500 block">Original error</span>
+                   <strong className="text-xl text-slate-900">{realityCheckData.meanOriginalAbsoluteErrorPercent}%</strong>
+                 </div>
+                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                   <span className="text-[11px] text-slate-500 block">Final-plan error</span>
+                   <strong className="text-xl text-slate-900">{realityCheckData.meanFinalPlanAbsoluteErrorPercent}%</strong>
+                 </div>
+                 <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-100">
+                   <span className="text-[11px] text-emerald-700 block">Mean improvement</span>
+                   <strong className={`text-xl ${realityCheckData.meanImprovementPercent >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                     {realityCheckData.meanImprovementPercent > 0 ? '+' : ''}{realityCheckData.meanImprovementPercent}%
+                   </strong>
+                 </div>
+                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                   <span className="text-[11px] text-slate-500 block">Outcomes</span>
+                   <strong className="text-sm text-slate-900">{realityCheckData.improvedTaskCount} improved / {realityCheckData.worsenedTaskCount} worsened</strong>
+                 </div>
+               </div>
+             ) : (
+               <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-600">
+                 Record at least 5 completed tasks where Reality Check was shown to measure whether the intervention improves forecast accuracy.
+               </div>
+             )}
+           </div>
+           <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-3">
+             Positive improvement means the final planning estimate was closer to actual duration. This is separate from general calibration accuracy.
+           </div>
+         </div>
+         {/* CARD 1: TASK DURATION CALIBRATION */}
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xs flex flex-col justify-between space-y-5">
           <div className="space-y-4">
             <div className="flex items-center justify-between">

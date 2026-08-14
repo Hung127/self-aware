@@ -12,7 +12,8 @@ import {
   CompletionCalibration,
   WeeklyAccuracyTrend,
   AccuracyOverTimeCalibration,
-  OverallCalibrationInsights
+  OverallCalibrationInsights,
+  RealityCheckEffectiveness
 } from '../types';
 
 export const CATEGORIES: TaskCategory[] = [
@@ -48,7 +49,8 @@ export function isDurationCalibrationEligible(task: TaskItem): boolean {
 }
 
 export function isCompletionCalibrationEligible(task: TaskItem): boolean {
-  return task.predictionStatus !== 'not_recorded' && task.execution.status !== 'not_started';
+  return task.predictionStatus !== 'not_recorded' &&
+    (task.execution.status === 'completed' || task.execution.status === 'postponed' || task.execution.status === 'skipped');
 }
 
 /**
@@ -872,6 +874,37 @@ export function calculateAccuracyOverTime(tasks: TaskItem[]): AccuracyOverTimeCa
   };
 }
 
+/** Compares original and post-Reality-Check forecasts without changing history. */
+export function calculateRealityCheckEffectiveness(tasks: TaskItem[]): RealityCheckEffectiveness {
+  const eligible = tasks.filter(task =>
+    isDurationCalibrationEligible(task) &&
+    task.realityCheck?.shown === true &&
+    !!task.realityCheck.originalPredictionMinutes &&
+    !!task.realityCheck.finalPredictionMinutes
+  );
+
+  const originalErrors = eligible.map(task => calculateAbsoluteError(
+    task.realityCheck!.originalPredictionMinutes!,
+    task.execution.actualDurationMinutes!
+  ));
+  const finalErrors = eligible.map(task => calculateAbsoluteError(
+    task.realityCheck!.finalPredictionMinutes!,
+    task.execution.actualDurationMinutes!
+  ));
+  const improvements = originalErrors.map((error, index) => error - finalErrors[index]);
+
+  return {
+    eligibleTaskCount: eligible.length,
+    improvedTaskCount: improvements.filter(value => value > 0).length,
+    unchangedTaskCount: improvements.filter(value => value === 0).length,
+    worsenedTaskCount: improvements.filter(value => value < 0).length,
+    meanOriginalAbsoluteErrorPercent: Math.round(calculateMean(originalErrors) * 100),
+    meanFinalPlanAbsoluteErrorPercent: Math.round(calculateMean(finalErrors) * 100),
+    meanImprovementPercent: Math.round(calculateMean(improvements) * 100),
+    hasEnoughData: eligible.length >= 5
+  };
+}
+
 /**
  * Helper to compute full insights object.
  */
@@ -886,7 +919,8 @@ export function calculateOverallInsights(
     confidenceBrackets: calculateConfidenceCalibration(tasks),
     sameDayCompletionRatePercent: calculateSameDayCompletionRate(tasks),
     completion: calculateCompletionCalibration(tasks),
-    accuracyOverTime: calculateAccuracyOverTime(tasks)
+    accuracyOverTime: calculateAccuracyOverTime(tasks),
+    realityCheckEffectiveness: calculateRealityCheckEffectiveness(tasks)
   };
 }
 

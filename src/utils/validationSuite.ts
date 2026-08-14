@@ -13,6 +13,9 @@ import {
   calculateAccuracyOverTime,
   calculateRescheduledPlan,
   calculateOverallInsights,
+  calculateRealityCheckEffectiveness,
+  isDurationCalibrationEligible,
+  isCompletionCalibrationEligible,
   formatMinutesToHours
 } from './calibrationEngine';
 import {
@@ -2056,6 +2059,61 @@ export function runSystemValidationSuite(
       passed: false,
       details: `Failed with exception: ${e.message}`
     });
+  }
+
+  // Release 2 invariant: Reality Check effectiveness compares original and final forecasts separately.
+  try {
+    const base = tasks.find(t => t.execution.status === 'completed' && t.execution.actualDurationMinutes);
+    if (!base) throw new Error('No completed task available for effectiveness test');
+    const interventionTask: TaskItem = {
+      ...base,
+      id: `${base.id}-reality-check-effectiveness`,
+      originalEstimatedDurationMinutes: 100,
+      estimatedDurationMinutes: 200,
+      execution: { ...base.execution, actualDurationMinutes: 180, durationMeasurementStatus: 'measured' },
+      realityCheck: {
+        shown: true,
+        originalPredictionMinutes: 100,
+        finalPredictionMinutes: 200,
+        chosenDurationMinutes: 200,
+        userDecision: 'accepted_suggestion',
+        createdAt: new Date().toISOString()
+      }
+    };
+    const effectiveness = calculateRealityCheckEffectiveness([interventionTask]);
+    const pass = effectiveness.eligibleTaskCount === 1 &&
+      effectiveness.meanOriginalAbsoluteErrorPercent === 80 &&
+      effectiveness.meanFinalPlanAbsoluteErrorPercent === 10 &&
+      effectiveness.meanImprovementPercent === 70 &&
+      effectiveness.improvedTaskCount === 1;
+    results.push({
+      name: 'Reality Check Effectiveness Metric',
+      passed: pass,
+      details: pass ? 'Original error (80%) and final-plan error (10%) were measured independently.' : `Effectiveness mismatch: ${JSON.stringify(effectiveness)}`
+    });
+  } catch (e: any) {
+    results.push({ name: 'Reality Check Effectiveness Metric', passed: false, details: `Failed with exception: ${e.message}` });
+  }
+
+  // Release 2 invariant: skipped tasks contribute completion evidence, never duration evidence.
+  try {
+    const base = tasks[0];
+    const skippedTask: TaskItem = {
+      ...base,
+      id: `${base.id}-skip-reason`,
+      predictionStatus: 'recorded',
+      execution: { ...base.execution, status: 'skipped', actualDurationMinutes: undefined, skipReason: 'too_tired', durationMeasurementStatus: undefined }
+    };
+    const pass = skippedTask.execution.skipReason === 'too_tired' &&
+      isCompletionCalibrationEligible(skippedTask) &&
+      !isDurationCalibrationEligible(skippedTask);
+    results.push({
+      name: 'Skip Evidence Excludes Duration Calibration',
+      passed: pass,
+      details: pass ? 'Optional skip reason persisted as completion evidence without creating duration evidence.' : 'Skip evidence eligibility mismatch.'
+    });
+  } catch (e: any) {
+    results.push({ name: 'Skip Evidence Excludes Duration Calibration', passed: false, details: `Failed with exception: ${e.message}` });
   }
 
   return results;

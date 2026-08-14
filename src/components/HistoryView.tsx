@@ -160,12 +160,12 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                       </span>
                     )}
 
-                    {isSkipped && (
-                      <span className="inline-flex items-center space-x-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
-                        <SkipForward className="w-3.5 h-3.5" />
-                        <span>Skipped</span>
-                      </span>
-                    )}
+                     {isSkipped && (
+                       <span className="inline-flex items-center space-x-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                         <SkipForward className="w-3.5 h-3.5" />
+                         <span>Skipped{task.execution.skipReason ? `: ${task.execution.skipReason.replace(/_/g, ' ')}` : ''}</span>
+                       </span>
+                     )}
 
                     <button
                        onClick={() => window.confirm(`Delete "${task.title}" from prediction history?`) && onDeleteTask(task.id)}
@@ -184,12 +184,16 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                       What I Expected
                     </span>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <span className="text-slate-400 block">Estimated Duration</span>
-                        <span className="font-bold text-slate-800">{formatMinutesToHours(est)}</span>
-                      </div>
-                      <div>
+                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                       <div>
+                         <span className="text-slate-400 block">Original Forecast</span>
+                         <span className="font-bold text-slate-800">{formatMinutesToHours(est)}</span>
+                       </div>
+                       <div>
+                         <span className="text-slate-400 block">Final Plan</span>
+                         <span className="font-bold text-slate-800">{formatMinutesToHours(task.estimatedDurationMinutes)}</span>
+                       </div>
+                       <div>
                         <span className="text-slate-400 block">Stated Confidence</span>
                         <span className="font-bold text-blue-600">{task.confidence}%</span>
                       </div>

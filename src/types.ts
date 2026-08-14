@@ -214,6 +214,17 @@ export interface AccuracyOverTimeCalibration {
   recentErrorPercent?: number;
 }
 
+export interface RealityCheckEffectiveness {
+  eligibleTaskCount: number;
+  improvedTaskCount: number;
+  unchangedTaskCount: number;
+  worsenedTaskCount: number;
+  meanOriginalAbsoluteErrorPercent: number;
+  meanFinalPlanAbsoluteErrorPercent: number;
+  meanImprovementPercent: number;
+  hasEnoughData: boolean;
+}
+
 export interface CompletionCalibration {
   totalEligibleCount: number;
   completedCount: number;
@@ -236,6 +247,7 @@ export interface OverallCalibrationInsights {
   sameDayCompletionRatePercent: number;
   completion: CompletionCalibration;
   accuracyOverTime: AccuracyOverTimeCalibration;
+  realityCheckEffectiveness: RealityCheckEffectiveness;
 }
 
 export interface AppSettings {
