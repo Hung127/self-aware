@@ -390,9 +390,47 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
 
         <form onSubmit={handleSaveThresholds} className="space-y-4">
+          {/* Presets */}
+          <div className="flex flex-wrap items-center gap-2 pb-1">
+            <span className="text-xs font-semibold text-slate-600 mr-1">Threshold Presets:</span>
+            <button
+              type="button"
+              onClick={() => {
+                setMinObs(3);
+                setSmallThresh(10);
+                setRealityThresh(20);
+              }}
+              className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors"
+            >
+              Sensitive (10% / 20%)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMinObs(5);
+                setSmallThresh(15);
+                setRealityThresh(30);
+              }}
+              className="rounded-lg border border-blue-200 bg-blue-50/60 px-2.5 py-1 text-xs font-bold text-blue-700 hover:bg-blue-100 transition-colors"
+            >
+              Balanced (Default 15% / 30%)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMinObs(8);
+                setSmallThresh(25);
+                setRealityThresh(50);
+              }}
+              className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors"
+            >
+              Relaxed (25% / 50%)
+            </button>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
                 Minimum Observations
               </label>
               <input
@@ -401,74 +439,72 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 max="20"
                 value={minObs}
                 onChange={e => setMinObs(parseInt(e.target.value) || 1)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-slate-900 text-sm focus:outline-none focus:border-blue-600 font-semibold"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 font-bold"
               />
-              <span className="text-xs text-slate-500 mt-1 block">Completed tasks needed before warning</span>
+              <span className="text-xs text-slate-500 block">Completed tasks required before triggers</span>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Small Suggestion Threshold
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                Soft Suggestion Threshold
               </label>
-              <div className="flex items-center space-x-2">
+              <div className="relative">
                 <input
                   type="number"
                   min="5"
                   max="50"
                   value={smallThresh}
                   onChange={e => setSmallThresh(parseInt(e.target.value) || 5)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-slate-900 text-sm focus:outline-none focus:border-blue-600 font-semibold"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 font-bold pr-8"
                 />
-                <span className="text-xs text-slate-500">%</span>
+                <span className="absolute right-3 top-2 text-xs font-bold text-slate-400 pointer-events-none">%</span>
               </div>
-              <span className="text-xs text-slate-500 mt-1 block">Historical error % for small tip</span>
+              <span className="text-xs text-slate-500 block">Historical error % for soft tips</span>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-amber-700 mb-1.5">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold uppercase tracking-wider text-amber-700">
                 Reality Check Threshold
               </label>
-              <div className="flex items-center space-x-2">
+              <div className="relative">
                 <input
                   type="number"
                   min="15"
                   max="100"
                   value={realityThresh}
                   onChange={e => setRealityThresh(parseInt(e.target.value) || 15)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-amber-700 text-sm focus:outline-none focus:border-blue-600 font-semibold"
+                  className="w-full rounded-lg border border-amber-300 bg-white px-3.5 py-2 text-amber-800 text-sm focus:outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-600/20 font-bold pr-8"
                 />
-                <span className="text-xs text-slate-500">%</span>
+                <span className="absolute right-3 top-2 text-xs font-bold text-amber-500 pointer-events-none">%</span>
               </div>
-              <span className="text-xs text-slate-500 mt-1 block">Historical error % for Reality Check card</span>
+              <span className="text-xs text-slate-500 block">Historical error % for Reality Check cards</span>
             </div>
           </div>
 
-          <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-100">
             <p className="text-xs text-slate-500">
-              Reality Check appears when a similar task deviates &gt;{realityThresh}% from history.
+              Reality Check appears when a task forecast deviates &gt;{realityThresh}% from past evidence.
             </p>
-            <div className="flex items-center gap-3">
-                <Button
-                  type="button"
-                  variant="tertiary"
-                  size="sm"
-                  className="text-blue-700 hover:text-blue-800"
-                  onClick={() => {
-                    setMinObs(DEFAULT_SETTINGS.minObservationsForRealityCheck);
-                    setSmallThresh(DEFAULT_SETTINGS.smallSuggestionThresholdPercent);
-                    setRealityThresh(DEFAULT_SETTINGS.realityCheckThresholdPercent);
-                    setAutoSync(DEFAULT_SETTINGS.autoImportGCal);
-                  }}
-                >
-                  Reset to defaults
-                </Button>
-                <Button
-                  type="submit"
-                  size="sm"
-                  className="px-4 rounded-xl shadow-xs"
-                >
-                  Save parameters
-                </Button>
+            <div className="flex items-center gap-2.5">
+              <Button
+                type="button"
+                variant="tertiary"
+                size="sm"
+                onClick={() => {
+                  setMinObs(DEFAULT_SETTINGS.minObservationsForRealityCheck);
+                  setSmallThresh(DEFAULT_SETTINGS.smallSuggestionThresholdPercent);
+                  setRealityThresh(DEFAULT_SETTINGS.realityCheckThresholdPercent);
+                  setAutoSync(DEFAULT_SETTINGS.autoImportGCal);
+                }}
+              >
+                Reset Defaults
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+              >
+                Save Parameters
+              </Button>
             </div>
           </div>
         </form>

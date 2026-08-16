@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { TaskItem } from '../types';
 import { getHistoricalCalibrationBaseline, formatMinutesToHours } from '../utils/calibrationEngine';
-import { PenLine, ArrowRight } from 'lucide-react';
+import { PenLine, ArrowRight, ShieldCheck, History } from 'lucide-react';
 import { ModalShell } from './ui/ModalShell';
 import { Button } from './ui/Button';
 
@@ -46,109 +46,159 @@ export const CorrectionModal: React.FC<CorrectionModalProps> = ({
     onClose();
   };
 
+  const handleAdjustDuration = (delta: number) => {
+    setDurationMins(prev => Math.max(0, prev + delta));
+  };
+
   return (
     <ModalShell
-      title="Correct completed observation"
-      description="Recording the true outcome keeps your calibration honest."
+      title="Correct Observation Record"
+      description="Updating true duration keeps your historical calibration truthful without overwriting the original forecast."
       icon={<PenLine className="h-5 w-5" />}
-      iconClassName="border-blue-100 bg-blue-50 text-blue-600"
       onClose={onClose}
       maxWidth="max-w-lg"
       footer={
-        <div className="flex items-center justify-end space-x-3">
+        <div className="flex items-center justify-end gap-2.5">
           <Button type="button" variant="tertiary" onClick={onClose}>
             Cancel
           </Button>
           <Button type="submit" form="correction-modal-form">
             <PenLine className="w-4 h-4" />
-            Save correction
+            Save Correction
           </Button>
         </div>
       }
     >
-        <form id="correction-modal-form" onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
-          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
-            <div>
-              <span className="text-xs text-slate-500 font-medium block">Task Title</span>
-              <span className="font-bold text-sm text-slate-900">{task.title}</span>
-            </div>
-            <div className="text-right">
-              <span className="text-xs text-slate-500 font-medium block">Original forecast</span>
-              <span className="text-sm font-bold text-blue-600">{formatMinutesToHours(est)}</span>
-            </div>
+      <form id="correction-modal-form" onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
+        {/* Task Summary Banner */}
+        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+          <div>
+            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Task</span>
+            <span className="font-bold text-sm text-slate-900">{task.title}</span>
           </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1" htmlFor="correction-duration">
-                Actual Duration (minutes)
-              </label>
-              <input
-                id="correction-duration"
-                type="number"
-                min={0}
-                step={5}
-                value={durationMins}
-                onChange={e => setDurationMins(Number(e.target.value))}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-amber-600 focus:bg-white"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1" htmlFor="correction-date">
-                Actual Completion Date
-              </label>
-              <input
-                id="correction-date"
-                type="date"
-                value={completionDate}
-                onChange={e => setCompletionDate(e.target.value)}
-                required
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-amber-600 focus:bg-white"
-              />
-            </div>
+          <div className="text-right">
+            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Recorded Forecast</span>
+            <span className="text-sm font-bold text-blue-700">{formatMinutesToHours(est)}</span>
           </div>
+        </div>
 
-          <div className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 ${
-            diffPercent === 0
-              ? 'bg-slate-50 border-slate-200'
-              : diffPercent > 0
-              ? 'bg-amber-50 border-amber-200'
-              : 'bg-emerald-50 border-emerald-200'
-          }`}>
-            <div className="flex items-center gap-1.5 text-sm">
-              <span className="text-xs font-semibold text-slate-600">
-                <span className="text-blue-600 font-bold">{formatMinutesToHours(est)}</span>
-              </span>
-              <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
-              <span className="text-xs font-semibold text-slate-600">
-                New actual <span className="text-slate-900 font-bold">{formatMinutesToHours(Math.max(0, durationMins))}</span>
-              </span>
-            </div>
-            <span className={`text-xs font-bold px-2 py-1 rounded-md bg-white border ${
-              diffPercent === 0
-                ? 'border-slate-200 text-slate-500'
-                : diffPercent > 0
-                ? 'border-amber-200 text-amber-700'
-                : 'border-emerald-200 text-emerald-700'
-            }`}>
-              {diffPercent === 0 ? 'No change' : diffPercent > 0 ? `+${diffPercent}% longer` : `${diffPercent}% shorter`}
+        {/* Inputs */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700" htmlFor="correction-duration">
+              Actual Duration (mins)
+            </label>
+            <input
+              id="correction-duration"
+              type="number"
+              min={0}
+              step={5}
+              value={durationMins}
+              onChange={e => setDurationMins(Math.max(0, Number(e.target.value) || 0))}
+              required
+              className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 font-bold"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700" htmlFor="correction-date">
+              Actual Completion Date
+            </label>
+            <input
+              id="correction-date"
+              type="date"
+              value={completionDate}
+              onChange={e => setCompletionDate(e.target.value)}
+              required
+              className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
+            />
+          </div>
+        </div>
+
+        {/* Quick adjustment chips */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs font-medium text-slate-500 mr-1">Adjust:</span>
+          <button
+            type="button"
+            onClick={() => handleAdjustDuration(-30)}
+            className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+          >
+            -30m
+          </button>
+          <button
+            type="button"
+            onClick={() => handleAdjustDuration(-15)}
+            className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+          >
+            -15m
+          </button>
+          <button
+            type="button"
+            onClick={() => handleAdjustDuration(15)}
+            className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+          >
+            +15m
+          </button>
+          <button
+            type="button"
+            onClick={() => handleAdjustDuration(30)}
+            className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+          >
+            +30m
+          </button>
+          <button
+            type="button"
+            onClick={() => handleAdjustDuration(60)}
+            className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+          >
+            +1h
+          </button>
+        </div>
+
+        {/* Dynamic Comparison Banner */}
+        <div className={`flex items-center justify-between gap-3 rounded-xl border p-3.5 transition-all ${
+          diffPercent === 0
+            ? 'bg-slate-50 border-slate-200 text-slate-800'
+            : diffPercent > 0
+            ? 'bg-amber-50/80 border-amber-200 text-amber-900'
+            : 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
+        }`}>
+          <div className="flex items-center gap-2 text-xs">
+            <span className="font-semibold text-slate-600">
+              Forecast: <strong className="text-blue-700">{formatMinutesToHours(est)}</strong>
+            </span>
+            <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+            <span className="font-semibold text-slate-600">
+              Corrected: <strong className="text-slate-900">{formatMinutesToHours(Math.max(0, durationMins))}</strong>
             </span>
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-sm font-semibold text-slate-700" htmlFor="correction-reason">
-              Why is this being corrected? <span className="text-slate-400 font-normal">(optional)</span>
-            </label>
-            <textarea
-              id="correction-reason"
-              rows={2}
-              placeholder="e.g. Timer was left running; actual time was 95 minutes."
-              value={reason}
-              onChange={e => setReason(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-slate-900 text-sm focus:outline-none focus:border-amber-600 focus:bg-white"
-            />
-          </div>
-        </form>
+          <span className={`text-xs font-bold px-2.5 py-1 rounded-md bg-white border ${
+            diffPercent === 0
+              ? 'border-slate-200 text-slate-600'
+              : diffPercent > 0
+              ? 'border-amber-200 text-amber-700'
+              : 'border-emerald-200 text-emerald-700'
+          }`}>
+            {diffPercent === 0 ? 'Exact match' : diffPercent > 0 ? `+${diffPercent}% longer` : `${diffPercent}% shorter`}
+          </span>
+        </div>
+
+        {/* Audit Note */}
+        <div className="space-y-1.5">
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700" htmlFor="correction-reason">
+            Reason for correction <span className="text-slate-400 font-normal lowercase">(audit note)</span>
+          </label>
+          <textarea
+            id="correction-reason"
+            rows={2}
+            placeholder="e.g., Timer was left running after lunch; actual focused time was 75 minutes."
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
+          />
+        </div>
+      </form>
     </ModalShell>
   );
 };
+

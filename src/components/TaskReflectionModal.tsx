@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { TaskItem, ReflectionCategory } from '../types';
 import { formatMinutesToHours, getHistoricalCalibrationBaseline } from '../utils/calibrationEngine';
-import { HelpCircle, CheckCircle } from 'lucide-react';
+import { HelpCircle, CheckCircle, ArrowRight } from 'lucide-react';
 import { ModalShell } from './ui/ModalShell';
 import { Button } from './ui/Button';
 
@@ -12,14 +12,14 @@ interface TaskReflectionModalProps {
   onSaveReflection: (taskId: string, reason: ReflectionCategory, notes?: string) => void;
 }
 
-const REFLECTION_OPTIONS: { value: ReflectionCategory; label: string }[] = [
-  { value: 'harder_than_expected', label: '○ Task was harder than expected' },
-  { value: 'started_late', label: '○ I started late' },
-  { value: 'got_distracted', label: '○ I got distracted' },
-  { value: 'was_tired', label: '○ I was tired' },
-  { value: 'unexpected_problem', label: '○ Unexpected problem' },
-  { value: 'underestimated_work', label: '○ I underestimated the work' },
-  { value: 'other', label: '○ Other reason' },
+const REFLECTION_OPTIONS: { value: ReflectionCategory; label: string; description: string }[] = [
+  { value: 'underestimated_work', label: 'Underestimated scope or volume', description: 'There was more work to complete than originally envisioned' },
+  { value: 'harder_than_expected', label: 'Unanticipated complexity', description: 'Encountered difficult problems or blockers' },
+  { value: 'started_late', label: 'Delayed execution start', description: 'Began significantly later than the planned window' },
+  { value: 'got_distracted', label: 'Attention divided or interrupted', description: 'Context switching or external distractions occurred' },
+  { value: 'was_tired', label: 'Fatigue or low energy', description: 'Pace was slower due to tiredness' },
+  { value: 'unexpected_problem', label: 'External roadblock', description: 'Tool failure, dependency blocker, or technical issue' },
+  { value: 'other', label: 'Other circumstance', description: 'Another specific factor influenced the outcome' },
 ];
 
 export const TaskReflectionModal: React.FC<TaskReflectionModalProps> = ({
@@ -45,82 +45,90 @@ export const TaskReflectionModal: React.FC<TaskReflectionModalProps> = ({
 
   return (
     <ModalShell
-      title="What changed the outcome?"
-      description="Your reason explains the result but does not change the calculated error."
+      title="Execution Reflection"
+      description="Reflect on what shifted the outcome. This context helps interpret future calibration patterns."
       icon={<HelpCircle className="h-5 w-5" />}
       onClose={onClose}
       maxWidth="max-w-lg"
       footer={
-        <div className="flex items-center justify-end space-x-3">
+        <div className="flex items-center justify-end gap-2.5">
           <Button type="button" variant="tertiary" onClick={onClose}>
-            Skip for now
+            Skip Reflection
           </Button>
           <Button type="submit" form="reflection-modal-form">
             <CheckCircle className="w-4 h-4" />
-            Save reflection
+            Save Reflection
           </Button>
         </div>
       }
     >
-        <form id="reflection-modal-form" onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
-          {/* Comparison summary */}
-          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
-            <div>
-              <span className="text-xs text-slate-500 font-medium block">Task Title</span>
-              <span className="font-bold text-sm text-slate-900">{task.title}</span>
-            </div>
-            <div className="text-right">
-              <span className="text-xs text-slate-500 font-medium block">Predicted vs Actual</span>
-              <span className="text-sm font-bold text-blue-600">
-                 {act === undefined ? `${formatMinutesToHours(est)} → Duration not measured` : `${formatMinutesToHours(est)} → ${formatMinutesToHours(act)} (${diffPercent! > 0 ? `+${diffPercent}%` : `${diffPercent}%`})`}
+      <form id="reflection-modal-form" onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
+        {/* Comparison summary card */}
+        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+          <div>
+            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Task</span>
+            <span className="font-bold text-sm text-slate-900">{task.title}</span>
+          </div>
+          <div className="text-right">
+            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider block">Forecast → Actual</span>
+            <div className="flex items-center gap-1.5 justify-end">
+              <span className="text-sm font-semibold text-slate-700">{formatMinutesToHours(est)}</span>
+              <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+              <span className="text-sm font-bold text-blue-700">
+                {act === undefined ? 'Unmeasured' : `${formatMinutesToHours(act)} (${diffPercent! >= 0 ? `+${diffPercent}%` : `${diffPercent}%`})`}
               </span>
             </div>
           </div>
+        </div>
 
-          {/* Options */}
-          <div>
-             <label className="mb-2.5 block text-sm font-semibold text-slate-700">
-               Choose one reason
-            </label>
-            <div className="space-y-2">
-              {REFLECTION_OPTIONS.map(opt => (
-                <label
-                  key={opt.value}
-                  onClick={() => setSelectedReason(opt.value)}
-                  className={`flex items-center space-x-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                    selectedReason === opt.value
-                       ? 'bg-blue-50 border-blue-600 text-slate-900 font-semibold'
-                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="reflectionReason"
-                    value={opt.value}
-                    checked={selectedReason === opt.value}
-                    onChange={() => setSelectedReason(opt.value)}
-                    className="accent-blue-600"
-                  />
-                  <span className="text-sm">{opt.label.replace('○ ', '')}</span>
-                </label>
-              ))}
-            </div>
+        {/* Options */}
+        <div className="space-y-2">
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+            Primary contributing factor
+          </label>
+          <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
+            {REFLECTION_OPTIONS.map(opt => (
+              <label
+                key={opt.value}
+                className={`flex cursor-pointer items-start space-x-3 rounded-xl border p-3 transition-all ${
+                  selectedReason === opt.value
+                    ? 'border-blue-600 bg-blue-50/70 text-slate-900 ring-2 ring-blue-600/20'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="reflectionReason"
+                  value={opt.value}
+                  checked={selectedReason === opt.value}
+                  onChange={() => setSelectedReason(opt.value)}
+                  className="accent-blue-600 mt-0.5"
+                />
+                <div className="space-y-0.5">
+                  <span className="block text-sm font-semibold text-slate-900">{opt.label}</span>
+                  <span className="block text-xs text-slate-500">{opt.description}</span>
+                </div>
+              </label>
+            ))}
           </div>
+        </div>
 
-          {/* Optional notes */}
-          <div>
-             <label className="mb-1.5 block text-sm font-semibold text-slate-700">
-               Optional note
-            </label>
-            <textarea
-              rows={2}
-               placeholder="What would you remember next time?"
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
-            />
-          </div>
-        </form>
+        {/* Optional notes */}
+        <div className="space-y-1.5">
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700" htmlFor="reflection-notes">
+            What will you consider next time? <span className="text-slate-400 font-normal lowercase">(optional note)</span>
+          </label>
+          <textarea
+            id="reflection-notes"
+            rows={2}
+            placeholder="e.g., Leave a 30m buffer for edge cases; break task into smaller milestones."
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
+          />
+        </div>
+      </form>
     </ModalShell>
   );
 };
+

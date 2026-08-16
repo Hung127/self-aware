@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Target, History, Settings, Moon, Plus, Calendar, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Target, History, Settings, Moon, Plus, Calendar, Menu, X, CheckCircle2 } from 'lucide-react';
 import { Button } from './ui/Button';
 
 interface NavigationProps {
@@ -20,9 +20,9 @@ export const Navigation: React.FC<NavigationProps> = ({
   const [menuOpen, setMenuOpen] = useState(false);
   const items = [
     { id: 'today' as const, label: 'Today', icon: LayoutDashboard },
-    { id: 'calendar' as const, label: 'Calendar', icon: Calendar },
     { id: 'calibration' as const, label: 'Calibration', icon: Target },
     { id: 'history' as const, label: 'History', icon: History },
+    { id: 'calendar' as const, label: 'Calendar', icon: Calendar },
     { id: 'settings' as const, label: 'Settings', icon: Settings }
   ];
 
@@ -32,95 +32,139 @@ export const Navigation: React.FC<NavigationProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white text-slate-900">
-      <div className="max-w-content mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Brand Logo & Name */}
-          <div className="flex items-center space-x-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-600">
-              <Target className="w-5 h-5" />
-            </div>
-            <div>
-                <span className="block font-bold tracking-tight text-slate-900 leading-tight">
-                Calibration
-              </span>
-              <span className="text-xs text-slate-500 font-medium hidden sm:inline">
-                Evidence-based self-knowledge mirror
-              </span>
-            </div>
-          </div>
-
-          {/* Navigation Links */}
-          <nav className="hidden items-center gap-1 lg:flex">
-            {items.map(({ id, label, icon: Icon }) => (
-              <button key={id} onClick={() => navigate(id)} aria-current={activeTab === id ? 'page' : undefined} className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${activeTab === id ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}>
-                <Icon className="h-[18px] w-[18px]" />
-                <span>{label}</span>
-              </button>
-            ))}
-          </nav>
-
-          {/* Header Actions */}
-          <div className="flex items-center space-x-2 sm:space-x-3">
-            {gcalConnected && (
-              <span title="Google Calendar connected" className="flex items-center gap-1.5 text-xs font-medium text-emerald-700">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
-                <span className="hidden md:inline">Calendar connected</span>
-              </span>
-            )}
-
+    <>
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur-xs text-slate-900 shadow-xs">
+        <div className="mx-auto max-w-content px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center justify-between gap-4">
+            {/* Brand Logo & Name */}
             <button
-              onClick={onOpenSleepLog}
-              aria-label="Log sleep"
-              className="flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-slate-300 text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+              type="button"
+              onClick={() => navigate('today')}
+              className="flex items-center gap-3 text-left focus:outline-none shrink-0"
             >
-              <Moon className="w-4 h-4" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600 shadow-xs shrink-0">
+                <Target className="h-5 w-5" />
+              </div>
+              <div className="flex flex-col justify-center">
+                <span className="block font-bold tracking-tight text-slate-900 leading-tight text-base">
+                  Personal Calibration
+                </span>
+                <span className="text-xs text-slate-500 font-medium leading-tight hidden sm:block">
+                  Evidence-based behavioral mirror
+                </span>
+              </div>
             </button>
 
-            <Button
-              onClick={onOpenNewTask}
-              className="rounded-lg px-3 sm:px-4"
-            >
-              <Plus className="w-4 h-4" />
-              <span className="sr-only sm:not-sr-only">New Prediction</span>
-            </Button>
-          </div>
-        </div>
-        <button aria-label={menuOpen ? 'Close navigation menu' : 'Open navigation menu'} onClick={() => setMenuOpen(!menuOpen)} className="absolute right-4 top-4 rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden">
-          {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
-        {menuOpen && (
-          <nav aria-label="Primary" className="border-t border-slate-100 py-2 lg:hidden">
-            {gcalConnected && (
-              <div className="flex items-center gap-1.5 px-3 py-3 text-xs font-medium text-emerald-700">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
-                <span>Google Calendar connected</span>
-              </div>
-            )}
-            {items.map(({ id, label, icon: Icon }) => (
-              <button key={id} onClick={() => navigate(id)} aria-current={activeTab === id ? 'page' : undefined} className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium ${activeTab === id ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>
-                <Icon className="h-[18px] w-[18px]" />{label}
-              </button>
-            ))}
-            <div className="mt-1 flex items-center gap-3 border-t border-slate-100 px-3 py-3">
+            {/* Desktop Navigation Links */}
+            <nav aria-label="Main Navigation" className="hidden items-center gap-1 md:flex">
+              {items.map(({ id, label, icon: Icon }) => {
+                const isActive = activeTab === id;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => navigate(id)}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-blue-50 text-blue-700 font-semibold'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    }`}
+                  >
+                    <Icon className={`h-4 w-4 ${isActive ? 'text-blue-600' : 'text-slate-500'}`} />
+                    <span>{label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+
+            {/* Header Actions */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              {gcalConnected && (
+                <div
+                  title="Google Calendar connected"
+                  className="hidden xl:flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                  <span className="leading-none">Calendar Connected</span>
+                </div>
+              )}
+
               <button
+                type="button"
                 onClick={onOpenSleepLog}
-                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                aria-label="Log sleep record"
+                title="Log sleep record"
+                className="inline-flex h-9 min-h-9 px-3 items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50 hover:text-slate-900 active:bg-slate-100 shrink-0"
               >
-                <Moon className="w-4 h-4" />
-                Log sleep
+                <Moon className="h-4 w-4 text-slate-500 shrink-0" />
+                <span className="leading-none hidden sm:inline-block">Log Sleep</span>
               </button>
-              <button
+
+              <Button
                 onClick={onOpenNewTask}
-                className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+                size="sm"
+                className="inline-flex h-9 min-h-9 px-3 sm:px-4 items-center justify-center gap-1.5 rounded-lg font-semibold shadow-2xs shrink-0"
               >
-                <Plus className="w-4 h-4" />
-                New Prediction
+                <Plus className="h-4 w-4 shrink-0" />
+                <span className="leading-none inline-block">New Prediction</span>
+              </Button>
+
+              {/* Mobile menu toggle button */}
+              <button
+                type="button"
+                aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+                onClick={() => setMenuOpen(!menuOpen)}
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 md:hidden shrink-0"
+              >
+                {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </button>
             </div>
-          </nav>
-        )}
-      </div>
-    </header>
+          </div>
+
+          {/* Mobile Drawer Menu */}
+          {menuOpen && (
+            <nav aria-label="Mobile Navigation" className="border-t border-slate-100 py-3 md:hidden space-y-1">
+              {items.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => navigate(id)}
+                  aria-current={activeTab === id ? 'page' : undefined}
+                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                    activeTab === id ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <Icon className="h-4 w-4 text-slate-500" />
+                  <span>{label}</span>
+                </button>
+              ))}
+            </nav>
+          )}
+        </div>
+      </header>
+
+      {/* Mobile Bottom Navigation Bar for quick 1-thumb tab navigation */}
+      <nav
+        aria-label="Mobile Bottom Navigation"
+        className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-slate-200 bg-white/95 px-2 py-1.5 backdrop-blur-xs md:hidden shadow-lg"
+      >
+        {items.map(({ id, label, icon: Icon }) => {
+          const isActive = activeTab === id;
+          return (
+            <button
+              key={id}
+              onClick={() => navigate(id)}
+              aria-current={isActive ? 'page' : undefined}
+              className={`flex flex-1 flex-col items-center justify-center py-1 text-2xs font-medium transition-colors ${
+                isActive ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Icon className={`h-5 w-5 mb-0.5 ${isActive ? 'text-blue-600' : 'text-slate-400'}`} />
+              <span>{label}</span>
+            </button>
+          );
+        })}
+      </nav>
+    </>
   );
 };
+

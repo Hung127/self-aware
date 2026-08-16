@@ -330,7 +330,7 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
             </div>
 
             {/* Core headline sentence */}
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                 Primary Pattern
               </span>
@@ -341,14 +341,14 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                 />
               ) : (
                 <>
-                  <p className="text-base font-bold text-blue-600">
+                  <p className="text-base font-bold text-slate-900">
                     {maxPatternTasks >= 5 && maxPatternType === 'underestimate' ? (
                       <>
-                        You underestimate <span className="underline">{maxPatternCat.toLowerCase()}</span> tasks by {Math.abs(maxPatternError)}% on average.
+                        You underestimate <span className="text-blue-700 font-extrabold underline decoration-blue-300 underline-offset-2">{maxPatternCat.toLowerCase()}</span> tasks by {Math.abs(maxPatternError)}% on average.
                       </>
                     ) : maxPatternTasks >= 5 && maxPatternType === 'overestimate' ? (
                       <>
-                        You overestimate <span className="underline">{maxPatternCat.toLowerCase()}</span> tasks by {Math.abs(maxPatternError)}% on average.
+                        You overestimate <span className="text-blue-700 font-extrabold underline decoration-blue-300 underline-offset-2">{maxPatternCat.toLowerCase()}</span> tasks by {Math.abs(maxPatternError)}% on average.
                       </>
                     ) : (
                       <>No recurring duration pattern is supported yet.</>
@@ -356,12 +356,12 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                   </p>
                   <span className="text-xs text-slate-500 block">
                     {maxPatternTasks >= 5
-                      ? `↑ Based on ${maxPatternTasks} completed sessions in ${maxPatternCat}`
-                      : `↑ Based on ${durationData.totalTasksCount} completed sessions overall`}
+                      ? `Based on ${maxPatternTasks} completed sessions in ${maxPatternCat}`
+                      : `Based on ${durationData.totalTasksCount} completed sessions overall`}
                   </span>
                   {maxPatternTasks >= 5 && (
-                    <span className="inline-flex items-center gap-1.5 mt-1 rounded-full bg-white border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600">
-                      <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                    <span className="inline-flex items-center gap-1.5 mt-1 rounded-full bg-white border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-2xs">
+                      <span className="h-1.5 w-1.5 rounded-full bg-blue-600" />
                       {getEvidenceLevel(maxPatternTasks).replace(/_/g, ' ')}
                       <InfoTip text="Evidence level reflects how many completed observations support a claim — the more observations, the stronger the evidence." label="What does evidence level mean?" />
                     </span>
@@ -418,14 +418,14 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
             </div>
 
             {/* Core headline sentence */}
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                 Starting Delay Pattern
               </span>
               {startTimeData.hasEnoughData ? (
                 <>
-                  <p className="text-base font-bold text-blue-600">
-                    Usually start {Math.abs(startTimeData.medianDelayMinutes)} minutes {startTimeData.medianDelayMinutes >= 0 ? 'later' : 'earlier'} than planned.
+                  <p className="text-base font-bold text-slate-900">
+                    Usually start <span className="text-blue-700 font-extrabold">{Math.abs(startTimeData.medianDelayMinutes)} minutes</span> {startTimeData.medianDelayMinutes >= 0 ? 'later' : 'earlier'} than planned.
                   </p>
                   <span className="text-xs text-slate-500 block">
                     Based on {startTimeData.totalSessionsCount} start recordings
@@ -433,7 +433,7 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                 </>
               ) : startTimeData.totalSessionsCount > 0 ? (
                 <>
-                  <p className="text-base font-bold text-blue-600">
+                  <p className="text-base font-bold text-slate-900">
                     Early start-time signal, not a recurring pattern yet.
                   </p>
                   <span className="text-xs text-slate-500 block">
@@ -448,13 +448,13 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
               )}
             </div>
 
-            <div className="space-y-3 pt-1">
+            <div className="space-y-2.5 pt-1">
               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
                 <div>
                   <span className="font-bold text-slate-800 block">On-Time Start Rate</span>
                   <span className="text-slate-500">Started within 5 mins of schedule</span>
                 </div>
-                <span className="text-lg font-extrabold text-blue-600">
+                <span className="text-lg font-extrabold text-blue-700">
                   {startTimeData.onTimeStartRatePercent}%
                 </span>
               </div>
@@ -464,7 +464,7 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
                   <span className="font-bold text-slate-800 block">Evening Session Delay</span>
                   <span className="text-slate-500">Tasks planned after 18:00</span>
                 </div>
-                <span className="text-sm font-bold text-slate-800">
+                <span className="text-sm font-bold text-slate-900">
                    {startTimeData.eveningDelayMinutes >= 0 ? '+' : ''}{startTimeData.eveningDelayMinutes} min signed delay
                 </span>
               </div>
@@ -492,17 +492,17 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
             </div>
 
             {/* Core headline sentence */}
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                 Sleep Context Impact
               </span>
               {sleepData.hasEnoughData ? (
                 <>
-                  <p className="text-base font-bold text-blue-600">
-                    &lt;6h sleep sessions had {sleepData.completionDropPercent}% fewer planned tasks completed.
+                  <p className="text-base font-bold text-slate-900">
+                    &lt;6h sleep sessions had <span className="text-amber-700 font-extrabold">{sleepData.completionDropPercent}% fewer</span> planned tasks completed.
                   </p>
                   <span className="text-xs text-slate-500 block">
-                    ↑ Based on {sleepData.shortSleepDaysCount + sleepData.normalSleepDaysCount} observed sleep cycles
+                    Based on {sleepData.shortSleepDaysCount + sleepData.normalSleepDaysCount} observed sleep cycles
                   </span>
                 </>
               ) : (
@@ -514,20 +514,20 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
             </div>
 
             <div className="grid grid-cols-2 gap-3 pt-1">
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-center space-y-1">
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-center space-y-1">
                 <span className="text-xs text-slate-500 font-semibold block">Sufficient Sleep (&ge;6h)</span>
-                <span className="text-xl font-extrabold text-emerald-600">
+                <span className="text-2xl font-extrabold text-emerald-700">
                    {sleepData.hasEnoughData ? `${sleepData.normalSleepCompletionRate}%` : '—'}
                 </span>
-                <span className="text-xs text-slate-500 block">Completion Rate</span>
+                <span className="text-xs text-slate-500 block font-medium">Completion Rate</span>
               </div>
 
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-center space-y-1">
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-center space-y-1">
                 <span className="text-xs text-slate-500 font-semibold block">Short Sleep (&lt;6h)</span>
-                <span className="text-xl font-extrabold text-amber-600">
+                <span className="text-2xl font-extrabold text-amber-700">
                    {sleepData.hasEnoughData ? `${sleepData.shortSleepCompletionRate}%` : '—'}
                 </span>
-                <span className="text-xs text-slate-500 block">Completion Rate</span>
+                <span className="text-xs text-slate-500 block font-medium">Completion Rate</span>
               </div>
             </div>
           </div>
@@ -558,18 +558,18 @@ export const CalibrationView: React.FC<CalibrationViewProps> = ({
               const hasData = !!(ninety && ninety.sampleSufficient && ninety.predictedCount > 0);
               const rate = hasData ? ninety.actualSuccessRatePercent : 0;
               return (
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                     High Confidence Outcome
                   </span>
                   {hasData ? (
-                    <p className="text-base font-bold text-blue-600">
-                      Your 90%+ confidence predictions succeed {rate}% of the time.
+                    <p className="text-base font-bold text-slate-900">
+                      Your 90%+ confidence predictions succeed <span className="text-blue-700 font-extrabold">{rate}%</span> of the time.
                     </p>
                   ) : null}
                   <span className="text-xs text-slate-500 block">
                     {hasData
-                      ? `↑ Based on ${ninety.predictedCount} high-certainty predictions`
+                      ? `Based on ${ninety.predictedCount} high-certainty predictions`
                       : 'Need at least 5 predictions in the 90%+ confidence bracket to evaluate certainty'}
                   </span>
                   {!hasData && (

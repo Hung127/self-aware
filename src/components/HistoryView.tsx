@@ -283,35 +283,35 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                   {/* Side-by-side Expectation vs Reality */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* What I Expected */}
-                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
                       <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                         What I Expected
                       </span>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                         <div>
-                          <span className="text-slate-400 block">Original Forecast</span>
-                          <span className="font-bold text-slate-800">{formatMinutesToHours(est)}</span>
+                          <span className="text-slate-500 font-medium block">Original Forecast</span>
+                          <span className="font-bold text-slate-900 text-sm">{formatMinutesToHours(est)}</span>
                         </div>
                         {task.realityCheck?.shown && task.realityCheck.suggestedDurationMinutes ? (
                           <div>
-                            <span className="text-slate-400 block">Suggested</span>
-                            <span className="font-bold text-blue-600">{formatMinutesToHours(task.realityCheck.suggestedDurationMinutes)}</span>
+                            <span className="text-slate-500 font-medium block">Suggested</span>
+                            <span className="font-bold text-blue-700 text-sm">{formatMinutesToHours(task.realityCheck.suggestedDurationMinutes)}</span>
                           </div>
                         ) : null}
                         <div>
-                          <span className="text-slate-400 block">Final Plan</span>
-                          <span className="font-bold text-slate-800">{formatMinutesToHours(task.estimatedDurationMinutes)}</span>
+                          <span className="text-slate-500 font-medium block">Final Plan</span>
+                          <span className="font-bold text-slate-900 text-sm">{formatMinutesToHours(task.estimatedDurationMinutes)}</span>
                         </div>
                         <div>
-                          <span className="text-slate-400 block">Stated Confidence</span>
-                          <span className="font-bold text-blue-600">{task.confidence}%</span>
+                          <span className="text-slate-500 font-medium block">Confidence</span>
+                          <span className="font-bold text-blue-700 text-sm">{task.confidence}%</span>
                         </div>
                       </div>
 
                       {task.realityCheck?.shown && (
-                        <div className="pt-1.5 border-t border-slate-200">
+                        <div className="pt-2 border-t border-slate-200">
                           <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-0.5">Decision</span>
-                          <span className="text-xs font-semibold text-slate-700">
+                          <span className="text-xs font-semibold text-slate-800">
                             {task.realityCheck.userDecision === 'accepted_suggestion'
                               ? 'Used historical suggestion'
                               : task.realityCheck.userDecision === 'kept_original'
@@ -342,13 +342,13 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                     </div>
 
                   {/* What Actually Happened */}
-                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                         What Actually Happened
                       </span>
                       {hasActual && (
-                        <span className={`text-xs font-extrabold px-2 py-0.5 rounded-md border ${
+                        <span className={`text-xs font-extrabold px-2.5 py-1 rounded-md border ${
                           errorPercent > 0
                             ? 'bg-amber-50 text-amber-800 border-amber-200'
                             : errorPercent < 0
@@ -366,14 +366,14 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
 
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div>
-                        <span className="text-slate-400 block">Actual Duration</span>
-                        <span className="font-bold text-slate-800">
+                        <span className="text-slate-500 font-medium block">Actual Duration</span>
+                        <span className="font-bold text-slate-900 text-sm">
                           {hasActual ? formatMinutesToHours(act) : 'Not recorded'}
                         </span>
                       </div>
                       <div>
-                        <span className="text-slate-400 block">Actual Start</span>
-                        <span className="font-bold text-slate-800">
+                        <span className="text-slate-500 font-medium block">Actual Start</span>
+                        <span className="font-bold text-slate-900 text-sm">
                           {task.execution.actualStart
                             ? new Date(task.execution.actualStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                             : 'Scheduled'}

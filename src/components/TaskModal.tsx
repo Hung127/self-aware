@@ -234,281 +234,287 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         </div>
       }
     >
-        <form id="prediction-modal-form" onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
-          <div className="border-b border-slate-100 pb-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">1. Plan</p>
-            <p className="mt-1 text-sm text-slate-600">What is scheduled?</p>
-          </div>
-          {/* Title */}
-          <Field
-            label="Task name"
-            error={titleError}
-          >
-            <input
-              type="text"
-              placeholder="e.g., Study Machine Learning, Refactor React state"
-              value={title}
-              onChange={e => {
-                setTitle(e.target.value);
-                if (titleError) setTitleError(undefined);
-              }}
-              className={`${inputCls} ${titleError ? inputErrorCls : ''}`}
-            />
-          </Field>
-
-          {/* Category & Tag & Date */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div>
-            <label className="mb-1.5 block text-sm font-semibold text-slate-700">
-                Category
-              </label>
-              <select
-                value={category}
-                onChange={e => setCategory(e.target.value as TaskCategory)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
-              >
-                {CATEGORIES.map(cat => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
+        <form id="prediction-modal-form" onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto flex-1">
+          {/* Section 1: Plan */}
+          <div className="space-y-4">
+            <div className="border-b border-slate-100 pb-2">
+              <p className="text-xs font-bold uppercase tracking-wider text-blue-700">1. Scheduled Plan</p>
+              <p className="mt-0.5 text-xs text-slate-500">What is scheduled on your calendar or agenda?</p>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-                Tag <span className="text-xs font-normal text-slate-400">(optional)</span>
-              </label>
+            {/* Title */}
+            <Field
+              label="Task name"
+              error={titleError}
+            >
               <input
                 type="text"
-                placeholder="e.g. Assignment"
-                value={tag}
-                onChange={e => setTag(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white placeholder-slate-400"
+                placeholder="e.g., Study Machine Learning, Refactor React state"
+                value={title}
+                onChange={e => {
+                  setTitle(e.target.value);
+                  if (titleError) setTitleError(undefined);
+                }}
+                className={`${inputCls} ${titleError ? inputErrorCls : ''}`}
               />
-            </div>
+            </Field>
 
-            <div>
-            <label className="mb-1.5 block text-sm font-semibold text-slate-700">
-                Date
-              </label>
-              <input
-                type="date"
-                value={scheduledDate}
-                onChange={e => setScheduledDate(e.target.value)}
-                required
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
-              />
-            </div>
-          </div>
+            {/* Category & Tag & Date */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+                  Category
+                </label>
+                <select
+                  value={category}
+                  onChange={e => setCategory(e.target.value as TaskCategory)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-blue-600"
+                >
+                  {CATEGORIES.map(cat => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          {category === 'Programming' && (
-            <div>
-              <label className="mb-1.5 block text-sm font-semibold text-slate-700">
-                Task type <span className="text-xs font-normal text-slate-400">(optional, for reference class)</span>
-              </label>
-              <select
-                value={behavioralTaskType}
-                onChange={e => setBehavioralTaskType(e.target.value as BehavioralTaskType)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
-              >
-                {PROGRAMMING_TASK_TYPES.map(bt => (
-                  <option key={bt} value={bt}>
-                    {bt}
-                  </option>
-                ))}
-                <option value="other">other</option>
-              </select>
-              <p className="mt-1 text-xs text-slate-500">
-                Narrower reference class: implementation, debugging, testing, documentation.
-              </p>
-            </div>
-          )}
-
-          {/* Start Time, Planned Schedule Duration & Estimated Prediction Duration */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label className="mb-1.5 block text-sm font-semibold text-slate-700">
-                Start time
-              </label>
-              <input
-                type="time"
-                value={startTime}
-                onChange={e => setStartTime(e.target.value)}
-                required
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-sm font-semibold text-slate-700">
-                Schedule block <span className="text-xs font-normal text-slate-400">(plan)</span>
-              </label>
-              <div className="flex items-center space-x-1.5">
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+                  Tag <span className="text-xs font-normal text-slate-400">(optional)</span>
+                </label>
                 <input
-                  type="number"
-                  min="5"
-                  max="1440"
-                  step="5"
-                  value={plannedMinutes}
-                  onChange={e => setPlannedMinutes(Math.max(5, parseInt(e.target.value) || 0))}
-                  required
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
+                  type="text"
+                  placeholder="e.g. Assignment"
+                  value={tag}
+                  onChange={e => setTag(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-blue-600 placeholder-slate-400"
                 />
-                <span className="text-xs text-slate-500 font-medium whitespace-nowrap">
-                  ({formatMinutesToHours(plannedMinutes)})
-                </span>
               </div>
-            </div>
 
-            <div>
-              <label className="mb-1.5 block text-sm font-semibold text-blue-700">
-                Forecast duration <span className="text-xs font-normal text-slate-400">(your prediction)</span>
-              </label>
-              <div className="flex items-center space-x-1.5">
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+                  Date
+                </label>
                 <input
-                  type="number"
-                  min="5"
-                  max="1440"
-                  step="5"
-                  value={estimatedMinutes}
-                  onChange={e => handleEstimateChange(parseInt(e.target.value) || 0)}
+                  type="date"
+                  value={scheduledDate}
+                  onChange={e => setScheduledDate(e.target.value)}
                   required
-                  className="w-full bg-slate-50 border border-blue-200 rounded-xl px-3 py-2.5 text-blue-600 font-bold text-sm focus:outline-none focus:border-blue-600 focus:bg-white"
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-blue-600"
                 />
-                <span className="text-xs text-slate-500 font-medium whitespace-nowrap">
-                  ({formatMinutesToHours(estimatedMinutes)})
-                </span>
               </div>
             </div>
-          </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold text-slate-500">Quick forecast:</span>
-            {QUICK_FORECAST_CHIPS.map(minutes => (
-              <button
-                key={minutes}
-                type="button"
-                onClick={() => handleEstimateChange(minutes)}
-                className={`rounded-full px-3 py-1.5 text-xs font-bold transition-colors ${
-                  estimatedMinutes === minutes
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                {formatMinutesToHours(minutes)}
-              </button>
-            ))}
-          </div>
+            {category === 'Programming' && (
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+                  Task type <span className="text-xs font-normal text-slate-400">(optional reference class)</span>
+                </label>
+                <select
+                  value={behavioralTaskType}
+                  onChange={e => setBehavioralTaskType(e.target.value as BehavioralTaskType)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-blue-600"
+                >
+                  {PROGRAMMING_TASK_TYPES.map(bt => (
+                    <option key={bt} value={bt}>
+                      {bt}
+                    </option>
+                  ))}
+                  <option value="other">other</option>
+                </select>
+              </div>
+            )}
 
-          <div className="border-b border-slate-100 pb-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">2. Prediction</p>
-            <p className="mt-1 text-sm text-slate-600">How long do you think it'll take?</p>
-          </div>
-          {/* Stated Confidence Slider */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-sm font-semibold text-slate-700">
-                Confidence <span className="font-normal text-slate-500">(optional)</span>
-              </label>
-              <span className="text-sm font-bold text-blue-600">{confidence}%</span>
-            </div>
-            <input
-              type="range"
-              min="50"
-              max="95"
-              step="5"
-              value={confidence}
-              onChange={e => setConfidence(parseInt(e.target.value))}
-              className="w-full accent-blue-600 bg-slate-200 h-2 rounded-lg cursor-pointer"
-            />
-            <div className="flex justify-between text-xs text-slate-500 font-semibold mt-1">
-              <span>50% (Uncertain)</span>
-              <span>80% (Likely)</span>
-              <span>95% (Certain)</span>
-            </div>
-          </div>
-
-           {/* LIVE REALITY CHECK BANNER */}
-           {realityCheck.shouldWarn && (
-            <div className={`p-4 rounded-xl border space-y-3 transition-all ${
-              realityCheck.severity === 'reality_check'
-                ? 'bg-amber-50/80 border-amber-200 text-amber-800'
-                : 'bg-blue-50/80 border-blue-100 text-slate-800'
-            }`}>
-              <div className="flex items-start space-x-3">
-                <div className="mt-0.5 shrink-0">
-                  {realityCheck.severity === 'reality_check' ? (
-                    <AlertTriangle className="w-5 h-5 text-amber-600" />
-                  ) : (
-                    <Info className="w-5 h-5 text-blue-600" />
-                  )}
-                </div>
-                <div className="space-y-1 flex-1">
-                  <div className="flex items-center justify-between flex-wrap gap-1">
-                     <span className="font-bold text-sm text-slate-900">
-                       {realityCheck.severity === 'reality_check' ? '3. Reality Check' : '3. Historical calibration'}
-                    </span>
-                    <span className="text-xs font-semibold uppercase px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600">
-                      {realityCheck.sampleCount} similar tasks observed {realityCheck.matchedBy === 'category_and_tag' ? `(${tag})` : ''}
-                    </span>
-                  </div>
-                  <p className="text-xs leading-relaxed text-slate-700">
-                    {realityCheck.message}
-                  </p>
-                </div>
+            {/* Start Time & Schedule Block */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+                  Planned start time
+                </label>
+                <input
+                  type="time"
+                  value={startTime}
+                  onChange={e => setStartTime(e.target.value)}
+                  required
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3.5 py-2 text-slate-900 text-sm focus:outline-none focus:border-blue-600"
+                />
               </div>
 
-              <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between flex-wrap gap-2">
-                   <span className="text-xs text-slate-600">
-                   Your forecast: <strong className="text-slate-800">{formatMinutesToHours(initialUserPrediction)}</strong> | Typical actual: <strong className="text-blue-600">{formatMinutesToHours(realityCheck.suggestedDurationMinutes)}</strong>
-                </span>
-                
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+                  Schedule block <span className="text-xs font-normal text-slate-400">(calendar slot)</span>
+                </label>
                 <div className="flex items-center space-x-2">
-                  <Button
+                  <input
+                    type="number"
+                    min="5"
+                    max="1440"
+                    step="5"
+                    value={plannedMinutes}
+                    onChange={e => setPlannedMinutes(Math.max(5, parseInt(e.target.value) || 0))}
+                    required
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 text-sm focus:outline-none focus:border-blue-600"
+                  />
+                  <span className="text-xs text-slate-500 font-semibold whitespace-nowrap">
+                    ({formatMinutesToHours(plannedMinutes)})
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: Prediction */}
+          <div className="space-y-4 pt-2">
+            <div className="border-b border-slate-100 pb-2">
+              <p className="text-xs font-bold uppercase tracking-wider text-blue-700">2. Duration Forecast</p>
+              <p className="mt-0.5 text-xs text-slate-500">What do you believe will actually happen?</p>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-slate-900">
+                  Forecast duration <span className="text-xs font-normal text-slate-500">(minutes)</span>
+                </label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="number"
+                    min="5"
+                    max="1440"
+                    step="5"
+                    value={estimatedMinutes}
+                    onChange={e => handleEstimateChange(parseInt(e.target.value) || 0)}
+                    required
+                    className="w-full bg-white border border-blue-300 rounded-lg px-3.5 py-2 text-blue-700 font-bold text-sm focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
+                  />
+                  <span className="text-sm font-bold text-blue-700 whitespace-nowrap">
+                    = {formatMinutesToHours(estimatedMinutes)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-slate-500">Presets:</span>
+                {QUICK_FORECAST_CHIPS.map(minutes => (
+                  <button
+                    key={minutes}
                     type="button"
-                    size="sm"
-                    onClick={handleKeepEstimate}
-                    className={`border ${
-                      userDecision === 'kept_original'
-                        ? 'bg-slate-800 border-slate-800 text-white'
-                        : 'border-slate-200 text-slate-700'
+                    onClick={() => handleEstimateChange(minutes)}
+                    className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
+                      estimatedMinutes === minutes
+                        ? 'bg-blue-600 text-white shadow-2xs'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                     }`}
                   >
-                    Keep my {formatMinutesToHours(initialUserPrediction)}
-                  </Button>
+                    {formatMinutesToHours(minutes)}
+                  </button>
+                ))}
+              </div>
 
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={handleApplySuggested}
-                    className={`${userDecision === 'accepted_suggestion' ? 'bg-emerald-600 hover:bg-emerald-700' : ''}`}
-                  >
-                    {userDecision === 'accepted_suggestion' && <Check className="w-3.5 h-3.5" />}
-                    Use {formatMinutesToHours(realityCheck.suggestedDurationMinutes)}
-                  </Button>
+              {/* Stated Confidence Slider */}
+              <div className="pt-2">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-sm font-semibold text-slate-700">
+                    Confidence <span className="font-normal text-slate-500">(optional)</span>
+                  </label>
+                  <span className="text-sm font-bold text-blue-700">{confidence}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="50"
+                  max="95"
+                  step="5"
+                  value={confidence}
+                  onChange={e => setConfidence(parseInt(e.target.value))}
+                  className="w-full accent-blue-600 bg-slate-200 h-2 rounded-lg cursor-pointer"
+                />
+                <div className="flex justify-between text-2xs text-slate-500 font-medium mt-1">
+                  <span>50% (Uncertain)</span>
+                  <span>80% (Likely)</span>
+                  <span>95% (Certain)</span>
                 </div>
               </div>
             </div>
-          )}
+          </div>
 
-           {!realityCheck.shouldWarn && (
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 flex items-start space-x-2.5 text-xs">
-              <Shield className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-              <span>
-                {realityCheck.state === 'no_data' && realityCheck.sampleCount === 0
-                  ? 'No comparable completed history yet. This prediction becomes part of your calibration baseline.'
-                  : realityCheck.state === 'insufficient_data'
-                  ? `Early stage — ${realityCheck.message.toLowerCase()}`
-                  : realityCheck.message}
-              </span>
+          {/* Section 3: Reality Check & Historical Feedback */}
+          <div className="space-y-3 pt-2">
+            <div className="border-b border-slate-100 pb-2">
+              <p className="text-xs font-bold uppercase tracking-wider text-blue-700">3. Calibration Mirror</p>
+              <p className="mt-0.5 text-xs text-slate-500">Historical evidence check</p>
             </div>
-          )}
 
-           <div className="border-b border-slate-100 pb-1">
-             <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">4. Decision</p>
-             <p className="mt-1 text-sm text-slate-600">Save to record this prediction in your history.</p>
-           </div>
+            {realityCheck.shouldWarn && (
+              <div className={`p-4 rounded-xl border space-y-3 transition-all ${
+                realityCheck.severity === 'reality_check'
+                  ? 'bg-amber-50/80 border-amber-200 text-amber-900'
+                  : 'bg-blue-50/80 border-blue-200 text-slate-900'
+              }`}>
+                <div className="flex items-start space-x-3">
+                  <div className="mt-0.5 shrink-0">
+                    {realityCheck.severity === 'reality_check' ? (
+                      <AlertTriangle className="w-5 h-5 text-amber-600" />
+                    ) : (
+                      <Info className="w-5 h-5 text-blue-600" />
+                    )}
+                  </div>
+                  <div className="space-y-1 flex-1">
+                    <div className="flex items-center justify-between flex-wrap gap-1">
+                      <span className="font-bold text-sm text-slate-900">
+                        {realityCheck.severity === 'reality_check' ? 'Reality Check' : 'Historical Evidence'}
+                      </span>
+                      <span className="text-2xs font-semibold px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600">
+                        {realityCheck.sampleCount} similar tasks observed {realityCheck.matchedBy === 'category_and_tag' ? `(${tag})` : ''}
+                      </span>
+                    </div>
+                    <p className="text-xs leading-relaxed text-slate-700">
+                      {realityCheck.message}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between flex-wrap gap-2">
+                  <span className="text-xs text-slate-700">
+                    Your estimate: <strong className="text-slate-900">{formatMinutesToHours(initialUserPrediction)}</strong> · History avg: <strong className="text-blue-700">{formatMinutesToHours(realityCheck.suggestedDurationMinutes)}</strong>
+                  </span>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={handleKeepEstimate}
+                      className={userDecision === 'kept_original' ? 'border-slate-800 text-slate-900 font-bold' : ''}
+                    >
+                      Keep {formatMinutesToHours(initialUserPrediction)}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleApplySuggested}
+                      className={userDecision === 'accepted_suggestion' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}
+                    >
+                      {userDecision === 'accepted_suggestion' && <Check className="w-3.5 h-3.5" />}
+                      Use {formatMinutesToHours(realityCheck.suggestedDurationMinutes)}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!realityCheck.shouldWarn && (
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 flex items-start space-x-2.5 text-xs">
+                <Shield className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                <span className="leading-relaxed">
+                  {realityCheck.state === 'no_data' && realityCheck.sampleCount === 0
+                    ? 'No comparable completed history yet. This prediction becomes part of your baseline.'
+                    : realityCheck.state === 'insufficient_data'
+                    ? `Early stage — ${realityCheck.message.toLowerCase()}`
+                    : realityCheck.message}
+                </span>
+              </div>
+            )}
+          </div>
         </form>
     </ModalShell>
   );
