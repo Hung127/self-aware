@@ -20,7 +20,7 @@ export const ModalShell: React.FC<ModalShellProps> = ({
   description,
   icon,
   iconClassName,
-  headerBg = 'bg-slate-50',
+  headerBg = 'bg-surface-secondary',
   onClose,
   children,
   maxWidth = 'max-w-xl',
@@ -74,7 +74,7 @@ export const ModalShell: React.FC<ModalShellProps> = ({
     <motion.div
       initial={reduceMotion ? false : { opacity: 0 }}
       animate={{ opacity: 1, transition: { duration: reduceMotion ? 0 : 0.18 } }}
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-text-primary/40 p-4"
       role="presentation"
       onMouseDown={event => event.target === event.currentTarget && onClose()}
     >
@@ -86,26 +86,26 @@ export const ModalShell: React.FC<ModalShellProps> = ({
         aria-describedby={description ? 'modal-description' : undefined}
         initial={reduceMotion ? false : { opacity: 0, scale: 0.98, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0, transition: { duration: reduceMotion ? 0 : 0.18 } }}
-        className={`my-8 flex max-h-[calc(100vh-2rem)] w-full ${maxWidth} flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-modal`}
+        className={`my-8 flex max-h-[calc(100vh-2rem)] w-full ${maxWidth} flex-col overflow-hidden rounded-2xl border border-border bg-surface text-text-primary shadow-modal`}
       >
-        <header className={`flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6 ${headerBg}`}>
+        <header className={`flex shrink-0 items-start justify-between gap-4 border-b border-border px-5 py-4 sm:px-6 ${headerBg}`}>
           <div className="flex items-start gap-3">
             {icon && (
-              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600 ${iconClassName || ''}`}>
+              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary-border bg-primary-soft text-primary ${iconClassName || ''}`}>
                 {icon}
               </div>
             )}
             <div>
-              <h2 id="modal-title" className="text-lg font-bold text-slate-900">{title}</h2>
-              {description && <p id="modal-description" className="mt-1 text-sm text-slate-600">{description}</p>}
+              <h2 id="modal-title" className="text-lg font-bold text-text-primary">{title}</h2>
+              {description && <p id="modal-description" className="mt-1 text-sm text-text-muted">{description}</p>}
             </div>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close dialog" className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900">
+          <button type="button" onClick={onClose} aria-label="Close dialog" className="rounded-lg p-2 text-text-muted transition-colors hover:bg-surface-secondary hover:text-text-primary">
             <X className="h-5 w-5" />
           </button>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
-        {footer && <footer className="shrink-0 border-t border-slate-200 bg-white px-5 py-4 sm:px-6">{footer}</footer>}
+        {footer && <footer className="shrink-0 border-t border-border bg-surface px-5 py-4 sm:px-6">{footer}</footer>}
       </motion.div>
     </motion.div>
   );

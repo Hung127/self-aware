@@ -1,6 +1,6 @@
 import React from 'react';
 
-type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'danger' | 'success';
+type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'danger' | 'dangerSolid' | 'success';
 type ButtonSize = 'sm' | 'md';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -11,11 +11,12 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 export const Button: React.FC<ButtonProps> = ({ variant = 'primary', size = 'md', loading = false, children, className = '', disabled, ...props }) => {
   const styles: Record<ButtonVariant, string> = {
-    primary: 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800',
-    secondary: 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 active:bg-slate-100',
-    tertiary: 'bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900',
-    danger: 'bg-white text-red-700 border border-red-200 hover:bg-red-50 active:bg-red-100',
-    success: 'bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800'
+    primary: 'bg-primary text-white hover:bg-primary-hover active:bg-primary-active',
+    secondary: 'bg-surface text-text-primary border border-border-strong hover:bg-surface-secondary active:bg-surface-secondary',
+    tertiary: 'bg-transparent text-text-muted hover:bg-surface-secondary hover:text-text-primary',
+    danger: 'bg-surface text-danger-ink border border-danger-border hover:bg-danger-soft',
+    dangerSolid: 'bg-danger text-white hover:bg-danger-hover active:bg-danger-hover',
+    success: 'bg-success text-white hover:bg-success-hover active:bg-success-hover'
   };
   const sizes: Record<ButtonSize, string> = {
     sm: 'min-h-8 px-2.5 py-1.5 text-xs gap-1.5',

@@ -29,16 +29,16 @@ export const Toast: React.FC<ToastProps> = ({ toast, onClose, onAction }) => {
   const Icon = icons[toast.variant];
 
   const border: Record<ToastVariant, string> = {
-    success: 'border-emerald-200',
-    error: 'border-red-200',
-    warning: 'border-amber-200',
-    info: 'border-blue-200'
+    success: 'border-success-border',
+    error: 'border-danger-border',
+    warning: 'border-warning-border',
+    info: 'border-primary-border'
   };
   const iconColor: Record<ToastVariant, string> = {
-    success: 'text-emerald-600',
-    error: 'text-red-600',
-    warning: 'text-amber-600',
-    info: 'text-blue-600'
+    success: 'text-success',
+    error: 'text-danger',
+    warning: 'text-warning',
+    info: 'text-primary'
   };
 
   return (
@@ -48,15 +48,15 @@ export const Toast: React.FC<ToastProps> = ({ toast, onClose, onAction }) => {
       initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1, transition: { duration: reduceMotion ? 0 : 0.16 } }}
       exit={reduceMotion ? undefined : { opacity: 0, y: 8, scale: 0.98, transition: { duration: 0.12 } }}
-      className={`pointer-events-auto flex max-w-sm items-start gap-3 rounded-xl border bg-white px-4 py-3 text-sm font-medium shadow-lg ${border[toast.variant]}`}
+      className={`pointer-events-auto flex max-w-sm items-start gap-3 rounded-xl border bg-surface px-4 py-3 text-sm font-medium shadow-pop ${border[toast.variant]}`}
     >
       <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${iconColor[toast.variant]}`} />
-      <span className="flex-1 leading-snug text-slate-800">{toast.message}</span>
+      <span className="flex-1 leading-snug text-text-primary">{toast.message}</span>
       {toast.actionLabel && (
         <button
           type="button"
           onClick={() => onAction(toast)}
-          className="shrink-0 pt-0.5 text-xs font-bold text-blue-700 underline-offset-2 transition-colors hover:text-blue-800 hover:underline"
+          className="shrink-0 pt-0.5 text-xs font-bold text-primary-ink underline-offset-2 transition-colors hover:text-primary-active hover:underline"
         >
           {toast.actionLabel}
         </button>
@@ -65,7 +65,7 @@ export const Toast: React.FC<ToastProps> = ({ toast, onClose, onAction }) => {
         type="button"
         onClick={() => onClose(toast.id)}
         aria-label="Dismiss notification"
-        className="shrink-0 self-start rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+        className="shrink-0 self-start rounded-md p-1 text-text-disabled transition-colors hover:bg-surface-secondary hover:text-text-secondary"
       >
         <X className="h-4 w-4" />
       </button>

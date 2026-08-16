@@ -21,7 +21,6 @@ import {
 import { SkipReasonModal } from './SkipReasonModal';
 import { PostponeModal } from './PostponeModal';
 import { ConfirmDialog } from './ui/ConfirmDialog';
-import { InfoTip } from './ui/InfoTip';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 
