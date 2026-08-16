@@ -24,7 +24,6 @@ export const PostponeModal: React.FC<PostponeModalProps> = ({ task, onClose, onC
 
   const tomorrow = getShiftedDate(1);
   const inTwoDays = getShiftedDate(2);
-  const inThreeDays = getShiftedDate(3);
   const inAWeek = getShiftedDate(7);
 
   const [date, setDate] = useState(tomorrow);
