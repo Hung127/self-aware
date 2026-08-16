@@ -432,7 +432,6 @@ export default function App() {
             tasks={tasks}
             sleepRecords={sleepRecords}
             onImportData={handleImportData}
-            onConnectGoogleCalendar={handleConnectGoogleCalendar}
           />
         )}
       </main>
