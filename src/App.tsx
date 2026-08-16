@@ -348,8 +348,8 @@ export default function App() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--color-background)] font-sans text-[var(--color-text-primary)]">
-      {/* Top Navigation */}
+    <div className="flex min-h-screen flex-col bg-background font-sans text-text-primary">
+      {/* Navigation (sidebar on desktop, top bar + bottom tabs on mobile) */}
       <Navigation
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -363,7 +363,8 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="mx-auto w-full max-w-content flex-1 px-4 py-8 sm:px-6 lg:px-8">
+      <div className="flex-1 lg:pl-60">
+        <main className="mx-auto w-full max-w-content px-4 py-8 sm:px-6 lg:px-8">
         {activeTab === 'today' && (
           <TodayView
             tasks={tasks}
@@ -437,13 +438,14 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-12 border-t border-slate-200 bg-white py-6 text-xs text-slate-500">
+      <footer className="mt-12 border-t border-border bg-surface py-6 text-xs text-text-muted">
         <div className="max-w-content mx-auto px-4 text-center">
           <p>
             Personal Calibration — Don't optimize your schedule. Understand the accuracy of your own predictions. • Evidence-based self-knowledge mirror • Google Calendar integration
           </p>
         </div>
       </footer>
+      </div>
 
       {/* Modals */}
       {isTaskModalOpen && <TaskModal
