@@ -26,7 +26,7 @@ export const ValidationReportModal: React.FC<ValidationReportModalProps> = ({
       title="System data validation"
       description="Automated test suite verification for personal calibration heuristics"
       icon={<ShieldCheck className="h-5 w-5" />}
-      iconClassName="border-emerald-100 bg-emerald-50 text-emerald-600"
+      iconClassName="border-success-border bg-success-soft text-success"
       onClose={onClose}
       maxWidth="max-w-2xl"
       initialFocus="none"
@@ -38,70 +38,73 @@ export const ValidationReportModal: React.FC<ValidationReportModalProps> = ({
         </div>
       }
     >
-        <div className="p-6 space-y-4 overflow-y-auto flex-1">
-          {/* Summary status pill */}
-          <div className={`p-4 rounded-xl border flex items-center justify-between ${
+      <div className="flex-1 space-y-4 overflow-y-auto p-6">
+        {/* Summary status pill */}
+        <div
+          className={`flex items-center justify-between rounded-xl border p-4 ${
             allPassed
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-              : 'bg-red-50 border-red-200 text-red-700'
-          }`}>
-            <div className="flex items-center space-x-3">
-              {allPassed ? (
-                <CheckCircle2 className="w-6 h-6 text-emerald-600" />
-              ) : (
-                <XCircle className="w-6 h-6 text-red-600" />
-              )}
-              <div>
-                <span className="font-bold text-base block text-slate-900">
-                  {allPassed ? 'All Validation Suite Tests Passed' : 'Validation Issues Detected'}
-                </span>
-                <span className="text-xs text-slate-600">
-                  {passedCount} of {totalCount} edge-case verification checks succeeded
-                </span>
+              ? 'border-success-border bg-success-soft text-success-ink'
+              : 'border-danger-border bg-danger-soft text-danger-ink'
+          }`}
+        >
+          <div className="flex items-center space-x-3">
+            {allPassed ? (
+              <CheckCircle2 className="h-6 w-6 text-success" />
+            ) : (
+              <XCircle className="h-6 w-6 text-danger" />
+            )}
+            <div>
+              <span className="block text-base font-bold text-text-primary">
+                {allPassed ? 'All Validation Suite Tests Passed' : 'Validation Issues Detected'}
+              </span>
+              <span className="text-xs text-text-muted">
+                {passedCount} of {totalCount} edge-case verification checks succeeded
+              </span>
+            </div>
+          </div>
+          <span
+            className={`rounded-full border px-3 py-1 text-xs font-bold ${
+              allPassed
+                ? 'border-success-border bg-success-soft text-success-ink'
+                : 'border-danger-border-strong bg-danger-soft text-danger-ink'
+            }`}
+          >
+            {Math.round((passedCount / totalCount) * 100)}% PASS
+          </span>
+        </div>
+
+        {/* Test list */}
+        <div className="space-y-3 pt-2">
+          {results.map((res, i) => (
+            <div key={i} className="flex items-start space-x-3 rounded-xl border border-border bg-surface-secondary p-3.5">
+              <div className="mt-0.5 shrink-0">
+                {res.passed ? (
+                  <CheckCircle2 className="h-4 w-4 text-success" />
+                ) : (
+                  <XCircle className="h-4 w-4 text-danger" />
+                )}
+              </div>
+              <div className="flex-1 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-text-primary">{res.name}</span>
+                  <span
+                    className={`rounded-md border px-2 py-0.5 text-xs font-semibold uppercase ${
+                      res.passed
+                        ? 'border-success-border bg-success-soft text-success-ink'
+                        : 'border-danger-border bg-danger-soft text-danger-ink'
+                    }`}
+                  >
+                    {res.passed ? 'PASSED' : 'FAILED'}
+                  </span>
+                </div>
+                <p className="text-xs leading-relaxed text-text-muted">
+                  {res.details}
+                </p>
               </div>
             </div>
-            <span className={`text-xs font-bold px-3 py-1 rounded-full border ${
-              allPassed
-                ? 'bg-emerald-100 border-emerald-300 text-emerald-700'
-                : 'bg-red-100 border-red-300 text-red-700'
-            }`}>
-              {Math.round((passedCount / totalCount) * 100)}% PASS
-            </span>
-          </div>
-
-          {/* Test list */}
-          <div className="space-y-3 pt-2">
-            {results.map((res, i) => (
-              <div
-                key={i}
-                className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-start space-x-3"
-              >
-                <div className="mt-0.5 shrink-0">
-                  {res.passed ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  ) : (
-                    <XCircle className="w-4 h-4 text-red-600" />
-                  )}
-                </div>
-                <div className="space-y-1 flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-sm text-slate-900">{res.name}</span>
-                    <span className={`text-xs font-semibold uppercase px-2 py-0.5 rounded-md ${
-                      res.passed
-                        ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                        : 'bg-red-100 text-red-700 border border-red-200'
-                    }`}>
-                      {res.passed ? 'PASSED' : 'FAILED'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    {res.details}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
+          ))}
         </div>
+      </div>
     </ModalShell>
   );
 };
