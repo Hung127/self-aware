@@ -36,7 +36,7 @@ interface GoogleCalendarViewProps {
   tasks: TaskItem[];
   onRecordGCalPrediction: (event: GCalEvent) => void;
   gcalConnected: boolean;
-  onConnectGCal: () => void;
+  onConnectGCal: () => Promise<{ success: boolean; count: number; errorMessage?: string }>;
   calendarId?: string;
   onShowToast?: (message: string, variant?: ToastVariant) => void;
 }
@@ -199,12 +199,12 @@ export const GoogleCalendarView: React.FC<GoogleCalendarViewProps> = ({
       if (res.success) {
         const activeToken = getStoredAccessToken();
         if (activeToken) {
-          const realEvents = await fetchAllGoogleCalendarEvents(activeToken);
+          const realEvents = await fetchAllGoogleCalendarEvents(activeToken, { calendarId });
           saveEventsToStorage(realEvents);
         }
         notify(`Synced! ${res.count} events retrieved from your Google Calendar.`, 'success');
       } else {
-        notify('Google Calendar sign-in was closed or cancelled.', 'warning');
+        notify(res.errorMessage || 'Google Calendar sign-in was closed or could not be completed.', 'warning');
       }
     } catch (err: any) {
       const msg = err?.message || '';

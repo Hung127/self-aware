@@ -16,10 +16,10 @@ export const auth = getAuth(app);
 
 const googleProvider = new GoogleAuthProvider();
 googleProvider.addScope('https://www.googleapis.com/auth/calendar.readonly');
-googleProvider.addScope('https://www.googleapis.com/auth/calendar.events');
+googleProvider.addScope('https://www.googleapis.com/auth/calendar.events.readonly');
 
 let cachedAccessToken: string | null = null;
-let activePopupPromise: Promise<{ user: User; accessToken: string }> | null = null;
+let activePopupPromise: Promise<{ user: User | any; accessToken: string }> | null = null;
 
 // Store access token in memory or sessionStorage for tab persistence
 const ACCESS_TOKEN_SESSION_KEY = 'personal_cal_gcal_token';
@@ -43,6 +43,29 @@ export const setStoredAccessToken = (token: string | null) => {
   }
 };
 
+const loadGsiScript = (): Promise<void> => {
+  return new Promise((resolve) => {
+    if (typeof window !== 'undefined' && (window as any).google?.accounts?.oauth2) {
+      resolve();
+      return;
+    }
+    const existing = document.getElementById('google-gsi-client');
+    if (existing) {
+      existing.addEventListener('load', () => resolve());
+      existing.addEventListener('error', () => resolve());
+      return;
+    }
+    const script = document.createElement('script');
+    script.id = 'google-gsi-client';
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    script.onerror = () => resolve();
+    document.head.appendChild(script);
+  });
+};
+
 export const initAuthListener = (
   onSuccess?: (user: User, token: string) => void,
   onSignedOut?: () => void
@@ -60,7 +83,7 @@ export const initAuthListener = (
   });
 };
 
-export const signInWithGoogleCalendar = async (): Promise<{ user: User; accessToken: string }> => {
+export const signInWithGoogleCalendar = async (): Promise<{ user: User | any; accessToken: string }> => {
   // If a popup request is already in progress, deduplicate and return the same promise
   if (activePopupPromise) {
     return activePopupPromise;
@@ -74,6 +97,66 @@ export const signInWithGoogleCalendar = async (): Promise<{ user: User; accessTo
 
   activePopupPromise = (async () => {
     try {
+      await loadGsiScript();
+      const oauth2 = typeof window !== 'undefined' ? (window as any).google?.accounts?.oauth2 : undefined;
+      const clientId = (firebaseConfig as any).oAuthClientId;
+
+      if (oauth2 && clientId) {
+        const accessToken = await new Promise<string>((resolve, reject) => {
+          try {
+            const tokenClient = oauth2.initTokenClient({
+              client_id: clientId,
+              scope: 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events.readonly https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile',
+              callback: (resp: any) => {
+                if (resp.error) {
+                  reject(new Error(resp.error_description || resp.error || 'Google authorization could not be completed.'));
+                  return;
+                }
+                if (!resp.access_token) {
+                  reject(new Error('No access token returned from Google.'));
+                  return;
+                }
+                resolve(resp.access_token);
+              },
+              error_callback: (err: any) => {
+                reject(new Error(err?.message || 'Google authorization window was closed or blocked.'));
+              }
+            });
+            tokenClient.requestAccessToken();
+          } catch (initErr) {
+            reject(initErr);
+          }
+        });
+
+        setStoredAccessToken(accessToken);
+
+        let userObj: any = {
+          uid: 'google-calendar-user',
+          displayName: 'Google Calendar User',
+          email: '',
+          photoURL: ''
+        };
+
+        try {
+          const uRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { Authorization: `Bearer ${accessToken}` }
+          });
+          if (uRes.ok) {
+            const u = await uRes.json();
+            userObj = {
+              uid: u.sub || 'google-calendar-user',
+              displayName: u.name || u.email || 'Google User',
+              email: u.email || '',
+              photoURL: u.picture || ''
+            };
+          }
+        } catch {
+          // Non-blocking user info fetch
+        }
+
+        return { user: userObj, accessToken };
+      }
+
       const result = await signInWithPopup(auth, googleProvider);
       const credential = GoogleAuthProvider.credentialFromResult(result);
       const accessToken = credential?.accessToken;
@@ -95,7 +178,7 @@ export const signInWithGoogleCalendar = async (): Promise<{ user: User; accessTo
       if (code === 'auth/popup-blocked') {
         throw new Error('Sign-in pop-up was blocked by your browser. Please allow popups for this site.');
       }
-      console.warn('Google Sign-in failed:', error?.message || error);
+      console.warn('Google Sign-in notice:', error?.message || error);
       throw error;
     } finally {
       activePopupPromise = null;

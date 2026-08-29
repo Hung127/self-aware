@@ -280,7 +280,7 @@ export default function App() {
   };
 
   // Google Calendar Connection / Sync
-  const handleConnectGoogleCalendar = async (): Promise<{ success: boolean; count: number }> => {
+  const handleConnectGoogleCalendar = async (): Promise<{ success: boolean; count: number; errorMessage?: string }> => {
     try {
       let token = getStoredAccessToken();
       if (!token) {
@@ -311,7 +311,7 @@ export default function App() {
 
       // If user popup was closed, cancelled, or auth failed, update settings to disconnected
       handleSetSettings({ ...settings, googleCalendarConnected: false });
-      return { success: false, count: 0 };
+      return { success: false, count: 0, errorMessage: msg };
     }
   };
 
