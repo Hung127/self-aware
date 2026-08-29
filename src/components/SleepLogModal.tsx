@@ -1,12 +1,9 @@
 import React, { useState } from 'react';
 import { SleepRecord } from '../types';
-import { Moon } from 'lucide-react';
+import { Moon, Clock, AlertTriangle, CheckCircle, Sparkles } from 'lucide-react';
 import { ModalShell } from './ui/ModalShell';
 import { Button } from './ui/Button';
-import { Field, inputCls } from './ui/Field';
-import { SleepScheduleColumn } from './sleep/SleepScheduleColumn';
-import { SleepPresets } from './sleep/SleepPresets';
-import { SleepSummaryBanner } from './sleep/SleepSummaryBanner';
+import { Badge } from './ui/Badge';
 
 interface SleepLogModalProps {
   isOpen: boolean;
@@ -14,6 +11,9 @@ interface SleepLogModalProps {
   currentSleepRecord?: SleepRecord;
   onSaveSleep: (record: SleepRecord) => void;
 }
+
+const BEDTIME_PRESETS = ['22:00', '22:30', '23:00', '23:30', '00:00', '00:30', '01:00'];
+const WAKE_PRESETS = ['06:00', '06:30', '07:00', '07:30', '08:00', '08:30', '09:00'];
 
 export const SleepLogModal: React.FC<SleepLogModalProps> = ({
   isOpen,
@@ -53,10 +53,10 @@ export const SleepLogModal: React.FC<SleepLogModalProps> = ({
 
   const plannedDurationMins = calculateSleepMins(plannedBedtime, plannedWakeTime);
   const actualDurationMins = calculateSleepMins(actualBedtime, actualWakeTime);
-
+  
   const actualHours = Math.floor(actualDurationMins / 60);
   const actualMins = actualDurationMins % 60;
-
+  
   const plannedHours = Math.floor(plannedDurationMins / 60);
   const plannedRemainingMins = plannedDurationMins % 60;
 
@@ -96,41 +96,163 @@ export const SleepLogModal: React.FC<SleepLogModalProps> = ({
         </div>
       }
     >
-      <form id="sleep-modal-form" onSubmit={handleSubmit} className="flex-1 space-y-6 overflow-y-auto p-6">
-        <Field label="Observation Date">
+      <form id="sleep-modal-form" onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto flex-1">
+        {/* Date Field */}
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5" htmlFor="sleep-date">
+            Observation Date
+          </label>
           <input
             id="sleep-date"
             type="date"
             value={date}
             onChange={e => setDate(e.target.value)}
             required
-            className={inputCls}
-          />
-        </Field>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <SleepScheduleColumn
-            variant="planned"
-            bedtime={plannedBedtime}
-            wakeTime={plannedWakeTime}
-            onBedtimeChange={setPlannedBedtime}
-            onWakeTimeChange={setPlannedWakeTime}
-            durationLabel={`${plannedHours}h ${plannedRemainingMins > 0 ? `${plannedRemainingMins}m` : ''}`}
-          />
-          <SleepScheduleColumn
-            variant="actual"
-            bedtime={actualBedtime}
-            wakeTime={actualWakeTime}
-            onBedtimeChange={setActualBedtime}
-            onWakeTimeChange={setActualWakeTime}
-            durationLabel={`${actualHours}h ${actualMins}m`}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20"
           />
         </div>
 
-        <SleepPresets value={actualBedtime} onSelect={setActualBedtime} />
+        {/* Two-Column Comparison: Planned vs Actual */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Planned Column */}
+          <div className="space-y-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+            <div className="border-b border-slate-200/80 pb-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-600">Intended Schedule</span>
+            </div>
 
-        <SleepSummaryBanner actualHours={actualHours} actualMins={actualMins} isShortSleep={isShortSleep} />
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="planned-bedtime">
+                Planned Bedtime
+              </label>
+              <input
+                id="planned-bedtime"
+                type="time"
+                value={plannedBedtime}
+                onChange={e => setPlannedBedtime(e.target.value)}
+                required
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1" htmlFor="planned-wake">
+                Planned Wake Time
+              </label>
+              <input
+                id="planned-wake"
+                type="time"
+                value={plannedWakeTime}
+                onChange={e => setPlannedWakeTime(e.target.value)}
+                required
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none"
+              />
+            </div>
+
+            <div className="pt-1 text-2xs text-slate-500 font-medium">
+              Target duration: <strong className="text-slate-700">{plannedHours}h {plannedRemainingMins > 0 ? `${plannedRemainingMins}m` : ''}</strong>
+            </div>
+          </div>
+
+          {/* Actual Column */}
+          <div className="space-y-4 rounded-xl border border-blue-200 bg-blue-50/30 p-4">
+            <div className="border-b border-blue-200/80 pb-2 flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-blue-700">Actual Realization</span>
+              <span className="text-2xs font-semibold text-blue-600">Objective</span>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-900 mb-1" htmlFor="actual-bedtime">
+                Actual Bedtime
+              </label>
+              <input
+                id="actual-bedtime"
+                type="time"
+                value={actualBedtime}
+                onChange={e => setActualBedtime(e.target.value)}
+                required
+                className="w-full rounded-lg border border-blue-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20 font-medium"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-900 mb-1" htmlFor="actual-wake">
+                Actual Wake Time
+              </label>
+              <input
+                id="actual-wake"
+                type="time"
+                value={actualWakeTime}
+                onChange={e => setActualWakeTime(e.target.value)}
+                required
+                className="w-full rounded-lg border border-blue-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20 font-medium"
+              />
+            </div>
+
+            <div className="pt-1 text-2xs text-slate-600 font-medium">
+              Actual duration: <strong className="text-blue-700 font-bold">{actualHours}h {actualMins}m</strong>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick presets row */}
+        <div className="space-y-2">
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">
+            Quick actual bedtime presets
+          </label>
+          <div className="flex flex-wrap gap-1.5">
+            {BEDTIME_PRESETS.map(t => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setActualBedtime(t)}
+                className={`rounded-md border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                  actualBedtime === t
+                    ? 'border-blue-600 bg-blue-50 text-blue-700'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Computed Sleep Display Banner */}
+        <div className={`p-4 rounded-xl border flex items-center justify-between transition-all ${
+          isShortSleep
+            ? 'bg-amber-50/80 border-amber-200 text-amber-900'
+            : 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
+        }`}>
+          <div className="flex items-center space-x-3">
+            <div className={`p-2 rounded-lg ${isShortSleep ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+              <Clock className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="block text-xs font-semibold uppercase tracking-wider opacity-80">
+                Calculated Sleep
+              </span>
+              <span className="text-xl font-bold">
+                {actualHours} hours {actualMins > 0 ? `${actualMins} minutes` : ''}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center">
+            {isShortSleep ? (
+              <Badge tone="warning" className="text-xs font-bold">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>&lt; 6h Short sleep</span>
+              </Badge>
+            ) : (
+              <Badge tone="success" className="text-xs font-bold">
+                <CheckCircle className="w-3.5 h-3.5" />
+                <span>Recorded (≥ 6h)</span>
+              </Badge>
+            )}
+          </div>
+        </div>
       </form>
     </ModalShell>
   );
 };
+

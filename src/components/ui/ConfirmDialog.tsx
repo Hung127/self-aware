@@ -34,18 +34,18 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           </Button>
           <Button
             type="button"
-            variant={tone === 'danger' ? 'dangerSolid' : 'primary'}
             onClick={() => {
               onConfirm();
               onClose();
             }}
+            className={tone === 'danger' ? 'bg-red-600 hover:bg-red-700' : ''}
           >
             {confirmLabel}
           </Button>
         </div>
       }
     >
-      <p className="text-sm leading-relaxed text-text-secondary">{message}</p>
+      <p className="text-sm leading-relaxed text-slate-700">{message}</p>
     </ModalShell>
   );
 };

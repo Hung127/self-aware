@@ -68,7 +68,7 @@ People frequently make predictions about their future behavior without incorpora
 ### 5. Data & Developer Tools
 - **Testing presets**: Seed `standard`, `rich`, `edge`, `empty`, or `generated` datasets from Settings.
 - **JSON backup**: Export your tasks, sleep records, and settings to a file, and import it back later.
-- **Validation suite**: Run 71 automated checks covering zero durations, midnight boundaries, and edge cases from Settings.
+- **Validation suite**: Run 59 automated checks covering zero durations, midnight boundaries, and edge cases from Settings.
 
 ### Navigation (5 tabs)
 - **Today**: Planned activities, execution timers, Reality Checks, and sleep context.
@@ -135,7 +135,7 @@ npm run preview
 
 ```bash
 npm run lint    # TypeScript type-check (tsc --noEmit)
-npm test        # Full unit & functional suite (71 checks)
+npm test        # Full unit & functional suite (59 checks)
 ```
 
 ---
@@ -242,20 +242,12 @@ src/
   main.tsx                 Browser entrypoint
   types.ts                 Domain types
   components/              UI views (Today, Calendar, Calibration, History, Settings, modals)
-    ui/                    Tokenized primitives (Button, Field, ModalShell, Badge, CardSection, ...)
-    today/                 Today view sections
-    calendar/              Google Calendar view sections
-    calibration/           Calibration view sections
-    history/               History view sections
-    settings/              Settings view sections
-    task/ sleep/ correction/ reflection/ postpone/
-                           Modal form sections (prediction, sleep log, corrections, ...)
   utils/
     calibrationEngine.ts   Calibration calculations & Reality Check logic
     storage.ts             localStorage persistence + fixture datasets
     googleAuthService.ts   Firebase OAuth + Google Calendar API
     googleCalendar.ts      Event ↔ task conversion helpers
-    validationSuite.ts     71-check automated validation suite
+    validationSuite.ts     59-check automated validation suite
   tests/runAllTests.ts     Test runner (npm test)
 ```
 

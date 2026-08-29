@@ -40,12 +40,25 @@ export type BehavioralTaskType =
   | 'other';
 
 export type ReflectionCategory =
+  // Taking longer than expected (underestimated)
+  | 'underestimated_work'
   | 'harder_than_expected'
   | 'started_late'
   | 'got_distracted'
   | 'was_tired'
   | 'unexpected_problem'
-  | 'underestimated_work'
+  | 'expanded_scope'
+  // Finishing sooner than expected (overestimated / high efficiency)
+  | 'easier_than_expected'
+  | 'overestimated_work'
+  | 'high_focus_flow'
+  | 'reused_existing_work'
+  | 'fewer_interruptions'
+  | 'reduced_scope'
+  | 'received_help'
+  | 'better_tools_automation'
+  // General / Other
+  | 'on_target'
   | 'other';
 
 export type RealityCheckState =

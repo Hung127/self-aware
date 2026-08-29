@@ -41,6 +41,7 @@ import { SleepLogModal } from './components/SleepLogModal';
 import { TaskReflectionModal } from './components/TaskReflectionModal';
 import { CorrectionModal } from './components/CorrectionModal';
 import { ValidationReportModal } from './components/ValidationReportModal';
+import { HowItWorksModal } from './components/HowItWorksModal';
 import { Toast } from './components/ui/Toast';
 import type { ToastData, ToastVariant } from './components/ui/Toast';
 import { AnimatePresence } from 'motion/react';
@@ -68,6 +69,8 @@ export default function App() {
 
   const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
   const [validationResults, setValidationResults] = useState<TestResult[]>([]);
+
+  const [isHowItWorksOpen, setIsHowItWorksOpen] = useState(false);
 
   // Toast notification state
   const [toast, setToast] = useState<ToastData | null>(null);
@@ -113,6 +116,13 @@ export default function App() {
     setTasks(loadedTasks);
     setSleepRecords(loadedSleep);
     setSettings(loadedSet);
+
+    // First run detection: open guide if user hasn't seen it yet
+    const hasSeenGuide = localStorage.getItem('personal_calibration_onboarded_v1');
+    if (!hasSeenGuide && loadedTasks.length === 0) {
+      setIsHowItWorksOpen(true);
+      localStorage.setItem('personal_calibration_onboarded_v1', 'true');
+    }
   }, []);
 
   // Save changes
@@ -348,8 +358,8 @@ export default function App() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-background font-sans text-text-primary">
-      {/* Navigation (sidebar on desktop, top bar + bottom tabs on mobile) */}
+    <div className="flex min-h-screen flex-col bg-[var(--color-background)] font-sans text-[var(--color-text-primary)]">
+      {/* Top Navigation */}
       <Navigation
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -359,12 +369,12 @@ export default function App() {
           setIsTaskModalOpen(true);
         }}
         onOpenSleepLog={() => setIsSleepLogModalOpen(true)}
+        onOpenHowItWorks={() => setIsHowItWorksOpen(true)}
         gcalConnected={settings.googleCalendarConnected}
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 lg:pl-60">
-        <main className="mx-auto w-full max-w-content px-4 py-8 sm:px-6 lg:px-8">
+      <main className="mx-auto w-full max-w-content flex-1 px-4 py-8 sm:px-6 lg:px-8">
         {activeTab === 'today' && (
           <TodayView
             tasks={tasks}
@@ -379,6 +389,7 @@ export default function App() {
               setIsTaskModalOpen(true);
             }}
             onOpenSleepLog={() => setIsSleepLogModalOpen(true)}
+            onOpenHowItWorks={() => setIsHowItWorksOpen(true)}
             onTriggerReflection={handleTriggerReflection}
             onOpenCalendarTab={() => setActiveTab('calendar')}
           />
@@ -432,19 +443,19 @@ export default function App() {
             tasks={tasks}
             sleepRecords={sleepRecords}
             onImportData={handleImportData}
+            onConnectGoogleCalendar={handleConnectGoogleCalendar}
           />
         )}
       </main>
 
       {/* Footer */}
-      <footer className="mt-12 border-t border-border bg-surface py-6 text-xs text-text-muted">
+      <footer className="mt-12 border-t border-slate-200 bg-white py-6 text-xs text-slate-500">
         <div className="max-w-content mx-auto px-4 text-center">
           <p>
             Personal Calibration — Don't optimize your schedule. Understand the accuracy of your own predictions. • Evidence-based self-knowledge mirror • Google Calendar integration
           </p>
         </div>
       </footer>
-      </div>
 
       {/* Modals */}
       {isTaskModalOpen && <TaskModal
@@ -492,6 +503,16 @@ export default function App() {
           onClose={() => setIsValidationModalOpen(false)}
           results={validationResults}
         />}
+
+      <HowItWorksModal
+        isOpen={isHowItWorksOpen}
+        onClose={() => setIsHowItWorksOpen(false)}
+        onOpenNewPrediction={() => {
+          setEditingTask(null);
+          setTaskFormDefaults(undefined);
+          setIsTaskModalOpen(true);
+        }}
+      />
 
       {/* Floating Toast Notification */}
       <AnimatePresence>

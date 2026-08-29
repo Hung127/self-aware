@@ -25,23 +25,23 @@ export const Field: React.FC<FieldProps> = ({ label, helper, error, optional, ht
 
   return (
     <div className={className}>
-      <label htmlFor={inputId} className="mb-1.5 block text-sm font-semibold text-text-secondary">
+      <label htmlFor={inputId} className="mb-1.5 block text-sm font-semibold text-slate-700">
         {label}
-        {optional && <span className="ml-1 text-xs font-normal text-text-disabled">(optional)</span>}
+        {optional && <span className="ml-1 text-xs font-normal text-slate-400">(optional)</span>}
       </label>
       {control}
       {helper && !error && (
-        <p id={`${inputId}-helper`} className="mt-1.5 text-xs text-text-muted">{helper}</p>
+        <p id={`${inputId}-helper`} className="mt-1.5 text-xs text-slate-500">{helper}</p>
       )}
       {error && (
-        <p id={`${inputId}-error`} role="alert" className="mt-1.5 text-xs font-medium text-danger">{error}</p>
+        <p id={`${inputId}-error`} role="alert" className="mt-1.5 text-xs font-medium text-red-600">{error}</p>
       )}
     </div>
   );
 };
 
 export const inputCls =
-  'h-10 w-full rounded-lg border border-border-strong bg-surface px-3.5 text-sm text-text-primary transition-colors placeholder:text-text-disabled focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50';
+  'h-10 w-full rounded-lg border border-slate-300 bg-white px-3.5 text-sm text-slate-900 transition-colors placeholder:text-slate-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20 disabled:opacity-50';
 
 export const inputErrorCls =
-  'border-danger-border-strong focus:border-danger focus:ring-danger/20';
+  'border-red-300 focus:border-red-500 focus:ring-red-500/20';

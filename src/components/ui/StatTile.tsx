@@ -8,10 +8,10 @@ interface StatTileProps {
   className?: string;
 }
 
-export const StatTile: React.FC<StatTileProps> = ({ label, value, subLabel, valueClassName = 'text-text-primary', className }) => (
-  <div className={`rounded-xl border border-border bg-surface-secondary p-3 ${className || ''}`}>
-    <span className="block text-xs text-text-muted">{label}</span>
+export const StatTile: React.FC<StatTileProps> = ({ label, value, subLabel, valueClassName = 'text-slate-900', className }) => (
+  <div className={`rounded-xl border border-slate-200 bg-slate-50 p-3 ${className || ''}`}>
+    <span className="block text-xs text-slate-500">{label}</span>
     <strong className={`mt-0.5 block text-xl font-extrabold ${valueClassName}`}>{value}</strong>
-    {subLabel && <span className="block text-xs text-text-muted">{subLabel}</span>}
+    {subLabel && <span className="block text-xs text-slate-500">{subLabel}</span>}
   </div>
 );
